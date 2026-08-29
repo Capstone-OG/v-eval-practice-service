@@ -1,0 +1,12 @@
+e:\CapStone\All Services\V-Eval-Practice_Service\V-Eval-Practice_Service.Domain\bin\Debug\net9.0\V-Eval-Practice_Service.Domain.deps.json
+e:\CapStone\All Services\V-Eval-Practice_Service\V-Eval-Practice_Service.Domain\bin\Debug\net9.0\V-Eval-Practice_Service.Domain.dll
+e:\CapStone\All Services\V-Eval-Practice_Service\V-Eval-Practice_Service.Domain\bin\Debug\net9.0\V-Eval-Practice_Service.Domain.pdb
+e:\CapStone\All Services\V-Eval-Practice_Service\V-Eval-Practice_Service.Domain\obj\Debug\net9.0\V-Eval-Practice_Service.Domain.GeneratedMSBuildEditorConfig.editorconfig
+e:\CapStone\All Services\V-Eval-Practice_Service\V-Eval-Practice_Service.Domain\obj\Debug\net9.0\V-Eval-Practice_Service.Domain.AssemblyInfoInputs.cache
+e:\CapStone\All Services\V-Eval-Practice_Service\V-Eval-Practice_Service.Domain\obj\Debug\net9.0\V-Eval-Practice_Service.Domain.AssemblyInfo.cs
+e:\CapStone\All Services\V-Eval-Practice_Service\V-Eval-Practice_Service.Domain\obj\Debug\net9.0\V-Eval-Practice_Service.Domain.csproj.CoreCompileInputs.cache
+e:\CapStone\All Services\V-Eval-Practice_Service\V-Eval-Practice_Service.Domain\obj\Debug\net9.0\V-Eval-Practice_Service.Domain.sourcelink.json
+e:\CapStone\All Services\V-Eval-Practice_Service\V-Eval-Practice_Service.Domain\obj\Debug\net9.0\V-Eval-Practice_Service.Domain.dll
+e:\CapStone\All Services\V-Eval-Practice_Service\V-Eval-Practice_Service.Domain\obj\Debug\net9.0\refint\V-Eval-Practice_Service.Domain.dll
+e:\CapStone\All Services\V-Eval-Practice_Service\V-Eval-Practice_Service.Domain\obj\Debug\net9.0\V-Eval-Practice_Service.Domain.pdb
+e:\CapStone\All Services\V-Eval-Practice_Service\V-Eval-Practice_Service.Domain\obj\Debug\net9.0\ref\V-Eval-Practice_Service.Domain.dll

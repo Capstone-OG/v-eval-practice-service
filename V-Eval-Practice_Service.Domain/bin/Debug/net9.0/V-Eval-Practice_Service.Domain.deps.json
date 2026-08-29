@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "V-Eval-Practice_Service.Domain/1.0.0": {
+        "runtime": {
+          "V-Eval-Practice_Service.Domain.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "V-Eval-Practice_Service.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
