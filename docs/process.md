@@ -5,16 +5,20 @@
 ## PHẦN 1: KIẾN TRÚC DỊCH VỤ & CÁC THÀNH PHẦN CẦN TRIỂN KHAI
 
 ### 1. Kiến Trúc Clean Architecture & Quản Lý Thi Trực Tuyến
-- **Cổng Dịch Vụ**: `5002` (HTTP) / Container `v_eval_practice_service`.
+- **Cổng Dịch Vụ**: `5261` (Local Launch HTTP) / `5002` (Docker Container `v_eval_practice_service`).
 - **Nhiệm Vụ Chính**:
-  - Tiếp nhận phiên làm bài thi trực tuyến của Học sinh.
-  - Theo dõi tiến trình làm bài real-time (thời gian còn lại, danh sách câu đã chọn).
-  - Tự động chấm điểm trắc nghiệm và đồng bộ kết quả vào CSDL PostgreSQL Schema `practice`.
+  - Tiếp nhận bài thi khảo sát chẩn đoán năng lực ban đầu (30 câu hỏi) của học sinh (Core Flow 1 - Bước 3).
+  - Tích hợp gRPC liên dịch vụ:
+    - Gọi **Identity Service** (port 5156) xác thực trạng thái học sinh và cơ sở đào tạo (`CampusId`).
+    - Gọi **Content Service** (port 5250) lấy bảng đáp án bảo mật, độ khó và mã kỹ năng (`SkillId`).
+  - Tự động chấm điểm khách quan (thang 30 câu), ghi nhận thời gian phản hồi vi mô (`time_spent_seconds`) từng câu.
+  - Phân tích chẩn đoán năng lực: thống kê tỷ lệ đúng theo kỹ năng, nhận diện kỹ năng yếu (`WeakSkillIds` có độ chính xác < 60%), và phân tích theo 4 cấp độ độ khó câu hỏi (Dễ, Trung bình, Khó, Rất khó).
+  - Đồng bộ kết quả vào CSDL Supabase PostgreSQL Schema `practice`.
+  - Cung cấp dữ liệu vi mô làm đầu vào cho AI Subsystem (Bước 4 & 5) ước lượng vector năng lực $\theta_0$, khởi tạo BKT $P(L_0)$, vẽ Radar đa giác và phân cụm xếp lớp.
 
 ### 2. Sơ Đồ CSDL PostgreSQL Schema `practice`
-- `exam_sessions`: Phiên làm bài thi trực tuyến (`session_id`, `user_id`, `exam_id`, `start_time`, `submit_time`, `status`).
-- `user_answers`: Danh sách lựa chọn câu trả lời chi tiết của học sinh.
-- `exam_results`: Kết quả chấm điểm tổng hợp (`total_score`, `correct_count`, `wrong_count`, `rank`).
+- `practice.exam_submissions`: Phiên nộp bài thi (`submission_id`, `student_id`, `exam_id`, `exam_type`, `total_score`, `total_correct`, `total_questions`, `total_time_spent_seconds`, `started_at`, `completed_at`, `status`).
+- `practice.submission_answers`: Chi tiết 30 câu trả lời (`answer_id`, `submission_id`, `question_id`, `selected_option`, `is_correct`, `time_spent_seconds`).
 
 ---
 
@@ -23,10 +27,18 @@
 | STT | Hạng Mục / Chức Năng | Vị Trí Triển Khai trong Code | Trạng Thái | Tiến Độ (%) | Ghi Chú Chi Tiết |
 | :---: | :--- | :--- | :---: | :---: | :--- |
 | 1 | **Clean Architecture 4 Tầng** | Entire Solution | 🟢 Hoàn thành | 100% | `Domain`, `Application`, `Infrastructure`, `API` |
-| 2 | **Cấu Hình Production & Security**| `appsettings.example.json` | 🟢 Hoàn thành | 100% | Khởi tạo cấu hình mẫu & ẩn secrets qua `.gitignore` |
+| 2 | **Cấu Hình Production & Security**| `appsettings.json` / `launchSettings.json` | 🟢 Hoàn thành | 100% | Supabase connection string & gRPC endpoints (5156, 5250) |
 | 3 | **Định Tuyến Gateway YARP** | Gateway YARP Config | 🟢 Hoàn thành | 100% | Route `/api/practice/{**catch-all}` cổng 5002 |
 | 4 | **Dockerfile & Compose** | `Dockerfile` | 🟢 Hoàn thành | 100% | Multi-Stage .NET 9 cổng 5002 trên `veval_network` |
 | 5 | **Script Push Độc Lập** | `Scripts/push.bat` | 🟢 Hoàn thành | 100% | Hỗ trợ 3 chế độ push kèm kiểm tra lịch sử |
-| 6 | **API Bắt Đầu Làm Bài Thi** | `Features/Sessions/Commands/Start/`| 🟡 Đang chờ | 0% | Khởi tạo phiên thi `POST /api/practice/sessions/start` |
-| 7 | **API Nộp Bài Thi & Chấm Điểm**| `Features/Sessions/Commands/Submit/`| 🟡 Đang chờ | 0% | Tự động chấm trắc nghiệm & tính tổng điểm |
-| 8 | **API Lịch Sử Bài Làm Học Sinh**| `Features/Results/Queries/` | 🟡 Đang chờ | 0% | Trả về kết quả bài thi cá nhân |
+| 6 | **Result Pattern & Error Handling**| `Application/Common/Models/` | 🟢 Hoàn thành | 100% | `Result<T>`, `Error`, `ErrorType` enum đồng bộ |
+| 7 | **Validation Pipeline MediatR**| `Application/Common/Behaviors/` | 🟢 Hoàn thành | 100% | `ValidationBehavior` tích hợp FluentValidation |
+| 8 | **gRPC Clients Liên Dịch Vụ** | `Infrastructure/GrpcClients/` | 🟢 Hoàn thành | 100% | Client gọi Identity Service (5156) và Content Service (5250) |
+| 9 | **CSDL Schema `practice`** | `Infrastructure/Persistence/` | 🟢 Hoàn thành | 100% | Tạo tự động bảng `exam_submissions` và `submission_answers` |
+| 10 | **Core Flow 1: Nộp Bài & Chấm Điểm**| `DiagnosticSubmissionsController` | 🟢 Hoàn thành | 100% | `POST /api/v1/practice/diagnostic-submissions` chấm điểm thang 30, ghi nhận `time_spent` |
+| 11 | **Chẩn Đoán Năng Lực & Kỹ Năng Yếu**| `SubmitDiagnosticCommandHandler` | 🟢 Hoàn thành | 100% | Tách `SkillBreakdown`, `WeakSkillIds` (<60%), `DifficultyBreakdown` |
+| 12 | **API Tra Cứu Bài Nộp Theo ID** | `DiagnosticSubmissionsController` | 🟢 Hoàn thành | 100% | `GET /api/v1/practice/diagnostic-submissions/{id}` |
+| 13 | **API Lịch Sử Bài Làm Học Sinh**| `DiagnosticSubmissionsController` | 🟢 Hoàn thành | 100% | `GET /api/v1/practice/diagnostic-submissions/student/{studentId}` |
+| 14 | **Swagger UI & ProblemDetails** | `Program.cs` / `ApiControllerBase` | 🟢 Hoàn thành | 100% | Swagger UI tại `http://localhost:5261/swagger`, RFC 7807 |
+| 15 | **Core Flow 1 (Bước 4): Tích Hợp AI Subsystem (IRT & BKT)** | `Infrastructure/GrpcClients/` & `Application/Features/` | 🟡 Kế hoạch tiếp theo | 0% | Practice Service gửi 30 câu sang `AI Engine` -> Nhận về $\theta_0$, ma trận $P(L_0)$, Radar Chart |
+| 16 | **Core Flow 1 (Bước 5): Tự Động Gợi Ý Phân Lớp Tại Campus** | `Application/Features/` | 🟡 Kế hoạch tiếp theo | 0% | So sánh $\theta_0$ với $\theta_{Foundation}, \theta_{Advanced}$ -> Xếp lớp -> Cập nhật sang Identity Service |
