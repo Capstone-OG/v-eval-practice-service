@@ -16,8 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="../../../grpc/identity.proto" GrpcServices="Client" Link="Protos/identity.proto" />
-    <Protobuf Include="../../../grpc/content.proto" GrpcServices="Client" Link="Protos/content.proto" />
+    <Protobuf Include="Protos\identity.proto" GrpcServices="Client" />
+    <Protobuf Include="Protos\content.proto" GrpcServices="Client" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package veval.content;
+
+option csharp_namespace = "VEval.Shared.Grpc.Content";
+
+// Service quản lý ngân hàng câu hỏi và cây kỹ năng năng lực (DAG)
+service ContentService {
+  // Lấy danh sách toàn bộ kỹ năng (Skills Tree) làm đầu vào cho thuật toán sinh lộ trình học tập
+  rpc GetSkillsTree (GetSkillsTreeRequest) returns (GetSkillsTreeResponse);
+  
+  // Lấy danh sách câu hỏi theo độ khó và kỹ năng phục vụ Adaptive Practice State Machine
+  rpc GetQuestionsByDifficulty (GetQuestionsByDifficultyRequest) returns (GetQuestionsByDifficultyResponse);
+  
+  // Lấy chi tiết câu hỏi (bao gồm LaTeX và các lựa chọn đáp án)
+  rpc GetQuestionDetail (GetQuestionDetailRequest) returns (GetQuestionDetailResponse);
+
+  // Lấy bảng đáp án của một đề thi để Practice Service chấm điểm bài thi bảo mật server-to-server
+  rpc GetExamAnswerKey (GetExamAnswerKeyRequest) returns (GetExamAnswerKeyResponse);
+}
+
+message GetSkillsTreeRequest {
+  string subject_id = 1; // ID của môn học (Ví dụ: Toán, Lý, Hóa)
+}
+
+message SkillNode {
+  string skill_id = 1;
+  string name = 2;
+  repeated string prerequisite_ids = 3; // Danh sách ID các kỹ năng tiên quyết tạo thành đồ thị DAG
+  string description = 4;
+}
+
+message GetSkillsTreeResponse {
+  repeated SkillNode skills = 1;
+}
+
+message GetQuestionsByDifficultyRequest {
+  repeated string skill_ids = 1;
+  string difficulty = 2; // "EASY", "MEDIUM", "HARD"
+  int32 limit = 3;
+}
+
+message QuestionSummary {
+  string question_id = 1;
+  string skill_id = 2;
+  string difficulty = 3;
+  string title = 4;
+}
+
+message GetQuestionsByDifficultyResponse {
+  repeated QuestionSummary questions = 1;
+}
+
+message GetQuestionDetailRequest {
+  string question_id = 1;
+}
+
+message AnswerOption {
+  string option_id = 1;
+  string content = 2; // LaTeX hoặc văn bản thông thường
+  bool is_correct = 3;
+}
+
+message GetQuestionDetailResponse {
+  string question_id = 1;
+  string skill_id = 2;
+  string difficulty = 3;
+  string title = 4;
+  string content = 5; // Nội dung câu hỏi dạng LaTeX
+  repeated AnswerOption options = 6;
+  string explanation = 7; // Lời giải thích định dạng LaTeX
+}
+
+message GetExamAnswerKeyRequest {
+  string exam_id = 1;
+}
+
+message QuestionAnswerKey {
+  string question_id = 1;
+  int32 question_order = 2;
+  string correct_option = 3; // "A", "B", "C", "D"
+  string skill_id = 4;
+  int32 difficulty_level = 5;
+}
+
+message GetExamAnswerKeyResponse {
+  string exam_id = 1;
+  repeated QuestionAnswerKey answer_keys = 2;
+}
+

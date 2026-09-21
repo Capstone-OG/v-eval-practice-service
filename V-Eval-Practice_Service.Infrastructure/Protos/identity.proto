@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+option csharp_namespace = "VEval.Grpc.Identity";
+
+package identity;
+
+// Service định nghĩa các chức năng xác thực quyền hạn, truy xuất hồ sơ và liên kết tài khoản trong Identity Service
+service IdentityGrpc {
+  // 1. Xác thực trạng thái hoạt động và quyền hạn của User
+  rpc ValidateUserPermission (ValidatePermissionRequest) returns (ValidatePermissionResponse);
+
+  // 2. Lấy dữ liệu mục tiêu và cơ sở của học sinh để phục vụ kiểm tra đầu vào và phân lớp (Core Flow 1)
+  rpc GetStudentProfileSummary (GetStudentSummaryRequest) returns (GetStudentSummaryResponse);
+
+  // 3. Liên kết tài khoản phụ huynh với học sinh (Chuẩn bị cho phân hệ Parent)
+  rpc LinkParentStudent (LinkParentRequest) returns (LinkParentResponse);
+
+  // 4. Lấy danh sách học sinh liên kết với một phụ huynh
+  rpc GetParentStudents (GetParentStudentsRequest) returns (GetParentStudentsResponse);
+}
+
+message ValidatePermissionRequest {
+  string user_id = 1;
+  string required_role = 2;
+}
+
+message ValidatePermissionResponse {
+  bool is_valid = 1;
+  bool is_active = 2;
+  string role_name = 3;
+  string campus_id = 4;
+}
+
+message GetStudentSummaryRequest {
+  string student_id = 1;
+}
+
+message GetStudentSummaryResponse {
+  string student_id = 1;
+  string campus_id = 2;
+  int32 target_score = 3;
+  string exam_date = 4;
+  double study_hours_day = 5;
+  bool exists = 6;
+}
+
+message LinkParentRequest {
+  string parent_id = 1;
+  string student_email = 2;
+}
+
+message LinkParentResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetParentStudentsRequest {
+  string parent_id = 1;
+}
+
+message StudentSummaryItem {
+  string student_id = 1;
+  string name = 2;
+  string email = 3;
+  string campus_id = 4;
+}
+
+message GetParentStudentsResponse {
+  repeated StudentSummaryItem students = 1;
+}
