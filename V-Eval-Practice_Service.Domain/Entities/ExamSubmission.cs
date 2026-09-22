@@ -17,6 +17,12 @@ public class ExamSubmission
     public DateTime CompletedAt { get; set; } = DateTime.UtcNow;
     public string Status { get; set; } = "COMPLETED";
 
+    // Diagnostic IRT & Placement Fields (Core Flow 1)
+    public double? Theta0 { get; set; }
+    public string? PlacementClass { get; set; }
+    public string? AiCommentary { get; set; }
+    public Guid? EnrolledClassId { get; set; }
+
     // Navigation property
     public virtual ICollection<SubmissionAnswer> Answers { get; set; } = new List<SubmissionAnswer>();
 }
