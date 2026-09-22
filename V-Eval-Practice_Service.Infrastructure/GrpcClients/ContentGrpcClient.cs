@@ -47,7 +47,10 @@ public class ContentGrpcClient : IContentGrpcClient
                         key.QuestionOrder,
                         key.CorrectOption,
                         key.SkillId,
-                        key.DifficultyLevel
+                        key.DifficultyLevel,
+                        key.SkillName,
+                        key.DomainId,
+                        key.DomainName
                     );
                 }
             }

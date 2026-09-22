@@ -20,7 +20,7 @@ public class IdentityGrpcClient : IIdentityGrpcClient
         _logger = logger;
     }
 
-    public async Task<(bool Exists, string? CampusId, int TargetScore)> GetStudentProfileAsync(
+    public async Task<(bool Exists, string? CampusId, string? CampusName, int TargetScore)> GetStudentProfileAsync(
         Guid studentId,
         CancellationToken ct = default)
     {
@@ -35,7 +35,7 @@ public class IdentityGrpcClient : IIdentityGrpcClient
             };
 
             var response = await client.GetStudentProfileSummaryAsync(request, cancellationToken: ct);
-            return (response.Exists, response.CampusId, response.TargetScore);
+            return (response.Exists, response.CampusId, response.CampusName, response.TargetScore);
         }
         catch (Exception ex)
         {

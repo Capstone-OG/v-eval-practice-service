@@ -12,6 +12,7 @@ public interface IClassEnrollmentRepository
         string campusId,
         string placementClass,
         Guid diagnosticSubmissionId,
+        string campusName = "",
         CancellationToken ct = default);
 
     Task<ClassEnrollment?> GetEnrollmentByStudentIdAsync(

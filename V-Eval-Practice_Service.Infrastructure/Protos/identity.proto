@@ -42,6 +42,7 @@ message GetStudentSummaryResponse {
   string exam_date = 4;
   double study_hours_day = 5;
   bool exists = 6;
+  string campus_name = 7;
 }
 
 message LinkParentRequest {

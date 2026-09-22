@@ -81,6 +81,9 @@ message QuestionAnswerKey {
   string correct_option = 3; // "A", "B", "C", "D"
   string skill_id = 4;
   int32 difficulty_level = 5;
+  string skill_name = 6;
+  string domain_id = 7;
+  string domain_name = 8;
 }
 
 message GetExamAnswerKeyResponse {

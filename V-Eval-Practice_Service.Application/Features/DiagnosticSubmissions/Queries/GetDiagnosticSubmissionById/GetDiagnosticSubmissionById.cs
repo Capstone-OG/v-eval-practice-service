@@ -54,6 +54,9 @@ public class GetDiagnosticSubmissionByIdHandler
                     IsCorrect = a.IsCorrect,
                     TimeSpentSeconds = a.TimeSpentSeconds,
                     SkillId = key?.SkillId ?? string.Empty,
+                    SkillName = key?.SkillName ?? string.Empty,
+                    DomainId = key?.DomainId ?? string.Empty,
+                    DomainName = key?.DomainName ?? string.Empty,
                     DifficultyLevel = key?.DifficultyLevel ?? 0
                 };
             })
@@ -66,12 +69,16 @@ public class GetDiagnosticSubmissionByIdHandler
             .GroupBy(q => q.SkillId)
             .Select(g =>
             {
+                var first = g.First();
                 int count = g.Count();
                 int correct = g.Count(x => x.IsCorrect);
                 double pct = Math.Round((correct / (double)count) * 100, 2);
                 return new SkillDiagnosticDto
                 {
                     SkillId = g.Key,
+                    SkillName = first.SkillName,
+                    DomainId = first.DomainId,
+                    DomainName = first.DomainName,
                     TotalQuestions = count,
                     CorrectCount = correct,
                     AccuracyPercentage = pct,
@@ -83,6 +90,19 @@ public class GetDiagnosticSubmissionByIdHandler
         var weakSkillIds = skillBreakdowns
             .Where(s => s.IsWeak)
             .Select(s => s.SkillId)
+            .ToList();
+
+        var weakSkills = skillBreakdowns
+            .Where(s => s.IsWeak)
+            .Select(s => new WeakSkillDto
+            {
+                SkillId = s.SkillId,
+                SkillName = s.SkillName,
+                DomainName = s.DomainName,
+                TotalQuestions = s.TotalQuestions,
+                CorrectCount = s.CorrectCount,
+                AccuracyPercentage = s.AccuracyPercentage
+            })
             .ToList();
 
         // Phân tích Độ khó
@@ -134,6 +154,7 @@ public class GetDiagnosticSubmissionByIdHandler
             CompletedAt = submission.CompletedAt,
             SkillBreakdowns = skillBreakdowns,
             WeakSkillIds = weakSkillIds,
+            WeakSkills = weakSkills,
             DifficultyBreakdowns = difficultyBreakdowns,
             Questions = questionResults,
             Theta0 = submission.Theta0 ?? 0.0,

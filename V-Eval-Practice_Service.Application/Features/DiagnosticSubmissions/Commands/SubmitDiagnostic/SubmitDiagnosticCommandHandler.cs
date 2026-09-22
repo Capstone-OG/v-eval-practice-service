@@ -49,7 +49,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             request.StudentId, request.ExamId);
 
         // 1. Kiểm tra học sinh và điều kiện chọn Campus qua Identity gRPC
-        var (exists, campusId, targetScore) = await _identityGrpcClient.GetStudentProfileAsync(request.StudentId, cancellationToken);
+        var (exists, campusId, campusName, targetScore) = await _identityGrpcClient.GetStudentProfileAsync(request.StudentId, cancellationToken);
         if (!exists)
         {
             return Result<SubmitDiagnosticResponseDto>.Failure(
@@ -116,6 +116,9 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                 IsCorrect = isCorrect,
                 TimeSpentSeconds = timeSpent,
                 SkillId = key.SkillId,
+                SkillName = key.SkillName,
+                DomainId = key.DomainId,
+                DomainName = key.DomainName,
                 DifficultyLevel = key.DifficultyLevel
             });
         }
@@ -130,6 +133,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             .GroupBy(q => q.SkillId)
             .Select(g =>
             {
+                var first = g.First();
                 int count = g.Count();
                 int correct = g.Count(x => x.IsCorrect);
                 double pct = Math.Round((correct / (double)count) * 100, 2);
@@ -137,6 +141,9 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                 return new SkillDiagnosticDto
                 {
                     SkillId = g.Key,
+                    SkillName = first.SkillName,
+                    DomainId = first.DomainId,
+                    DomainName = first.DomainName,
                     TotalQuestions = count,
                     CorrectCount = correct,
                     AccuracyPercentage = pct,
@@ -148,6 +155,19 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
         var weakSkillIds = skillBreakdowns
             .Where(s => s.IsWeak)
             .Select(s => s.SkillId)
+            .ToList();
+
+        var weakSkills = skillBreakdowns
+            .Where(s => s.IsWeak)
+            .Select(s => new WeakSkillDto
+            {
+                SkillId = s.SkillId,
+                SkillName = s.SkillName,
+                DomainName = s.DomainName,
+                TotalQuestions = s.TotalQuestions,
+                CorrectCount = s.CorrectCount,
+                AccuracyPercentage = s.AccuracyPercentage
+            })
             .ToList();
 
         // 5. Phân tích chẩn đoán theo Độ khó (Difficulty Breakdown)
@@ -180,6 +200,23 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             .ToList();
 
         // 6. Gửi dữ liệu sang AI Subsystem ước lượng theta_0 (IRT 2PL), BKT Prior P(L0), Radar Chart (Core Flow 1 - Bước 4)
+        var domainNamePayloads = questionResults
+            .Where(q => !string.IsNullOrEmpty(q.DomainId))
+            .GroupBy(q => q.DomainId)
+            .Select(g => new DiagnosticDomainNamePayload(g.Key, g.First().DomainName))
+            .ToList();
+
+        if (domainNamePayloads.Count == 0)
+        {
+            domainNamePayloads = new List<DiagnosticDomainNamePayload>
+            {
+                new("dom_math", "Toán học & Logic"),
+                new("dom_lang", "Sử dụng ngôn ngữ"),
+                new("dom_nat_sci", "Khoa học tự nhiên"),
+                new("dom_soc_sci", "Khoa học xã hội")
+            };
+        }
+
         var aiPayload = new DiagnosticAnalyzeRequestPayload(
             StudentId: request.StudentId.ToString(),
             SubmissionId: submissionId.ToString(),
@@ -187,18 +224,12 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             Answers: questionResults.Select(q => new DiagnosticAnswerItemPayload(
                 QuestionId: q.QuestionId.ToString(),
                 SkillId: q.SkillId,
-                DomainId: string.Empty,
+                DomainId: q.DomainId,
                 DifficultyLevel: q.DifficultyLevel,
                 IsCorrect: q.IsCorrect,
                 TimeSpentSeconds: q.TimeSpentSeconds
             )).ToList(),
-            DomainNames: new List<DiagnosticDomainNamePayload>
-            {
-                new("dom_math", "Toán học & Logic"),
-                new("dom_lang", "Sử dụng ngôn ngữ"),
-                new("dom_nat_sci", "Khoa học tự nhiên"),
-                new("dom_soc_sci", "Khoa học xã hội")
-            },
+            DomainNames: domainNamePayloads,
             AllSkillIds: new Dictionary<string, string>()
         );
 
@@ -250,6 +281,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             campusId,
             placementClass,
             submissionId,
+            campusName ?? string.Empty,
             cancellationToken);
 
         submission.EnrolledClassId = classId;
@@ -267,13 +299,24 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             BenchmarkPct = r.BenchmarkPct
         }).ToList() ?? new List<DiagnosticRadarAxisDto>();
 
-        var skillPriorDtos = aiResult?.SkillPriors?.Select(p => new DiagnosticSkillPriorDto
+        var skillNameMap = questionResults
+            .Where(q => !string.IsNullOrEmpty(q.SkillId))
+            .GroupBy(q => q.SkillId)
+            .ToDictionary(g => g.Key, g => (SkillName: g.First().SkillName, DomainName: g.First().DomainName));
+
+        var skillPriorDtos = aiResult?.SkillPriors?.Select(p =>
         {
-            SkillId = p.SkillId,
-            DomainId = p.DomainId,
-            ThetaSkill = p.ThetaSkill,
-            PL0 = p.PL0,
-            Source = p.Source
+            skillNameMap.TryGetValue(p.SkillId, out var info);
+            return new DiagnosticSkillPriorDto
+            {
+                SkillId = p.SkillId,
+                SkillName = !string.IsNullOrEmpty(info.SkillName) ? info.SkillName : p.SkillId,
+                DomainId = p.DomainId,
+                DomainName = !string.IsNullOrEmpty(info.DomainName) ? info.DomainName : p.DomainId,
+                ThetaSkill = p.ThetaSkill,
+                PL0 = p.PL0,
+                Source = p.Source
+            };
         }).ToList() ?? new List<DiagnosticSkillPriorDto>();
 
         var responseDto = new SubmitDiagnosticResponseDto
@@ -282,6 +325,8 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             StudentId = submission.StudentId,
             ExamId = submission.ExamId,
             ExamType = submission.ExamType,
+            CampusId = campusId,
+            CampusName = campusName ?? string.Empty,
             TotalScore = submission.TotalScore,
             TotalCorrect = submission.TotalCorrect,
             TotalQuestions = submission.TotalQuestions,
@@ -291,6 +336,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             CompletedAt = submission.CompletedAt,
             SkillBreakdowns = skillBreakdowns,
             WeakSkillIds = weakSkillIds,
+            WeakSkills = weakSkills,
             DifficultyBreakdowns = difficultyBreakdowns,
             Questions = questionResults,
             Theta0 = theta0,

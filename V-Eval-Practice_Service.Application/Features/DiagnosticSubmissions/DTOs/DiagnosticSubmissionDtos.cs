@@ -13,10 +13,23 @@ public class QuestionAnswerInputDto
 public class SkillDiagnosticDto
 {
     public string SkillId { get; set; } = string.Empty;
+    public string SkillName { get; set; } = string.Empty;
+    public string DomainId { get; set; } = string.Empty;
+    public string DomainName { get; set; } = string.Empty;
     public int TotalQuestions { get; set; }
     public int CorrectCount { get; set; }
     public double AccuracyPercentage { get; set; }
     public bool IsWeak { get; set; }
+}
+
+public class WeakSkillDto
+{
+    public string SkillId { get; set; } = string.Empty;
+    public string SkillName { get; set; } = string.Empty;
+    public string DomainName { get; set; } = string.Empty;
+    public int TotalQuestions { get; set; }
+    public int CorrectCount { get; set; }
+    public double AccuracyPercentage { get; set; }
 }
 
 public class DifficultyBreakdownDto
@@ -37,6 +50,9 @@ public class QuestionResultDto
     public bool IsCorrect { get; set; }
     public int TimeSpentSeconds { get; set; }
     public string SkillId { get; set; } = string.Empty;
+    public string SkillName { get; set; } = string.Empty;
+    public string DomainId { get; set; } = string.Empty;
+    public string DomainName { get; set; } = string.Empty;
     public int DifficultyLevel { get; set; }
 }
 
@@ -54,9 +70,14 @@ public class SubmitDiagnosticResponseDto
     public DateTime StartedAt { get; set; }
     public DateTime CompletedAt { get; set; }
 
+    // Campus Details
+    public string CampusId { get; set; } = string.Empty;
+    public string CampusName { get; set; } = string.Empty;
+
     // Diagnostic breakdown by Skill & Difficulty
     public List<SkillDiagnosticDto> SkillBreakdowns { get; set; } = new();
     public List<string> WeakSkillIds { get; set; } = new();
+    public List<WeakSkillDto> WeakSkills { get; set; } = new();
     public List<DifficultyBreakdownDto> DifficultyBreakdowns { get; set; } = new();
 
     // Detailed question answers
@@ -86,7 +107,9 @@ public class DiagnosticRadarAxisDto
 public class DiagnosticSkillPriorDto
 {
     public string SkillId { get; set; } = string.Empty;
+    public string SkillName { get; set; } = string.Empty;
     public string DomainId { get; set; } = string.Empty;
+    public string DomainName { get; set; } = string.Empty;
     public double ThetaSkill { get; set; }
     public double PL0 { get; set; }
     public string Source { get; set; } = "measured";

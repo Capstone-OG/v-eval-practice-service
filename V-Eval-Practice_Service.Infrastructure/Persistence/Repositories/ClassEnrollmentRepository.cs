@@ -25,6 +25,7 @@ public class ClassEnrollmentRepository : IClassEnrollmentRepository
         string campusId,
         string placementClass,
         Guid diagnosticSubmissionId,
+        string campusName = "",
         CancellationToken ct = default)
     {
         if (!Guid.TryParse(campusId, out var campusGuid))
@@ -47,6 +48,10 @@ public class ClassEnrollmentRepository : IClassEnrollmentRepository
             _ => "Lớp Tăng tốc (Acceleration)"
         };
 
+        string campusDisplay = !string.IsNullOrWhiteSpace(campusName)
+            ? campusName
+            : $"Cơ sở {campusId}";
+
         // 1. Find or create matching class at this campus
         var targetClass = await _context.Classes
             .FirstOrDefaultAsync(c => c.CampusId == campusGuid &&
@@ -59,7 +64,7 @@ public class ClassEnrollmentRepository : IClassEnrollmentRepository
             {
                 ClassId = Guid.NewGuid(),
                 CampusId = campusGuid,
-                Name = $"{fullTierName} - Cơ sở {campusId}",
+                Name = $"{fullTierName} - {campusDisplay}",
                 Status = "ACTIVE",
                 CreatedAt = DateTime.UtcNow
             };

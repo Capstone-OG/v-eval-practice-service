@@ -10,7 +10,10 @@ public record ExamQuestionKeyDto(
     int QuestionOrder,
     string CorrectOption,
     string SkillId,
-    int DifficultyLevel
+    int DifficultyLevel,
+    string SkillName = "",
+    string DomainId = "",
+    string DomainName = ""
 );
 
 public interface IContentGrpcClient
