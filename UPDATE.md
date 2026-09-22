@@ -17,8 +17,12 @@
   - `IClassEnrollmentRepository` / `ClassEnrollmentRepository`: Tìm kiếm hoặc tự động khởi tạo lớp học tại Campus của học sinh theo phân lớp và tạo bản ghi ghi danh (`ENROLLED`).
 - **Nâng Cấp Use Case `SubmitDiagnosticCommandHandler`**:
   - Khép kín toàn bộ 5 bước của Core Flow 1: Xác thực Identity (1) -> Lấy bảng đáp án Content (2) -> Chấm điểm (3) -> Ước lượng IRT & BKT qua AI (4) -> Tự động xếp lớp tại Campus và trả về Biểu đồ Radar đa giác trong $< 2$ giây (5).
-- **Kiểm Thử Vận Hành**:
+- **Di Trú CSDL & Khắc Phục Schema PostgreSQL (`Program.cs`)**:
+  - Bổ sung migration tự động trên startup: `ALTER TABLE practice.exam_submissions ADD COLUMN IF NOT EXISTS ...` (`theta_0`, `placement_class`, `ai_commentary`, `enrolled_class_id`).
+  - Khởi tạo bảng `LearningProfiles`, `Classes`, `ClassEnrollments` trên CSDL Supabase.
+- **Kiểm Thử Vận Hành & End-to-End Trực Tiếp Qua Swagger**:
   - Biên dịch toàn bộ giải pháp `V-Eval-Practice_Service.sln`: **0 Warning(s), 0 Error(s)**.
+  - Kiểm thử trực tiếp `POST /api/v1/practice/diagnostic-submissions` trên Swagger UI với 30 câu hỏi thật: Nhận kết quả thành công HTTP 200 OK với đầy đủ `theta_0 = -1.5`, xếp lớp `FOUNDATION`, tự động tạo lớp học tại cơ sở `Lớp Nền tảng (Foundation) - Cơ sở ...`, ghi danh học sinh, lưu trữ 12 BKT Priors và nhận xét sư phạm Socratic.
 
 ## [20/09/2026] - Triển Khai Hoàn Thiện Clean Architecture 4 Tầng & Core Flow 1 (Bước 3: Chấm Điểm Chẩn Đoán 30 Câu & Tích Hợp gRPC)
 - **Triển Khai Chuẩn Kiến Trúc Clean Architecture 4 Tầng**:

@@ -90,6 +90,12 @@ using (var scope = app.Services.CreateScope())
                 status VARCHAR(50) NOT NULL
             );
 
+            -- Bổ sung các cột mới cho Core Flow 1 nếu chưa tồn tại
+            ALTER TABLE practice.exam_submissions ADD COLUMN IF NOT EXISTS theta_0 DOUBLE PRECISION;
+            ALTER TABLE practice.exam_submissions ADD COLUMN IF NOT EXISTS placement_class VARCHAR(50);
+            ALTER TABLE practice.exam_submissions ADD COLUMN IF NOT EXISTS ai_commentary TEXT;
+            ALTER TABLE practice.exam_submissions ADD COLUMN IF NOT EXISTS enrolled_class_id UUID;
+
             CREATE TABLE IF NOT EXISTS practice.submission_answers (
                 answer_id UUID PRIMARY KEY,
                 submission_id UUID NOT NULL REFERENCES practice.exam_submissions(submission_id) ON DELETE CASCADE,
@@ -97,6 +103,37 @@ using (var scope = app.Services.CreateScope())
                 selected_option VARCHAR(10),
                 is_correct BOOLEAN NOT NULL,
                 time_spent_seconds INT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS ""LearningProfiles"" (
+                profile_id UUID PRIMARY KEY,
+                student_id UUID NOT NULL,
+                skill_id UUID NOT NULL,
+                mastery_score DOUBLE PRECISION DEFAULT 0.0,
+                last_updated TIMESTAMP WITH TIME ZONE DEFAULT (now())
+            );
+
+            CREATE TABLE IF NOT EXISTS ""Classes"" (
+                class_id UUID PRIMARY KEY,
+                campus_id UUID NOT NULL,
+                teacher_id UUID,
+                assigned_by UUID,
+                name VARCHAR(255) NOT NULL,
+                start_date DATE,
+                end_date DATE,
+                status VARCHAR(50) DEFAULT 'ACTIVE',
+                assigned_at TIMESTAMP WITH TIME ZONE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
+            );
+
+            CREATE TABLE IF NOT EXISTS ""ClassEnrollments"" (
+                enrollment_id UUID PRIMARY KEY,
+                class_id UUID NOT NULL,
+                student_id UUID NOT NULL,
+                diagnostic_submission_id UUID,
+                approved_by UUID,
+                status VARCHAR(50) DEFAULT 'ENROLLED',
+                enrolled_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
             );
         ");
         logger.LogInformation("Đã xác thực và khởi tạo thành công CSDL schema practice trên Supabase.");

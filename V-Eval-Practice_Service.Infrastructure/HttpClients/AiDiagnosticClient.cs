@@ -29,7 +29,7 @@ public class AiDiagnosticClient : IAiDiagnosticClient
         ILogger<AiDiagnosticClient> logger,
         HttpClient? httpClient = null)
     {
-        _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+        _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
         _serviceUrl = (configuration["AiSettings:ServiceUrl"] ?? "http://localhost:8000").TrimEnd('/');
         _logger = logger;
     }

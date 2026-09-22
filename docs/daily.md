@@ -23,8 +23,12 @@
     4. Gửi sang AI Engine tính toán IRT $\theta_0$, BKT $P(L_0)$ và nhận xét sư phạm (Bước 4).
     5. Lưu $P(L_0)$ vào `LearningProfiles`, tự động xếp lớp tại cơ sở và ghi nhận `ClassEnrollments` (Bước 5).
     6. Trả về DTO hoàn chỉnh gồm tọa độ biểu đồ Radar đa giác đối chiếu điểm mục tiêu (V-ACT target score) trong $< 2$ giây (Happy Case).
-- **Kiểm Thử Vận Hành**:
+- **Di Trú CSDL & Khắc Phục Schema PostgreSQL (`Program.cs`)**:
+  - Bổ sung migration tự động trên startup: `ALTER TABLE practice.exam_submissions ADD COLUMN IF NOT EXISTS ...` (`theta_0`, `placement_class`, `ai_commentary`, `enrolled_class_id`).
+  - Khởi tạo bảng `LearningProfiles`, `Classes`, `ClassEnrollments` trên schema CSDL Supabase.
+- **Kiểm Thử Vận Hành & End-to-End Trực Tiếp Qua Swagger**:
   - Biên dịch toàn bộ giải pháp `V-Eval-Practice_Service.sln`: **0 Warning(s), 0 Error(s)**.
+  - Kiểm thử trực tiếp `POST /api/v1/practice/diagnostic-submissions` trên Swagger UI với 30 câu hỏi thật: Nhận kết quả thành công HTTP 200 OK với đầy đủ `theta_0 = -1.5`, xếp lớp `FOUNDATION`, tự động tạo lớp học tại cơ sở `Lớp Nền tảng (Foundation) - Cơ sở ...`, ghi danh học sinh, lưu trữ 12 BKT Priors và nhận xét sư phạm Socratic.
 
 ---
 
