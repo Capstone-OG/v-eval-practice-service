@@ -20,8 +20,11 @@ public static class DependencyInjection
                 b.MigrationsHistoryTable("__EFMigrationsHistory", "practice")));
 
         services.AddScoped<IExamSubmissionRepository, ExamSubmissionRepository>();
+        services.AddScoped<ILearningProfileRepository, LearningProfileRepository>();
+        services.AddScoped<IClassEnrollmentRepository, ClassEnrollmentRepository>();
         services.AddScoped<IIdentityGrpcClient, IdentityGrpcClient>();
         services.AddScoped<IContentGrpcClient, ContentGrpcClient>();
+        services.AddScoped<IAiDiagnosticClient, HttpClients.AiDiagnosticClient>();
 
         return services;
     }
