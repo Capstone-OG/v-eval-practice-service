@@ -61,6 +61,35 @@ public class SubmitDiagnosticResponseDto
 
     // Detailed question answers
     public List<QuestionResultDto> Questions { get; set; } = new();
+
+    // IRT 2PL & Placement Results (Core Flow 1 - Steps 4 & 5)
+    public double Theta0 { get; set; }
+    public string PlacementClass { get; set; } = "ACCELERATION";
+    public string ClassName { get; set; } = string.Empty;
+    public Guid? ClassId { get; set; }
+    public Guid? EnrollmentId { get; set; }
+    public string AiCommentary { get; set; } = string.Empty;
+
+    // Radar Chart & BKT Initial Mastery Priors
+    public List<DiagnosticRadarAxisDto> RadarChart { get; set; } = new();
+    public List<DiagnosticSkillPriorDto> SkillPriors { get; set; } = new();
+}
+
+public class DiagnosticRadarAxisDto
+{
+    public string DomainId { get; set; } = string.Empty;
+    public string DomainName { get; set; } = string.Empty;
+    public double StudentPct { get; set; }
+    public double BenchmarkPct { get; set; }
+}
+
+public class DiagnosticSkillPriorDto
+{
+    public string SkillId { get; set; } = string.Empty;
+    public string DomainId { get; set; } = string.Empty;
+    public double ThetaSkill { get; set; }
+    public double PL0 { get; set; }
+    public string Source { get; set; } = "measured";
 }
 
 public class DiagnosticSubmissionSummaryDto

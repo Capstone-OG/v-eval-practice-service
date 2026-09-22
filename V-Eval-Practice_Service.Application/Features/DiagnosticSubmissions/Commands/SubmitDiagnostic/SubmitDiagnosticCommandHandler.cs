@@ -16,19 +16,28 @@ namespace V_Eval_Practice_Service.Application.Features.DiagnosticSubmissions.Com
 public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCommand, Result<SubmitDiagnosticResponseDto>>
 {
     private readonly IExamSubmissionRepository _submissionRepository;
+    private readonly ILearningProfileRepository _learningProfileRepository;
+    private readonly IClassEnrollmentRepository _classEnrollmentRepository;
     private readonly IIdentityGrpcClient _identityGrpcClient;
     private readonly IContentGrpcClient _contentGrpcClient;
+    private readonly IAiDiagnosticClient _aiDiagnosticClient;
     private readonly ILogger<SubmitDiagnosticCommandHandler> _logger;
 
     public SubmitDiagnosticCommandHandler(
         IExamSubmissionRepository submissionRepository,
+        ILearningProfileRepository learningProfileRepository,
+        IClassEnrollmentRepository classEnrollmentRepository,
         IIdentityGrpcClient identityGrpcClient,
         IContentGrpcClient contentGrpcClient,
+        IAiDiagnosticClient aiDiagnosticClient,
         ILogger<SubmitDiagnosticCommandHandler> logger)
     {
         _submissionRepository = submissionRepository;
+        _learningProfileRepository = learningProfileRepository;
+        _classEnrollmentRepository = classEnrollmentRepository;
         _identityGrpcClient = identityGrpcClient;
         _contentGrpcClient = contentGrpcClient;
+        _aiDiagnosticClient = aiDiagnosticClient;
         _logger = logger;
     }
 
@@ -170,7 +179,35 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             })
             .ToList();
 
-        // 6. Lưu trữ vào CSDL Supabase schema practice
+        // 6. Gửi dữ liệu sang AI Subsystem ước lượng theta_0 (IRT 2PL), BKT Prior P(L0), Radar Chart (Core Flow 1 - Bước 4)
+        var aiPayload = new DiagnosticAnalyzeRequestPayload(
+            StudentId: request.StudentId.ToString(),
+            SubmissionId: submissionId.ToString(),
+            TargetScore: targetScore > 0 ? targetScore : 800,
+            Answers: questionResults.Select(q => new DiagnosticAnswerItemPayload(
+                QuestionId: q.QuestionId.ToString(),
+                SkillId: q.SkillId,
+                DomainId: string.Empty,
+                DifficultyLevel: q.DifficultyLevel,
+                IsCorrect: q.IsCorrect,
+                TimeSpentSeconds: q.TimeSpentSeconds
+            )).ToList(),
+            DomainNames: new List<DiagnosticDomainNamePayload>
+            {
+                new("dom_math", "Toán học & Logic"),
+                new("dom_lang", "Sử dụng ngôn ngữ"),
+                new("dom_nat_sci", "Khoa học tự nhiên"),
+                new("dom_soc_sci", "Khoa học xã hội")
+            },
+            AllSkillIds: new Dictionary<string, string>()
+        );
+
+        var aiResult = await _aiDiagnosticClient.AnalyzeDiagnosticAsync(aiPayload, cancellationToken);
+        double theta0 = aiResult?.Theta0 ?? 0.0;
+        string placementClass = aiResult?.PlacementClass ?? "ACCELERATION";
+        string aiCommentary = aiResult?.AiCommentary ?? string.Empty;
+
+        // 7. Lưu trữ bài thi vào CSDL Supabase
         var submission = new ExamSubmission
         {
             SubmissionId = submissionId,
@@ -184,16 +221,61 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             StartedAt = request.StartedAt ?? DateTime.UtcNow.AddSeconds(-totalTimeSpent),
             CompletedAt = DateTime.UtcNow,
             Status = "COMPLETED",
+            Theta0 = theta0,
+            PlacementClass = placementClass,
+            AiCommentary = aiCommentary,
             Answers = submissionAnswers
         };
 
         await _submissionRepository.AddAsync(submission, cancellationToken);
         await _submissionRepository.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Diagnostic submission {SubmissionId} saved successfully. Score: {Score}/{Total}",
-            submissionId, totalCorrect, totalQuestions);
+        // 8. Lưu giá trị tiên nghiệm BKT P(L0) vào LearningProfiles
+        if (aiResult?.SkillPriors != null && aiResult.SkillPriors.Count > 0)
+        {
+            var priorsToUpsert = aiResult.SkillPriors
+                .Where(sp => Guid.TryParse(sp.SkillId, out _))
+                .Select(sp => (SkillId: Guid.Parse(sp.SkillId), MasteryScore: sp.PL0))
+                .ToList();
 
-        // 7. Tạo DTO phản hồi hoàn chỉnh cho Client và AI Subsystem
+            if (priorsToUpsert.Count > 0)
+            {
+                await _learningProfileRepository.UpsertSkillPriorsAsync(request.StudentId, priorsToUpsert, cancellationToken);
+            }
+        }
+
+        // 9. Tự động xếp học sinh vào lớp học tại cơ sở (Core Flow 1 - Bước 5)
+        var (classId, className, enrollmentId) = await _classEnrollmentRepository.EnrollStudentAsync(
+            request.StudentId,
+            campusId,
+            placementClass,
+            submissionId,
+            cancellationToken);
+
+        submission.EnrolledClassId = classId;
+        await _submissionRepository.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Diagnostic submission {SubmissionId} finalized: theta_0={Theta0}, placement={Placement}, class={ClassName}",
+            submissionId, theta0, placementClass, className);
+
+        // 10. Tạo DTO phản hồi hoàn chỉnh cho Client bao gồm Biểu đồ Radar (Happy case < 2s)
+        var radarDtos = aiResult?.RadarChart?.Select(r => new DiagnosticRadarAxisDto
+        {
+            DomainId = r.DomainId,
+            DomainName = r.DomainName,
+            StudentPct = r.StudentPct,
+            BenchmarkPct = r.BenchmarkPct
+        }).ToList() ?? new List<DiagnosticRadarAxisDto>();
+
+        var skillPriorDtos = aiResult?.SkillPriors?.Select(p => new DiagnosticSkillPriorDto
+        {
+            SkillId = p.SkillId,
+            DomainId = p.DomainId,
+            ThetaSkill = p.ThetaSkill,
+            PL0 = p.PL0,
+            Source = p.Source
+        }).ToList() ?? new List<DiagnosticSkillPriorDto>();
+
         var responseDto = new SubmitDiagnosticResponseDto
         {
             SubmissionId = submission.SubmissionId,
@@ -210,7 +292,15 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             SkillBreakdowns = skillBreakdowns,
             WeakSkillIds = weakSkillIds,
             DifficultyBreakdowns = difficultyBreakdowns,
-            Questions = questionResults
+            Questions = questionResults,
+            Theta0 = theta0,
+            PlacementClass = placementClass,
+            ClassName = className,
+            ClassId = classId,
+            EnrollmentId = enrollmentId,
+            AiCommentary = aiCommentary,
+            RadarChart = radarDtos,
+            SkillPriors = skillPriorDtos
         };
 
         return Result<SubmitDiagnosticResponseDto>.Success(responseDto);

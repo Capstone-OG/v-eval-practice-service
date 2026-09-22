@@ -135,7 +135,11 @@ public class GetDiagnosticSubmissionByIdHandler
             SkillBreakdowns = skillBreakdowns,
             WeakSkillIds = weakSkillIds,
             DifficultyBreakdowns = difficultyBreakdowns,
-            Questions = questionResults
+            Questions = questionResults,
+            Theta0 = submission.Theta0 ?? 0.0,
+            PlacementClass = submission.PlacementClass ?? "ACCELERATION",
+            ClassId = submission.EnrolledClassId,
+            AiCommentary = submission.AiCommentary ?? string.Empty
         };
 
         return Result<SubmitDiagnosticResponseDto>.Success(dto);
