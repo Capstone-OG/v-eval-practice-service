@@ -45,8 +45,18 @@
    - Per-question response time recorded (`time_spent_seconds`).
    - Grouping by `SkillId` to evaluate competency mastery and isolate `WeakSkillIds` (accuracy < 60%).
    - Grouping by `DifficultyLevel` (Easy, Medium, Hard, Very Hard) to profile cognitive performance.
-5. **Database Storage**: Transactionally saved to Supabase schema `practice`.
-6. **Downstream Readiness**: Yields structured feature data for **AI Subsystem (Steps 4 & 5)** to estimate IRT parameter $\theta_0 \in [-3.0, +3.0]$, calculate BKT prior probability $P(L_0) \in [0.05, 0.95]$, render radar charts, and suggest class placement (`Foundation`, `Standard`, `Advanced`).
+5. **AI Subsystem Integration (Step 4)**:
+   - Practice Service dispatches the 30-question diagnostic vector to `AI Engine` (`POST /api/v1/diagnostic/analyze`).
+   - Estimates overall ability $\theta_0 \in [-3.0, +3.0]$ (IRT 2PL + MAP).
+   - Calculates initial mastery priors $P(L_0) \in [0.05, 0.95]$ for all skills (Logistic Sigmoid), handling missing branch skills via domain-level fallback.
+   - Generates multi-domain radar chart coordinates against the student's target score ($800/1200$).
+   - Dynamically produces Socratic pedagogical feedback via Gemini.
+   - Saves initial mastery priors into `LearningProfiles` (`mastery_score = p_l0`).
+6. **Automatic Campus Class Placement (Step 5)**:
+   - Evaluates placement tier based on $\theta_0$: `FOUNDATION` ($\theta_0 < -0.5$), `ACCELERATION` ($-0.5 \le \theta_0 \le 0.5$), `BREAKTHROUGH` ($\theta_0 > 0.5$).
+   - Finds or initializes the corresponding class in `Classes` for the student's registered `CampusId`.
+   - Records enrollment in `ClassEnrollments` linked to `diagnostic_submission_id`.
+   - Returns full response payload with radar coordinates and Socratic guidance in under 2 seconds (Happy Case).
 
 ---
 

@@ -1,5 +1,25 @@
 # Nhật Ký Cập Nhật (Update Log) - Practice Service
 
+## [22/09/2026] - Hoàn Tất Trọn Vẹn Core Flow 1 (Bước 4 & 5): Tích Hợp AI Diagnostic, BKT Priors & Tự Động Xếp Lớp
+- **Tích Hợp AI Subsystem Client (`HttpClients/AiDiagnosticClient.cs`)**:
+  - Triển khai `IAiDiagnosticClient` & `AiDiagnosticClient` kết nối API `POST /api/v1/diagnostic/analyze` của AI Engine.
+  - Gửi vector kết quả bài làm 30 câu hỏi (đúng/sai, thời gian `time_spent_seconds`, độ khó, danh mục kỹ năng).
+  - Tích hợp cơ chế **Resilient Local Fallback**: Tự động kích hoạt bộ tính toán ước lượng nội bộ nếu AI Engine tạm ngắt kết nối, đảm bảo bài thi không bao giờ bị nghẽn (Zero-Blocking SLA).
+- **Mở Rộng Domain Entities & CSDL Schema Supabase**:
+  - `ExamSubmission`: Bổ sung `Theta0` (IRT ability), `PlacementClass` (FOUNDATION / ACCELERATION / BREAKTHROUGH), `AiCommentary` và `EnrolledClassId`.
+  - `LearningProfile`: Lưu trữ giá trị xác suất làm chủ ban đầu BKT Prior $P(L_0) \in [0.05, 0.95]$ cho từng kỹ năng vào bảng `LearningProfiles`.
+  - `Class` & `ClassEnrollment`: Quản lý việc tự động phân bổ học sinh vào lớp học tại cơ sở (`CampusId`) gắn liền với bài nộp chẩn đoán (`diagnostic_submission_id`).
+- **Mở Rộng EF Core Persistence (`PracticeDbContext`)**:
+  - Đăng ký `DbSet<LearningProfile>`, `DbSet<Class>`, `DbSet<ClassEnrollment>`.
+  - Cấu hình Fluent API tương thích chuẩn xác với schema CSDL Supabase PostgreSQL.
+- **Triển Khai Repositories Nghiệp Vụ**:
+  - `ILearningProfileRepository` / `LearningProfileRepository`: Upsert thông minh danh sách $P(L_0)$ của học sinh.
+  - `IClassEnrollmentRepository` / `ClassEnrollmentRepository`: Tìm kiếm hoặc tự động khởi tạo lớp học tại Campus của học sinh theo phân lớp và tạo bản ghi ghi danh (`ENROLLED`).
+- **Nâng Cấp Use Case `SubmitDiagnosticCommandHandler`**:
+  - Khép kín toàn bộ 5 bước của Core Flow 1: Xác thực Identity (1) -> Lấy bảng đáp án Content (2) -> Chấm điểm (3) -> Ước lượng IRT & BKT qua AI (4) -> Tự động xếp lớp tại Campus và trả về Biểu đồ Radar đa giác trong $< 2$ giây (5).
+- **Kiểm Thử Vận Hành**:
+  - Biên dịch toàn bộ giải pháp `V-Eval-Practice_Service.sln`: **0 Warning(s), 0 Error(s)**.
+
 ## [20/09/2026] - Triển Khai Hoàn Thiện Clean Architecture 4 Tầng & Core Flow 1 (Bước 3: Chấm Điểm Chẩn Đoán 30 Câu & Tích Hợp gRPC)
 - **Triển Khai Chuẩn Kiến Trúc Clean Architecture 4 Tầng**:
   - `Domain Layer`: Xây dựng thực thể `ExamSubmission` (thang điểm 0–30, tổng câu 30, thời gian), `SubmissionAnswer` (ghi nhận chi tiết từng câu: `selected_option`, `is_correct`, `time_spent_seconds`) và `IExamSubmissionRepository`.

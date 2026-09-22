@@ -40,5 +40,5 @@
 | 12 | **API Tra Cứu Bài Nộp Theo ID** | `DiagnosticSubmissionsController` | 🟢 Hoàn thành | 100% | `GET /api/v1/practice/diagnostic-submissions/{id}` |
 | 13 | **API Lịch Sử Bài Làm Học Sinh**| `DiagnosticSubmissionsController` | 🟢 Hoàn thành | 100% | `GET /api/v1/practice/diagnostic-submissions/student/{studentId}` |
 | 14 | **Swagger UI & ProblemDetails** | `Program.cs` / `ApiControllerBase` | 🟢 Hoàn thành | 100% | Swagger UI tại `http://localhost:5261/swagger`, RFC 7807 |
-| 15 | **Core Flow 1 (Bước 4): Tích Hợp AI Subsystem (IRT & BKT)** | `Infrastructure/GrpcClients/` & `Application/Features/` | 🟡 Kế hoạch tiếp theo | 0% | Practice Service gửi 30 câu sang `AI Engine` -> Nhận về $\theta_0$, ma trận $P(L_0)$, Radar Chart |
-| 16 | **Core Flow 1 (Bước 5): Tự Động Gợi Ý Phân Lớp Tại Campus** | `Application/Features/` | 🟡 Kế hoạch tiếp theo | 0% | So sánh $\theta_0$ với $\theta_{Foundation}, \theta_{Advanced}$ -> Xếp lớp -> Cập nhật sang Identity Service |
+| 15 | **Core Flow 1 (Bước 4): Tích Hợp AI Subsystem (IRT & BKT)** | `HttpClients/AiDiagnosticClient.cs` & `SubmitDiagnosticCommandHandler.cs` | 🟢 Hoàn thành | 100% | Gửi 30 câu sang `AI Engine` -> Nhận $\theta_0$, $P(L_0)$ Sigmoid, Radar Chart, nhận xét Gemini |
+| 16 | **Core Flow 1 (Bước 5): Tự Động Gợi Ý Phân Lớp Tại Campus** | `Repositories/ClassEnrollmentRepository.cs` | 🟢 Hoàn thành | 100% | Phân lớp $\theta_0$ (FOUNDATION / ACCELERATION / BREAKTHROUGH) -> Tự động ghi danh `ClassEnrollments` |

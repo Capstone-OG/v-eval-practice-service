@@ -1,5 +1,33 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [22/09/2026] - Hoàn Tất Core Flow 1 (Bước 4 & 5): Tích Hợp AI Diagnostic, Lưu Trữ BKT Priors & Tự Động Xếp Lớp Tại Campus
+- **Triển Khai HTTP Client Kết Nối AI Subsystem (`IAiDiagnosticClient` & `AiDiagnosticClient`)**:
+  - Xây dựng HTTP Client kết nối endpoint `POST /api/v1/diagnostic/analyze` của AI Engine (`http://localhost:8000`).
+  - Gửi gói dữ liệu 30 câu hỏi kèm thời gian phản hồi (`time_spent_seconds`), độ khó và danh mục miền năng lực.
+  - Tích hợp cơ chế **Resilient Local Fallback**: Nếu AI Engine tạm thời gián đoạn hoặc offline, hệ thống tự động kích hoạt bộ tính toán dự phòng cục bộ (ước lượng $\theta_0$, BKT Sigmoid, phân lớp và nhận xét chuẩn mực), đảm bảo bài nộp của học sinh không bao giờ bị nghẽn (Zero-Blocking SLA).
+- **Mở Rộng Domain Entities & CSDL Supabase**:
+  - `ExamSubmission`: Bổ sung các trường lưu trữ kết quả chẩn đoán: `Theta0` (IRT ability), `PlacementClass` (FOUNDATION / ACCELERATION / BREAKTHROUGH), `AiCommentary` (nhận xét sư phạm Socratic) và `EnrolledClassId` (khóa ngoại lớp học được xếp).
+  - `LearningProfile`: Ánh xạ bảng `LearningProfiles` lưu trữ xác suất làm chủ ban đầu $P(L_0) \in [0.05, 0.95]$ cho từng kỹ năng của học sinh làm giá trị tiên nghiệm cho mô hình BKT.
+  - `Class` & `ClassEnrollment`: Ánh xạ bảng `Classes` và `ClassEnrollments` quản lý việc phân bổ học sinh vào lớp học tại cơ sở (`CampusId`) gắn liền với bài nộp chẩn đoán (`diagnostic_submission_id`).
+- **Mở Rộng EF Core Persistence (`PracticeDbContext`)**:
+  - Đăng ký `DbSet<LearningProfile>`, `DbSet<Class>`, `DbSet<ClassEnrollment>`.
+  - Cấu hình Fluent API ánh xạ tương thích chuẩn xác với schema CSDL PostgreSQL Supabase.
+- **Triển Khai Các Repositories Nghiệp Vụ**:
+  - `ILearningProfileRepository` / `LearningProfileRepository`: Thực hiện upsert thông minh danh sách $P(L_0)$ của học sinh vào bảng `LearningProfiles`.
+  - `IClassEnrollmentRepository` / `ClassEnrollmentRepository`: Tìm kiếm lớp học đang hoạt động (`ACTIVE`) phù hợp với cấp độ phân lớp (`Nền tảng`, `Tăng tốc`, `Bứt phá`) tại cơ sở đã chọn (`CampusId`). Tự động khởi tạo lớp học nếu cơ sở chưa có lớp tương ứng và tạo bản ghi ghi danh (`ENROLLED`).
+- **Nâng Cấp Use Case `SubmitDiagnosticCommandHandler`**:
+  - Kết nối hoàn chỉnh chuỗi xử lý khép kín:
+    1. Xác thực học sinh & Campus qua Identity gRPC (Bước 1).
+    2. Lấy đáp án và metadata câu hỏi qua Content gRPC (Bước 2).
+    3. Chấm điểm thô và ghi nhận vi mô thời gian từng câu (Bước 3).
+    4. Gửi sang AI Engine tính toán IRT $\theta_0$, BKT $P(L_0)$ và nhận xét sư phạm (Bước 4).
+    5. Lưu $P(L_0)$ vào `LearningProfiles`, tự động xếp lớp tại cơ sở và ghi nhận `ClassEnrollments` (Bước 5).
+    6. Trả về DTO hoàn chỉnh gồm tọa độ biểu đồ Radar đa giác đối chiếu điểm mục tiêu (V-ACT target score) trong $< 2$ giây (Happy Case).
+- **Kiểm Thử Vận Hành**:
+  - Biên dịch toàn bộ giải pháp `V-Eval-Practice_Service.sln`: **0 Warning(s), 0 Error(s)**.
+
+---
+
 ## [20/09/2026] - Triển Khai Hoàn Thiện Clean Architecture 4 Tầng, Core Flow 1 (Bước 3: Chấm Điểm Chẩn Đoán 30 Câu & Tích Hợp gRPC)
 - **Triển Khai Chuẩn Kiến Trúc Clean Architecture 4 Tầng**:
   - `Domain Layer`: Xây dựng thực thể `ExamSubmission` (thang điểm 0–30, tổng câu 30, thời gian), `SubmissionAnswer` (ghi nhận chi tiết từng câu: `selected_option`, `is_correct`, `time_spent_seconds`) và `IExamSubmissionRepository`.
