@@ -19,11 +19,12 @@ public class PracticeDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.HasDefaultSchema("v_eval_practice");
 
-        // Cấu hình bảng exam_submissions thuộc schema practice
+        // Cấu hình bảng exam_submissions thuộc schema v_eval_practice
         modelBuilder.Entity<ExamSubmission>(entity =>
         {
-            entity.ToTable("exam_submissions", "practice");
+            entity.ToTable("ExamSubmissions", "v_eval_practice");
             entity.HasKey(e => e.SubmissionId);
 
             entity.Property(e => e.SubmissionId).HasColumnName("submission_id");
@@ -49,10 +50,10 @@ public class PracticeDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // Cấu hình bảng submission_answers thuộc schema practice
+        // Cấu hình bảng submission_answers thuộc schema v_eval_practice
         modelBuilder.Entity<SubmissionAnswer>(entity =>
         {
-            entity.ToTable("submission_answers", "practice");
+            entity.ToTable("SubmissionAnswers", "v_eval_practice");
             entity.HasKey(e => e.AnswerId);
 
             entity.Property(e => e.AnswerId).HasColumnName("answer_id");
