@@ -47,20 +47,23 @@
    - Grouping by `DifficultyLevel` (Easy, Medium, Hard, Very Hard) to profile cognitive performance.
 5. **AI Subsystem Integration (Step 4)**:
    - Practice Service dispatches the 30-question diagnostic vector to `AI Engine` (`POST /api/v1/diagnostic/analyze`).
-   - Estimates overall ability $\theta_0 \in [-3.0, +3.0]$ (IRT 2PL + MAP).
-   - Calculates initial mastery priors $P(L_0) \in [0.05, 0.95]$ for all skills (Logistic Sigmoid), handling missing branch skills via domain-level fallback.
-   - Generates multi-domain radar chart coordinates against the student's target score ($800/1200$).
+   - Estimates overall ability `\theta_0 \in [-3.0, +3.0]` (IRT 2PL + MAP).
+   - Calculates initial mastery priors `P(L_0) \in [0.05, 0.95]` for all skills (Logistic Sigmoid), handling missing branch skills via domain-level fallback.
+   - Generates multi-domain radar chart coordinates against the student's target score (`800/1200`).
    - Dynamically produces Socratic pedagogical feedback via Gemini.
    - Saves initial mastery priors into `LearningProfiles` (`mastery_score = p_l0`).
 6. **Automatic Campus Class Placement (Step 5)**:
-   - Evaluates placement tier based on $\theta_0$: `FOUNDATION` ($\theta_0 < -0.5$), `ACCELERATION` ($-0.5 \le \theta_0 \le 0.5$), `BREAKTHROUGH` ($\theta_0 > 0.5$).
+   - Evaluates placement tier based on `\theta_0`: `FOUNDATION` (`\theta_0 < -0.5`), `ACCELERATION` (`-0.5 \le \theta_0 \le 0.5`), `BREAKTHROUGH` (`\theta_0 > 0.5`).
    - Finds or initializes the corresponding class in `Classes` for the student's registered `CampusId`.
    - Records enrollment in `ClassEnrollments` linked to `diagnostic_submission_id`.
    - Returns full response payload with radar coordinates and Socratic guidance in under 2 seconds (Happy Case).
 
 ---
 
-## 4. ACCEPTANCE & VERIFICATION METRICS
+## 4. ACCEPTANCE & VERIFICATION RESULTS
+- **Diagnostic Assessment & AI Exam Studio Runner UI**: Interactive web runner hosted at `http://localhost:5261/view-diagnostic.html` with KaTeX formula support, interactive Chart.js Radar Chart, multi-scenario Demo Solver, and AI Exam Studio Tab with customizable teacher prompt and Bloom 6 difficulty levels.
+- **Database Save Pending & Publishing Flow**: Dedicated button to save generated exam into Supabase PostgreSQL with `IsPublished = false` (Pending Approval), seamlessly published (`IsPublished = true`) on teacher acceptance.
+- **Cognitive Taxonomy Standardization**: Standardized difficulty metrics across 6 Revised Bloom's Taxonomy levels (Remembering, Understanding, Applying, Analyzing, Evaluating, Creating).
 - **Solution Build**: Compiled cleanly with **0 Warning(s), 0 Error(s)** (`V-Eval-Practice_Service.sln`).
 - **End-to-End Integration Verification**: Complete automated test script (`e2e_core_flow1.ps1`) verified all 5 steps across 3 microservices (Identity, Content, Practice): **Passed 100%**.
 - **REST & gRPC Dual Port Protocol Architecture**:
