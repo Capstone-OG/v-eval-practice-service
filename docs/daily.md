@@ -1,28 +1,47 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [27/09/2026] - Phát Hành Giao Diện Làm Thử Đề Thi Chẩn Đoán (30 Câu), AI Exam Studio (Custom Prompt, Bloom 6 Cấp, Lưu DB Chờ Duyệt) & Trực Quan Hóa Radar Chart
+- **Phát Hành Giao Diện Web Khảo Sát Năng Lực Đầu Vào (`wwwroot/view-diagnostic.html`)**:
+  - Xây dựng giao diện web độc lập phong cách Glassmorphism hiện đại (Inter, Outfit, KaTeX, Chart.js) hỗ trợ kiểm thử thực tế và mô phỏng luồng Core Flow 1.
+  - Tích hợp 3 Tab hoàn chỉnh:
+    1. **Tab 1: AI Exam Studio**: Giáo viên nhập prompt tùy biến, chọn 5 lĩnh vực môn học hoặc nhận diện tự động từ prompt, thiết lập mức độ Bloom (6 cấp) và số lượng câu hỏi.
+    2. **Tab 2: Phòng Thi Học Sinh**: Làm bài thi, nộp bài hoặc dùng Demo Solver tự động điền.
+    3. **Tab 3: Báo Cáo Năng Lực & Radar Chart**: Điểm IRT 2PL `\theta_0`, xếp lớp, radar chart, phân tích Bloom và BKT.
+- **Nút Lưu CSDL Chờ Duyệt & Quy Trình Phê Duyệt**:
+  - Bổ sung nút **`💾 Lưu Vào Database (Chờ Duyệt)`**: Lưu đề thi vào Supabase PostgreSQL qua `POST http://localhost:5249/api/v1/content/exams/import` với trạng thái mặc định **`IsPublished = false` (Chờ duyệt / Pending Approval)**.
+  - Nút **`✅ ACCEPT: Phê Duyệt & Chuyển Sang Phòng Thi Học Sinh ➔`**: Tự động gọi `PATCH /api/v1/content/exams/{id}/publish` cập nhật trạng thái thành `IsPublished = true` (Đã duyệt) và chuyển đề thi sang phòng thi học sinh.
+- **Chuẩn Hóa Thang Đo Tư Duy Bloom 6 Mức Độ (Revised Bloom's Taxonomy)**:
+  - Khởi tạo hằng số `BloomTaxonomy.cs` định nghĩa 6 mức độ tư duy: 1. Nhận biết (Remembering), 2. Thông hiểu (Understanding), 3. Vận dụng (Applying), 4. Phân tích (Analyzing), 5. Đánh giá (Evaluating), 6. Sáng tạo (Creating).
+  - Cập nhật `SubmitDiagnosticCommandHandler.cs` và `GetDiagnosticSubmissionById.cs` sử dụng nhãn chuẩn hóa Bloom.
+- **Kích Hoạt Static Files Trong Pipeline Kestrel (`Program.cs`)**:
+  - Đã thêm `app.UseStaticFiles()` giúp phục vụ trực tiếp `http://localhost:5261/view-diagnostic.html`.
+- **Kiểm Thử Biên Dịch**: `dotnet build` đạt **0 Error(s), 0 Warning(s)**.
+
+---
+
 ## [22/09/2026] - Hoàn Tất Core Flow 1 (Bước 4 & 5): Tích Hợp AI Diagnostic, Lưu Trữ BKT Priors & Tự Động Xếp Lớp Tại Campus
 - **Triển Khai HTTP Client Kết Nối AI Subsystem (`IAiDiagnosticClient` & `AiDiagnosticClient`)**:
   - Xây dựng HTTP Client kết nối endpoint `POST /api/v1/diagnostic/analyze` của AI Engine (`http://localhost:8000`).
   - Gửi gói dữ liệu 30 câu hỏi kèm thời gian phản hồi (`time_spent_seconds`), độ khó và danh mục miền năng lực.
-  - Tích hợp cơ chế **Resilient Local Fallback**: Nếu AI Engine tạm thời gián đoạn hoặc offline, hệ thống tự động kích hoạt bộ tính toán dự phòng cục bộ (ước lượng $\theta_0$, BKT Sigmoid, phân lớp và nhận xét chuẩn mực), đảm bảo bài nộp của học sinh không bao giờ bị nghẽn (Zero-Blocking SLA).
+  - Tích hợp cơ chế **Resilient Local Fallback**: Nếu AI Engine tạm thời gián đoạn hoặc offline, hệ thống tự động kích hoạt bộ tính toán dự phòng cục bộ (ước lượng `\theta_0`, BKT Sigmoid, phân lớp và nhận xét chuẩn mực), đảm bảo bài nộp của học sinh không bao giờ bị nghẽn (Zero-Blocking SLA).
 - **Mở Rộng Domain Entities & CSDL Supabase**:
   - `ExamSubmission`: Bổ sung các trường lưu trữ kết quả chẩn đoán: `Theta0` (IRT ability), `PlacementClass` (FOUNDATION / ACCELERATION / BREAKTHROUGH), `AiCommentary` (nhận xét sư phạm Socratic) và `EnrolledClassId` (khóa ngoại lớp học được xếp).
-  - `LearningProfile`: Ánh xạ bảng `LearningProfiles` lưu trữ xác suất làm chủ ban đầu $P(L_0) \in [0.05, 0.95]$ cho từng kỹ năng của học sinh làm giá trị tiên nghiệm cho mô hình BKT.
+  - `LearningProfile`: Ánh xạ bảng `LearningProfiles` lưu trữ xác suất làm chủ ban đầu `P(L_0) \in [0.05, 0.95]` cho từng kỹ năng của học sinh làm giá trị tiên nghiệm cho mô hình BKT.
   - `Class` & `ClassEnrollment`: Ánh xạ bảng `Classes` và `ClassEnrollments` quản lý việc phân bổ học sinh vào lớp học tại cơ sở (`CampusId`) gắn liền với bài nộp chẩn đoán (`diagnostic_submission_id`).
 - **Mở Rộng EF Core Persistence (`PracticeDbContext`)**:
   - Đăng ký `DbSet<LearningProfile>`, `DbSet<Class>`, `DbSet<ClassEnrollment>`.
   - Cấu hình Fluent API ánh xạ tương thích chuẩn xác với schema CSDL PostgreSQL Supabase.
 - **Triển Khai Các Repositories Nghiệp Vụ**:
-  - `ILearningProfileRepository` / `LearningProfileRepository`: Thực hiện upsert thông minh danh sách $P(L_0)$ của học sinh vào bảng `LearningProfiles`.
+  - `ILearningProfileRepository` / `LearningProfileRepository`: Thực hiện upsert thông minh danh sách `P(L_0)` của học sinh vào bảng `LearningProfiles`.
   - `IClassEnrollmentRepository` / `ClassEnrollmentRepository`: Tìm kiếm lớp học đang hoạt động (`ACTIVE`) phù hợp với cấp độ phân lớp (`Nền tảng`, `Tăng tốc`, `Bứt phá`) tại cơ sở đã chọn (`CampusId`). Tự động khởi tạo lớp học nếu cơ sở chưa có lớp tương ứng và tạo bản ghi ghi danh (`ENROLLED`).
 - **Nâng Cấp Use Case `SubmitDiagnosticCommandHandler`**:
   - Kết nối hoàn chỉnh chuỗi xử lý khép kín:
     1. Xác thực học sinh & Campus qua Identity gRPC (Bước 1).
     2. Lấy đáp án và metadata câu hỏi qua Content gRPC (Bước 2).
     3. Chấm điểm thô và ghi nhận vi mô thời gian từng câu (Bước 3).
-    4. Gửi sang AI Engine tính toán IRT $\theta_0$, BKT $P(L_0)$ và nhận xét sư phạm (Bước 4).
-    5. Lưu $P(L_0)$ vào `LearningProfiles`, tự động xếp lớp tại cơ sở và ghi nhận `ClassEnrollments` (Bước 5).
-    6. Trả về DTO hoàn chỉnh gồm tọa độ biểu đồ Radar đa giác đối chiếu điểm mục tiêu (V-ACT target score) trong $< 2$ giây (Happy Case).
+    4. Gửi sang AI Engine tính toán IRT `\theta_0`, BKT `P(L_0)` và nhận xét sư phạm (Bước 4).
+    5. Lưu `P(L_0)` vào `LearningProfiles`, tự động xếp lớp tại cơ sở và ghi nhận `ClassEnrollments` (Bước 5).
+    6. Trả về DTO hoàn chỉnh gồm tọa độ biểu đồ Radar đa giác đối chiếu điểm mục tiêu (V-ACT target score) trong `< 2` giây (Happy Case).
 - **Di Trú CSDL & Khắc Phục Schema PostgreSQL (`Program.cs`)**:
   - Bổ sung migration tự động trên startup: `ALTER TABLE practice.exam_submissions ADD COLUMN IF NOT EXISTS ...` (`theta_0`, `placement_class`, `ai_commentary`, `enrolled_class_id`).
   - Khởi tạo bảng `LearningProfiles`, `Classes`, `ClassEnrollments` trên schema CSDL Supabase.
@@ -61,14 +80,14 @@
     1. Chuẩn bị hợp đồng giao tiếp (gRPC Client `IAiEngineGrpcClient` hoặc Event Bus): Đóng gói gói dữ liệu bài làm của học sinh gồm: `submission_id`, `student_id`, tổng điểm thô (0–30) và danh sách chi tiết 30 câu hỏi (`question_id`, `skill_id`, `difficulty_level`, `is_correct`, `time_spent_seconds`).
     2. Gọi sang **`V-Eval-Ai_Engine`** để kích hoạt tiến trình phân tích trí tuệ nhân tạo.
     3. Nhận phản hồi từ AI Engine gồm:
-       - Chỉ số năng lực tiềm ẩn ban đầu $\theta_0$ (Theta IRT).
-       - Ma trận xác suất làm chủ ban đầu $P(L_0)$ cho từng Kỹ năng thành phần (Knowledge Component - KC).
+       - Chỉ số năng lực tiềm ẩn ban đầu `\theta_0` (Theta IRT).
+       - Ma trận xác suất làm chủ ban đầu `P(L_0)` cho từng Kỹ năng thành phần (Knowledge Component - KC).
        - Tọa độ vector biểu đồ Radar (6–8 trục năng lực) đối chiếu với điểm kỳ vọng (`TargetScore` thang 1200).
-    4. Lưu trữ vector năng lực vào CSDL `practice` và kích hoạt Bước 5 (So sánh $\theta_0$ với ngưỡng để phân lớp tại cơ sở).
+    4. Lưu trữ vector năng lực vào CSDL `practice` và kích hoạt Bước 5 (So sánh `\theta_0` với ngưỡng để phân lớp tại cơ sở).
   - **Trách nhiệm của AI Engine (`V-Eval-Ai_Engine`)**:
     1. Nhận vector dữ liệu 30 câu hỏi từ Practice Service.
-    2. Chạy thuật toán **Item Response Theory (IRT)** (mô hình 2PL/3PL) dựa trên độ khó câu hỏi ($b$), độ phân biệt ($a$) và kết quả đúng/sai kèm thời gian phản hồi để ước lượng $\theta_0$.
-    3. Chạy mô hình **Bayesian Knowledge Tracing (BKT)**: Khởi tạo xác suất làm chủ tri thức ban đầu $P(L_0)$ cho từng KC theo các tham số định chuẩn khoa học ($P(L_0)$, $P(T)$, $P(S)$, $P(G)$).
+    2. Chạy thuật toán **Item Response Theory (IRT)** (mô hình 2PL/3PL) dựa trên độ khó câu hỏi (`b`), độ phân biệt (`a`) và kết quả đúng/sai kèm thời gian phản hồi để ước lượng `\theta_0`.
+    3. Chạy mô hình **Bayesian Knowledge Tracing (BKT)**: Khởi tạo xác suất làm chủ tri thức ban đầu `P(L_0)` cho từng KC theo các tham số định chuẩn khoa học (`P(L_0)`, `P(T)`, `P(S)`, `P(G)`).
     4. Trực quan hóa dữ liệu biểu đồ Radar đa giác năng lực gửi ngược về cho Practice Service / Frontend.
 
 ---

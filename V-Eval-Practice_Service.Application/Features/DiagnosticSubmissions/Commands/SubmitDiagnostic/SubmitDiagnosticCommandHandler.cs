@@ -9,6 +9,7 @@ using V_Eval_Practice_Service.Application.Common.Interfaces;
 using V_Eval_Practice_Service.Application.Common.Interfaces.Repositories;
 using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.DiagnosticSubmissions.DTOs;
+using V_Eval_Practice_Service.Domain.Constants;
 using V_Eval_Practice_Service.Domain.Entities;
 
 namespace V_Eval_Practice_Service.Application.Features.DiagnosticSubmissions.Commands.SubmitDiagnostic;
@@ -179,14 +180,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                 int count = g.Count();
                 int correct = g.Count(x => x.IsCorrect);
                 double pct = Math.Round((correct / (double)count) * 100, 2);
-                string levelName = g.Key switch
-                {
-                    1 => "Dễ (Nhận biết)",
-                    2 => "Trung bình (Thông hiểu)",
-                    3 => "Khó (Vận dụng)",
-                    4 => "Rất khó (Vận dụng cao)",
-                    _ => $"Mức {g.Key}"
-                };
+                string levelName = BloomTaxonomy.GetName(g.Key);
 
                 return new DifficultyBreakdownDto
                 {
