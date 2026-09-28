@@ -71,8 +71,24 @@
 
 ---
 
-## 4. ACCEPTANCE & VERIFICATION METRICS
+## 4. CORE FLOW 2 READINESS (PATH PLANNING & LIVE SESSIONS)
+
+### 4.1 Phase 1 Domain Entities & Database Mappings
+1. **`LearningRoadmap`**:
+   - Represents the personalized roadmap aggregate for each student, referencing the baseline diagnostic submission (`diagnostic_submission_id`).
+   - Tracks milestones progress (`total_milestones`, `completed_milestones`), time-budget pruning status (`is_pruned`, `pruned_reason`), and roadmap lifecycle (`ACTIVE`, `COMPLETED`, `ARCHIVED`).
+2. **`RoadmapNode`**:
+   - Encapsulates discrete milestones combining three components: theoretical lecture (`material_id`), formative quiz (`quiz_exam_id`), and live interactive session (`live_session_id`).
+   - Manages progressive milestone unlocking (`LOCKED`, `IN_PROGRESS`, `COMPLETED`, `SKIPPED_PRUNED`).
+3. **`LiveSession` & `LiveSessionAttendance`**:
+   - Manages physical campus cohort online Q&A sessions (`meeting_url`).
+   - Implements Unhappy Case 3 fallback: records sessions (`recording_url`, `is_recorded = true`) and tracks mandatory makeup quizzes (`makeup_quiz_id`, `is_makeup_quiz_passed = false`) for absent students.
+
+---
+
+## 5. ACCEPTANCE & VERIFICATION METRICS
 - **Solution Build**: Compiled cleanly with **0 Warning(s), 0 Error(s)** (`V-Eval-Practice_Service.sln`).
+- **Database Schema**: All 4 target tables (`LearningRoadmaps`, `RoadmapNodes`, `LiveSessions`, `LiveSessionAttendance`) mapped in `PracticeDbContext` under `v_eval_practice` schema and provisioned on Supabase PostgreSQL.
 - **End-to-End Integration Verification**: Complete automated test script (`e2e_core_flow1.ps1`) verified all 5 steps across 3 microservices (Identity, Content, Practice): **Passed 100%**.
 - **REST & gRPC Dual Port Protocol Architecture**:
   - Identity Service: Port 5155 (REST HTTP/1) + Port 5156 (gRPC HTTP/2).

@@ -15,6 +15,10 @@ public class PracticeDbContext : DbContext
     public DbSet<LearningProfile> LearningProfiles => Set<LearningProfile>();
     public DbSet<Class> Classes => Set<Class>();
     public DbSet<ClassEnrollment> ClassEnrollments => Set<ClassEnrollment>();
+    public DbSet<LearningRoadmap> LearningRoadmaps => Set<LearningRoadmap>();
+    public DbSet<RoadmapNode> RoadmapNodes => Set<RoadmapNode>();
+    public DbSet<LiveSession> LiveSessions => Set<LiveSession>();
+    public DbSet<LiveSessionAttendance> LiveSessionAttendances => Set<LiveSessionAttendance>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -111,6 +115,105 @@ public class PracticeDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.ClassId)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Cấu hình bảng LearningRoadmaps (Core Flow 2)
+        modelBuilder.Entity<LearningRoadmap>(entity =>
+        {
+            entity.ToTable("LearningRoadmaps");
+            entity.HasKey(e => e.RoadmapId);
+
+            entity.Property(e => e.RoadmapId).HasColumnName("roadmap_id");
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.DiagnosticSubmissionId).HasColumnName("diagnostic_submission_id");
+            entity.Property(e => e.TargetScore).HasColumnName("target_score");
+            entity.Property(e => e.TotalMilestones).HasColumnName("total_milestones");
+            entity.Property(e => e.CompletedMilestones).HasColumnName("completed_milestones");
+            entity.Property(e => e.IsPruned).HasColumnName("is_pruned");
+            entity.Property(e => e.PrunedReason).HasColumnName("pruned_reason");
+            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(50).IsRequired();
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
+            entity.HasOne(e => e.DiagnosticSubmission)
+                  .WithMany()
+                  .HasForeignKey(e => e.DiagnosticSubmissionId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(e => e.Nodes)
+                  .WithOne(n => n.Roadmap)
+                  .HasForeignKey(n => n.RoadmapId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Cấu hình bảng RoadmapNodes (Milestones tích hợp 3 thành phần)
+        modelBuilder.Entity<RoadmapNode>(entity =>
+        {
+            entity.ToTable("RoadmapNodes");
+            entity.HasKey(e => e.NodeId);
+
+            entity.Property(e => e.NodeId).HasColumnName("node_id");
+            entity.Property(e => e.RoadmapId).HasColumnName("roadmap_id").IsRequired();
+            entity.Property(e => e.SkillId).HasColumnName("skill_id").IsRequired();
+            entity.Property(e => e.StepOrder).HasColumnName("step_order").IsRequired();
+            entity.Property(e => e.MaterialId).HasColumnName("material_id");
+            entity.Property(e => e.QuizExamId).HasColumnName("quiz_exam_id");
+            entity.Property(e => e.LiveSessionId).HasColumnName("live_session_id");
+            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(50).IsRequired();
+            entity.Property(e => e.IsPruned).HasColumnName("is_pruned");
+            entity.Property(e => e.UnlockedAt).HasColumnName("unlocked_at");
+            entity.Property(e => e.CompletedAt).HasColumnName("completed_at");
+
+            entity.HasOne(e => e.LiveSession)
+                  .WithMany(s => s.RoadmapNodes)
+                  .HasForeignKey(e => e.LiveSessionId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Cấu hình bảng LiveSessions (Lịch Live Q&A của lớp cơ sở)
+        modelBuilder.Entity<LiveSession>(entity =>
+        {
+            entity.ToTable("LiveSessions");
+            entity.HasKey(e => e.SessionId);
+
+            entity.Property(e => e.SessionId).HasColumnName("session_id");
+            entity.Property(e => e.ClassId).HasColumnName("class_id").IsRequired();
+            entity.Property(e => e.TeacherId).HasColumnName("teacher_id");
+            entity.Property(e => e.Title).HasColumnName("title").IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.ScheduledAt).HasColumnName("scheduled_at").IsRequired();
+            entity.Property(e => e.DurationMinutes).HasColumnName("duration_minutes");
+            entity.Property(e => e.MeetingUrl).HasColumnName("meeting_url");
+            entity.Property(e => e.RecordingUrl).HasColumnName("recording_url");
+            entity.Property(e => e.IsRecorded).HasColumnName("is_recorded");
+            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(50).IsRequired();
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+
+            entity.HasOne(e => e.Class)
+                  .WithMany()
+                  .HasForeignKey(e => e.ClassId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.Attendances)
+                  .WithOne(a => a.Session)
+                  .HasForeignKey(a => a.SessionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Cấu hình bảng LiveSessionAttendance (Điểm danh & Quiz bù)
+        modelBuilder.Entity<LiveSessionAttendance>(entity =>
+        {
+            entity.ToTable("LiveSessionAttendance");
+            entity.HasKey(e => e.AttendanceId);
+
+            entity.Property(e => e.AttendanceId).HasColumnName("attendance_id");
+            entity.Property(e => e.SessionId).HasColumnName("session_id").IsRequired();
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.AttendanceStatus).HasColumnName("attendance_status").HasMaxLength(20).IsRequired();
+            entity.Property(e => e.JoinedAt).HasColumnName("joined_at");
+            entity.Property(e => e.LeftAt).HasColumnName("left_at");
+            entity.Property(e => e.MakeupQuizId).HasColumnName("makeup_quiz_id");
+            entity.Property(e => e.IsMakeupQuizPassed).HasColumnName("is_makeup_quiz_passed");
         });
     }
 }
