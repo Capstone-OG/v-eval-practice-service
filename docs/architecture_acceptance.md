@@ -47,24 +47,65 @@
    - Grouping by `DifficultyLevel` (Easy, Medium, Hard, Very Hard) to profile cognitive performance.
 5. **AI Subsystem Integration (Step 4)**:
    - Practice Service dispatches the 30-question diagnostic vector to `AI Engine` (`POST /api/v1/diagnostic/analyze`).
-   - Estimates overall ability `\theta_0 \in [-3.0, +3.0]` (IRT 2PL + MAP).
-   - Calculates initial mastery priors `P(L_0) \in [0.05, 0.95]` for all skills (Logistic Sigmoid), handling missing branch skills via domain-level fallback.
+   - Estimates overall ability `` `\theta_0 \in [-3.0, +3.0]` `` (IRT 2PL + MAP).
+   - Calculates initial mastery priors `` `P(L_0) \in [0.05, 0.95]` `` for all skills (Logistic Sigmoid), handling missing branch skills via domain-level fallback.
    - Generates multi-domain radar chart coordinates against the student's target score (`800/1200`).
    - Dynamically produces Socratic pedagogical feedback via Gemini.
    - Saves initial mastery priors into `LearningProfiles` (`mastery_score = p_l0`).
 6. **Automatic Campus Class Placement (Step 5)**:
-   - Evaluates placement tier based on `\theta_0`: `FOUNDATION` (`\theta_0 < -0.5`), `ACCELERATION` (`-0.5 \le \theta_0 \le 0.5`), `BREAKTHROUGH` (`\theta_0 > 0.5`).
+   - Evaluates placement tier based on `` `\theta_0` ``: `FOUNDATION` (`` `\theta_0 < -0.5` ``), `ACCELERATION` (`` `-0.5 \le \theta_0 \le 0.5` ``), `BREAKTHROUGH` (`` `\theta_0 > 0.5` ``).
    - Finds or initializes the corresponding class in `Classes` for the student's registered `CampusId`.
    - Records enrollment in `ClassEnrollments` linked to `diagnostic_submission_id`.
    - Returns full response payload with radar coordinates and Socratic guidance in under 2 seconds (Happy Case).
 
+### 3.2 Unhappy Cases Acceptance (Edge Cases & Resilience)
+1. **Unhappy Case 1 (Network Disconnection During Exam)**:
+   - Backend gracefully accepts submission payloads regardless of delay, computing accurate duration from recorded `time_spent_seconds` per question item.
+2. **Unhappy Case 2 (Abandoned Exam & 24-Hour Session Expiration)**:
+   - Submissions exceeding 24 hours (`(DateTime.UtcNow - StartedAt).TotalHours > 24` or `TotalTimeSpentSeconds > 86400`) are automatically intercepted.
+   - The session is persisted into the database with `Status = "EXPIRED"` and zero score, locking the old test.
+   - Returns RFC 7807 validation error `Exam.Expired`, prompting the student to retake a new randomized diagnostic test to protect psychometrics model integrity.
+   - Attempts to resubmit locked expired exams are prevented with `Exam.Locked`.
+3. **Unhappy Case 3 (Untracked Sub-Skills in Compact Exam)**:
+   - Missing sub-skills automatically inherit `P(L_0)` priors derived from their parent domain ability (`theta_domain`), preventing Topo Sort graph calculation failures.
+
 ---
 
-## 4. ACCEPTANCE & VERIFICATION RESULTS
+## 4. CORE FLOW 2 READINESS (PATH PLANNING & LIVE SESSIONS)
+
+### 4.1 Phase 1 Domain Entities & Database Mappings
+1. **`LearningRoadmap`**:
+   - Represents the personalized roadmap aggregate for each student, referencing the baseline diagnostic submission (`diagnostic_submission_id`).
+   - Tracks milestones progress (`total_milestones`, `completed_milestones`), time-budget pruning status (`is_pruned`, `pruned_reason`), and roadmap lifecycle (`ACTIVE`, `COMPLETED`, `ARCHIVED`).
+2. **`RoadmapNode`**:
+   - Encapsulates discrete milestones combining three components: theoretical lecture (`material_id`), formative quiz (`quiz_exam_id`), and live interactive session (`live_session_id`).
+   - Manages progressive milestone unlocking (`LOCKED`, `IN_PROGRESS`, `COMPLETED`, `SKIPPED_PRUNED`).
+3. **`LiveSession` & `LiveSessionAttendance`**:
+   - Manages physical campus cohort online Q&A sessions (`meeting_url`).
+   - Implements Unhappy Case 3 fallback: records sessions (`recording_url`, `is_recorded = true`) and tracks mandatory makeup quizzes (`makeup_quiz_id`, `is_makeup_quiz_passed = false`) for absent students.
+
+### 4.2 Phase 2 Graph Engine Algorithms
+1. **`TarjanCycleDetector`** (`Application/Common/Graph/TarjanCycleDetector.cs`):
+   - Implements Tarjan's Strongly Connected Components (SCC) algorithm for cycle detection in skill prerequisite graphs.
+   - Returns empty list for valid DAGs; detects multi-node cycles and self-loops.
+2. **`PathPruner`** (`Application/Common/Graph/PathPruner.cs`):
+   - Implements 3-tier pruning: weight threshold (<5%), mastery threshold (`P(L0) >= 85%`), and focus-concentration for high-value domains.
+   - Calculates available vs required time budget and triggers pruning when overloaded.
+3. **`TopologicalSorter`** (`Application/Common/Graph/TopologicalSorter.cs`):
+   - Implements Kahn's algorithm with pedagogical PriorityQueue multi-criteria scoring.
+   - Priority formula: `(1.0 - P(L0)) * 0.5 + Weight * 0.3 + IsWeak * 0.2`.
+4. **`MilestoneBinder`** (`Application/Common/Graph/MilestoneBinder.cs`):
+   - Converts Topo-sorted skill list into `RoadmapNode` entities with 3-component binding (Video, Quiz, Live).
+   - Initializes State Machine: first non-pruned milestone as `IN_PROGRESS`, rest as `LOCKED`.
+
+---
+
+## 5. ACCEPTANCE & VERIFICATION METRICS
 - **Diagnostic Assessment & AI Exam Studio Runner UI**: Interactive web runner hosted at `http://localhost:5261/view-diagnostic.html` with KaTeX formula support, interactive Chart.js Radar Chart, multi-scenario Demo Solver, and AI Exam Studio Tab with customizable teacher prompt and Bloom 6 difficulty levels.
 - **Database Save Pending & Publishing Flow**: Dedicated button to save generated exam into Supabase PostgreSQL with `IsPublished = false` (Pending Approval), seamlessly published (`IsPublished = true`) on teacher acceptance.
 - **Cognitive Taxonomy Standardization**: Standardized difficulty metrics across 6 Revised Bloom's Taxonomy levels (Remembering, Understanding, Applying, Analyzing, Evaluating, Creating).
 - **Solution Build**: Compiled cleanly with **0 Warning(s), 0 Error(s)** (`V-Eval-Practice_Service.sln`).
+- **Database Schema**: All 4 target tables (`LearningRoadmaps`, `RoadmapNodes`, `LiveSessions`, `LiveSessionAttendance`) mapped in `PracticeDbContext` under `v_eval_practice` schema and provisioned on Supabase PostgreSQL.
 - **End-to-End Integration Verification**: Complete automated test script (`e2e_core_flow1.ps1`) verified all 5 steps across 3 microservices (Identity, Content, Practice): **Passed 100%**.
 - **REST & gRPC Dual Port Protocol Architecture**:
   - Identity Service: Port 5155 (REST HTTP/1) + Port 5156 (gRPC HTTP/2).

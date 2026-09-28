@@ -1,5 +1,49 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [28/09/2026] - Triển Khai Giai Đoạn 2 Core Flow 2: Graph Engine 4 Thuật Toán Đồ Thị & Toán Học
+- **Thuật Toán 1: `TarjanCycleDetector.cs` (Tarjan SCC)**:
+  - Cài đặt thuật toán Tarjan tìm SCC phát hiện chu trình kín trong đồ thị tiên quyết kỹ năng.
+- **Thuật Toán 2: `PathPruner.cs` (Path Pruning Engine)**:
+  - Cài đặt chiến lược cắt tỉa 3 tầng: Trọng số < 5%, `P(L0) >= 85%`, dồn trọng tâm điểm rơi.
+- **Thuật Toán 3: `TopologicalSorter.cs` (Kahn + Priority Queue)**:
+  - Cài đặt thuật toán Kahn Topological Sort với hàm ưu tiên sư phạm đa tiêu chí.
+- **Thuật Toán 4: `MilestoneBinder.cs` (Milestone Binding Engine)**:
+  - Chuyển đổi danh sách kỹ năng Topo thành `RoadmapNode`, gắn kết 3 thành phần và khởi tạo State Machine.
+- **Kiểm Thử Biên Dịch**: Solution biên dịch sạch 100% (**0 Warning, 0 Error**) sau mỗi thuật toán.
+
+---
+
+## [28/09/2026] - Khởi Tạo Thực Thể LearningRoadmaps, RoadmapNodes, LiveSessions & LiveSessionAttendance (Core Flow 2 - Giai Đoạn 1)
+- **Thực Thể Lộ Trình Cá Nhân Hóa & Chặng Học (`LearningRoadmap.cs` & `RoadmapNode.cs`)**:
+  - Khởi tạo entity [`LearningRoadmap.cs`](../V-Eval-Practice_Service.Domain/Entities/LearningRoadmap.cs) quản lý lộ trình học tập cá nhân hóa, liên kết với kết quả bài thi chẩn đoán `ExamSubmissions`, lưu trữ trạng thái cắt tỉa (`IsPruned`, `PrunedReason`) và tổng số mốc học.
+  - Khởi tạo entity [`RoadmapNode.cs`](../V-Eval-Practice_Service.Domain/Entities/RoadmapNode.cs) đại diện cho từng chặng học (Milestone) tích hợp chặt chẽ 3 thành phần: Bài giảng lý thuyết (`material_id`), Bài Quiz củng cố (`quiz_exam_id`), và Buổi Live Q&A (`live_session_id`).
+- **Thực Thể Lịch Học Trực Tuyến & Điểm Danh (`LiveSession.cs` & `LiveSessionAttendance.cs`)**:
+  - Khởi tạo entity [`LiveSession.cs`](../V-Eval-Practice_Service.Domain/Entities/LiveSession.cs) quản lý các buổi học Live Q&A của lớp cơ sở, bổ sung trường `RecordingUrl` và `IsRecorded` phục vụ Unhappy Case 3 (xem lại video khi vắng mặt).
+  - Khởi tạo entity [`LiveSessionAttendance.cs`](../V-Eval-Practice_Service.Domain/Entities/LiveSessionAttendance.cs) quản lý điểm danh và điều kiện vượt qua bài Quiz bù (`MakeupQuizId`, `IsMakeupQuizPassed`).
+- **Cấu Hình CSDL EF Core 9 (`PracticeDbContext.cs`)**:
+  - Đăng ký 4 `DbSet` mới: `LearningRoadmaps`, `RoadmapNodes`, `LiveSessions`, `LiveSessionAttendances` thuộc schema `v_eval_practice`.
+  - Cấu hình khóa ngoại, quan hệ 1-N cascade và cascade delete hợp lý giữa Roadmaps - Nodes và LiveSessions - Attendances.
+- **Kiểm Thử Biên Dịch & CSDL Supabase**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Khởi tạo thành công các bảng và trường tương ứng trên PostgreSQL Supabase.
+
+---
+
+## [28/09/2026] - Triển Khai Xử Lý Kịch Bản Ngoại Lệ (Unhappy Case 2): Khóa Bài Thi Quá Hạn 24h & Chống Gian Lận Nộp Lại
+- **Kiểm Định Hết Hạn 24 Giờ & Tự Động Khóa Bài Thi (`SubmitDiagnosticCommandHandler.cs`)**:
+  - Triển khai cơ chế kiểm tra thời gian làm bài: Nếu học sinh bỏ dở bài kiểm tra quá 24 giờ (`(DateTime.UtcNow - StartedAt).TotalHours > 24` hoặc tổng `TimeSpentSeconds > 86400`), hệ thống tự động đánh dấu phiên làm bài với `Status = "EXPIRED"`.
+  - Tự động lưu bản ghi hết hạn vào bảng `ExamSubmissions` với điểm số bằng 0, không tính toán tham số năng lực $\theta_0$ nhằm bảo vệ độ tin cậy của mô hình psychometrics.
+  - Trả về mã lỗi chuẩn RFC 7807 `Exam.Expired`, hướng dẫn học sinh làm lại bài chẩn đoán ngẫu nhiên mới.
+- **Chống Gian Lận Nộp Lại Đề Thi Đã Khóa / Đã Hoàn Thành**:
+  - Tự động kiểm tra lịch sử nộp bài: Nếu đề thi đã từng bị đánh dấu `EXPIRED`, hệ thống lập tức từ chối và trả về lỗi `Exam.Locked`.
+  - Nếu đề thi đã được hoàn thành trước đó (`COMPLETED`), hệ thống từ chối nộp lại với mã `Exam.AlreadyCompleted` (HTTP 409 Conflict).
+- **Mở Rộng DTO Phản Hồi (`DiagnosticSubmissionDtos.cs`)**:
+  - Bổ sung trường `Status` vào `SubmitDiagnosticResponseDto` và `DiagnosticSubmissionSummaryDto`, đồng bộ trạng thái bài thi (`COMPLETED`, `EXPIRED`) trên toàn bộ các endpoint tra cứu.
+- **Kiểm Thử Biên Dịch**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
 ## [27/09/2026] - Phát Hành Giao Diện Làm Thử Đề Thi Chẩn Đoán (30 Câu), AI Exam Studio (Custom Prompt, Bloom 6 Cấp, Lưu DB Chờ Duyệt) & Trực Quan Hóa Radar Chart
 - **Phát Hành Giao Diện Web Khảo Sát Năng Lực Đầu Vào (`wwwroot/view-diagnostic.html`)**:
   - Xây dựng giao diện web độc lập phong cách Glassmorphism hiện đại (Inter, Outfit, KaTeX, Chart.js) hỗ trợ kiểm thử thực tế và mô phỏng luồng Core Flow 1.

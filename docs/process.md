@@ -19,6 +19,10 @@
 ### 2. Sơ Đồ CSDL PostgreSQL Schema `practice`
 - `practice.exam_submissions`: Phiên nộp bài thi (`submission_id`, `student_id`, `exam_id`, `exam_type`, `total_score`, `total_correct`, `total_questions`, `total_time_spent_seconds`, `started_at`, `completed_at`, `status`).
 - `practice.submission_answers`: Chi tiết 30 câu trả lời (`answer_id`, `submission_id`, `question_id`, `selected_option`, `is_correct`, `time_spent_seconds`).
+- `practice.LearningRoadmaps`: Lộ trình học tập cá nhân hóa (`roadmap_id`, `student_id`, `target_score`, `total_milestones`, `is_pruned`, `status`).
+- `practice.RoadmapNodes`: Chặng học 3 thành phần (`node_id`, `roadmap_id`, `skill_id`, `step_order`, `material_id`, `quiz_exam_id`, `live_session_id`, `status`).
+- `practice.LiveSessions`: Buổi học trực tuyến Live Q&A của lớp (`session_id`, `class_id`, `scheduled_at`, `meeting_url`, `recording_url`, `is_recorded`, `status`).
+- `practice.LiveSessionAttendance`: Điểm danh và bài Quiz bù (`attendance_id`, `session_id`, `student_id`, `attendance_status`, `makeup_quiz_id`, `is_makeup_quiz_passed`).
 
 ---
 
@@ -40,9 +44,12 @@
 | 12 | **API Tra Cứu Bài Nộp Theo ID** | `DiagnosticSubmissionsController` | 🟢 Hoàn thành | 100% | `GET /api/v1/practice/diagnostic-submissions/{id}` |
 | 13 | **API Lịch Sử Bài Làm Học Sinh**| `DiagnosticSubmissionsController` | 🟢 Hoàn thành | 100% | `GET /api/v1/practice/diagnostic-submissions/student/{studentId}` |
 | 14 | **Swagger UI & ProblemDetails** | `Program.cs` / `ApiControllerBase` | 🟢 Hoàn thành | 100% | Swagger UI tại `http://localhost:5261/swagger`, RFC 7807 |
-| 15 | **Core Flow 1 (Bước 4): Tích Hợp AI Subsystem (IRT & BKT)** | `HttpClients/AiDiagnosticClient.cs` & `SubmitDiagnosticCommandHandler.cs` | 🟢 Hoàn thành | 100% | Gửi 30 câu sang `AI Engine` -> Nhận `theta_0`, `P(L_0)` Sigmoid, Radar Chart, nhận xét Gemini |
-| 16 | **Core Flow 1 (Bước 5): Tự Động Gợi Ý Phân Lớp Tại Campus** | `Repositories/ClassEnrollmentRepository.cs` | 🟢 Hoàn thành | 100% | Phân lớp `theta_0` (FOUNDATION / ACCELERATION / BREAKTHROUGH) -> Tự động ghi danh `ClassEnrollments` |
-| 17 | **Chuẩn Hóa Thang Đo Bloom 6 Mức Độ** | `Domain/Constants/BloomTaxonomy.cs` | 🟢 Hoàn thành | 100% | Revised Bloom's Taxonomy 6 cấp độ (Nhận biết -> Sáng tạo) cho Difficulty Breakdown |
-| 18 | **Giao Diện Khảo Sát & Radar Chart Runner** | `wwwroot/view-diagnostic.html` | 🟢 Hoàn thành | 100% | UI test thực tế 30 câu, tích hợp KaTeX, Chart.js Radar, Demo Solver đa kịch bản |
-| 19 | **AI Exam Studio & Custom Prompting** | `wwwroot/view-diagnostic.html` | 🟢 Hoàn thành | 100% | Sinh đề tùy biến 5 môn hoặc V-ACT, nhận diện ý định prompt, chọn Bloom 6 cấp, Dual Engine |
-| 20 | **Lưu Đề CSDL Chờ Duyệt & Xuất Bản** | `wwwroot/view-diagnostic.html` & Content API | 🟢 Hoàn thành | 100% | Nút lưu Supabase `IsPublished = false` (Chờ duyệt), duyệt khi bấm ACCEPT gọi publish (`IsPublished = true`) |
+| 15 | **Core Flow 1 (Bước 4): Tích Hợp AI Subsystem (IRT & BKT)** | `HttpClients/AiDiagnosticClient.cs` & `SubmitDiagnosticCommandHandler.cs` | 🟢 Hoàn thành | 100% | Gửi 30 câu sang `AI Engine` -> Nhận `` `\theta_0` ``, `` `P(L_0)` `` Sigmoid, Radar Chart, nhận xét Gemini |
+| 16 | **Core Flow 1 (Bước 5): Tự Động Gợi Ý Phân Lớp Tại Campus** | `Repositories/ClassEnrollmentRepository.cs` | 🟢 Hoàn thành | 100% | Phân lớp `` `\theta_0` `` (FOUNDATION / ACCELERATION / BREAKTHROUGH) -> Tự động ghi danh `ClassEnrollments` |
+| 17 | **Core Flow 1 (Unhappy Case 2): Khóa Bài Thi Hết Hạn 24h & Khóa Đề** | `SubmitDiagnosticCommandHandler.cs` | 🟢 Hoàn thành | 100% | Phát hiện bỏ dở > 24h, ghi nhận `EXPIRED`, khóa đề thi và chống gian lận nộp lại |
+| 18 | **Chuẩn Hóa Thang Đo Bloom 6 Mức Độ** | `Domain/Constants/BloomTaxonomy.cs` | 🟢 Hoàn thành | 100% | Revised Bloom's Taxonomy 6 cấp độ (Nhận biết -> Sáng tạo) cho Difficulty Breakdown |
+| 19 | **Giao Diện Khảo Sát & Radar Chart Runner** | `wwwroot/view-diagnostic.html` | 🟢 Hoàn thành | 100% | UI test thực tế 30 câu, tích hợp KaTeX, Chart.js Radar, Demo Solver đa kịch bản |
+| 20 | **AI Exam Studio & Custom Prompting** | `wwwroot/view-diagnostic.html` | 🟢 Hoàn thành | 100% | Sinh đề tùy biến 5 môn hoặc V-ACT, nhận diện ý định prompt, chọn Bloom 6 cấp, Dual Engine |
+| 21 | **Lưu Đề CSDL Chờ Duyệt & Xuất Bản** | `wwwroot/view-diagnostic.html` & Content API | 🟢 Hoàn thành | 100% | Nút lưu Supabase `IsPublished = false` (Chờ duyệt), duyệt khi bấm ACCEPT gọi publish (`IsPublished = true`) |
+| 22 | **Core Flow 2 (Phase 1): Thực Thể Roadmaps & LiveSessions** | `Domain/Entities/` & `Infrastructure/Persistence/PracticeDbContext.cs` | 🟢 Hoàn thành | 100% | `LearningRoadmap`, `RoadmapNode`, `LiveSession`, `LiveSessionAttendance` và Fluent API mappings |
+| 23 | **Core Flow 2 (Phase 2): Graph Engine 4 Thuật Toán** | `Application/Common/Graph/` | 🟢 Hoàn thành | 100% | `TarjanCycleDetector`, `PathPruner`, `TopologicalSorter`, `MilestoneBinder` |
