@@ -41,6 +41,7 @@ public class GetDiagnosticSubmissionsByStudentHandler
                 StudentId = submission.StudentId,
                 ExamId = submission.ExamId,
                 ExamType = submission.ExamType,
+                Status = submission.Status,
                 TotalScore = submission.TotalScore,
                 TotalCorrect = submission.TotalCorrect,
                 TotalQuestions = submission.TotalQuestions,

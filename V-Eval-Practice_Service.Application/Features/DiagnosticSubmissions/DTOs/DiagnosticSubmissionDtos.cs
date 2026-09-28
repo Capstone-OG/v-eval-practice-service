@@ -62,6 +62,7 @@ public class SubmitDiagnosticResponseDto
     public Guid StudentId { get; set; }
     public Guid ExamId { get; set; }
     public string ExamType { get; set; } = "DIAGNOSTIC";
+    public string Status { get; set; } = "COMPLETED";
     public int TotalScore { get; set; } // Raw score: 0 - 30
     public int TotalCorrect { get; set; }
     public int TotalQuestions { get; set; }
@@ -121,6 +122,7 @@ public class DiagnosticSubmissionSummaryDto
     public Guid StudentId { get; set; }
     public Guid ExamId { get; set; }
     public string ExamType { get; set; } = "DIAGNOSTIC";
+    public string Status { get; set; } = "COMPLETED";
     public int TotalScore { get; set; } // Raw score: 0 - 30
     public int TotalCorrect { get; set; }
     public int TotalQuestions { get; set; }

@@ -62,7 +62,67 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                 Error.Validation("Student.CampusRequired", "Học sinh cần chọn cơ sở đào tạo (Campus) trước khi thực hiện bài kiểm tra chẩn đoán năng lực."));
         }
 
-        // 2. Lấy bảng đáp án và metadata từ Content Service gRPC
+        // 2. Kiểm tra kịch bản ngoại lệ (Unhappy Cases): Khóa bài thi đã hết hạn hoặc đã hoàn thành
+        var existingSubmissions = await _submissionRepository.GetByStudentIdAsync(request.StudentId, cancellationToken);
+        var previousExpired = existingSubmissions.FirstOrDefault(s => s.ExamId == request.ExamId && s.Status == "EXPIRED");
+        if (previousExpired != null)
+        {
+            return Result<SubmitDiagnosticResponseDto>.Failure(
+                Error.Validation("Exam.Locked", $"Bài kiểm tra chẩn đoán {request.ExamId} đã bị khóa do hết hạn trước đó (EXPIRED). Vui lòng làm lại một bài chẩn đoán ngẫu nhiên khác để đảm bảo dữ liệu năng lực theta_0 không bị sai lệch."));
+        }
+
+        var previousCompleted = existingSubmissions.FirstOrDefault(s => s.ExamId == request.ExamId && s.Status == "COMPLETED");
+        if (previousCompleted != null)
+        {
+            return Result<SubmitDiagnosticResponseDto>.Failure(
+                Error.Conflict("Exam.AlreadyCompleted", $"Học sinh đã hoàn thành bài kiểm tra chẩn đoán này trước đó (Mã bài nộp: {previousCompleted.SubmissionId}). Không thể nộp lại."));
+        }
+
+        // Kiểm tra Unhappy Case 2: Học sinh thoát app hoặc bỏ dở bài kiểm tra quá 24 giờ
+        bool isExpired = false;
+        DateTime startTime = request.StartedAt ?? DateTime.UtcNow;
+        if (request.StartedAt.HasValue && (DateTime.UtcNow - request.StartedAt.Value).TotalHours > 24)
+        {
+            isExpired = true;
+            startTime = request.StartedAt.Value;
+        }
+        else if (request.Answers != null && request.Answers.Sum(a => a.TimeSpentSeconds) > 86400) // 24 giờ = 86400 giây
+        {
+            isExpired = true;
+            startTime = DateTime.UtcNow.AddSeconds(-request.Answers.Sum(a => a.TimeSpentSeconds));
+        }
+
+        if (isExpired)
+        {
+            var expiredSubmission = new ExamSubmission
+            {
+                SubmissionId = Guid.NewGuid(),
+                StudentId = request.StudentId,
+                ExamId = request.ExamId,
+                ExamType = "DIAGNOSTIC",
+                TotalScore = 0,
+                TotalCorrect = 0,
+                TotalQuestions = request.Answers?.Count ?? 0,
+                TotalTimeSpentSeconds = (int)Math.Min((DateTime.UtcNow - startTime).TotalSeconds, int.MaxValue),
+                StartedAt = startTime,
+                CompletedAt = DateTime.UtcNow,
+                Status = "EXPIRED",
+                Theta0 = null,
+                PlacementClass = null,
+                AiCommentary = "Bài kiểm tra chẩn đoán đã quá thời hạn 24 giờ do học sinh bỏ dở (EXPIRED). Hệ thống đã tự động khóa bài kiểm tra cũ để bảo vệ độ tin cậy của tham số năng lực theta_0."
+            };
+
+            await _submissionRepository.AddAsync(expiredSubmission, cancellationToken);
+            await _submissionRepository.SaveChangesAsync(cancellationToken);
+
+            _logger.LogWarning("Diagnostic exam submission for Student {StudentId}, Exam {ExamId} expired (>24h). Locked and marked as EXPIRED.",
+                request.StudentId, request.ExamId);
+
+            return Result<SubmitDiagnosticResponseDto>.Failure(
+                Error.Validation("Exam.Expired", "Phiên làm bài kiểm tra chẩn đoán đã quá 24 giờ và đã hết hạn (EXPIRED). Hệ thống đã khóa bài test cũ. Vui lòng làm lại một bài chẩn đoán ngẫu nhiên khác để đảm bảo dữ liệu theta_0 không sai lệch."));
+        }
+
+        // 3. Lấy bảng đáp án và metadata từ Content Service gRPC
         var answerKeys = await _contentGrpcClient.GetExamAnswerKeysAsync(request.ExamId, cancellationToken);
         if (answerKeys.Count == 0)
         {
@@ -70,8 +130,9 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                 Error.NotFound("Exam.NotFound", $"Không tìm thấy bộ đề thi hoặc đề thi {request.ExamId} chưa có câu hỏi."));
         }
 
-        // 3. Tiến hành chấm điểm và ghi nhận vi mô từng câu
-        var studentAnswersMap = request.Answers.ToDictionary(a => a.QuestionId, a => a);
+        // 4. Tiến hành chấm điểm và ghi nhận vi mô từng câu
+        var answersList = request.Answers ?? new List<QuestionAnswerInputDto>();
+        var studentAnswersMap = answersList.ToDictionary(a => a.QuestionId, a => a);
         var submissionAnswers = new List<SubmissionAnswer>();
         var questionResults = new List<QuestionResultDto>();
 
@@ -325,6 +386,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             StudentId = submission.StudentId,
             ExamId = submission.ExamId,
             ExamType = submission.ExamType,
+            Status = submission.Status,
             CampusId = campusId,
             CampusName = campusName ?? string.Empty,
             TotalScore = submission.TotalScore,

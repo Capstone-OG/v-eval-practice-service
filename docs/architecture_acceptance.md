@@ -47,16 +47,27 @@
    - Grouping by `DifficultyLevel` (Easy, Medium, Hard, Very Hard) to profile cognitive performance.
 5. **AI Subsystem Integration (Step 4)**:
    - Practice Service dispatches the 30-question diagnostic vector to `AI Engine` (`POST /api/v1/diagnostic/analyze`).
-   - Estimates overall ability $\theta_0 \in [-3.0, +3.0]$ (IRT 2PL + MAP).
-   - Calculates initial mastery priors $P(L_0) \in [0.05, 0.95]$ for all skills (Logistic Sigmoid), handling missing branch skills via domain-level fallback.
-   - Generates multi-domain radar chart coordinates against the student's target score ($800/1200$).
+   - Estimates overall ability `` `\theta_0 \in [-3.0, +3.0]` `` (IRT 2PL + MAP).
+   - Calculates initial mastery priors `` `P(L_0) \in [0.05, 0.95]` `` for all skills (Logistic Sigmoid), handling missing branch skills via domain-level fallback.
+   - Generates multi-domain radar chart coordinates against the student's target score (`800/1200`).
    - Dynamically produces Socratic pedagogical feedback via Gemini.
    - Saves initial mastery priors into `LearningProfiles` (`mastery_score = p_l0`).
 6. **Automatic Campus Class Placement (Step 5)**:
-   - Evaluates placement tier based on $\theta_0$: `FOUNDATION` ($\theta_0 < -0.5$), `ACCELERATION` ($-0.5 \le \theta_0 \le 0.5$), `BREAKTHROUGH` ($\theta_0 > 0.5$).
+   - Evaluates placement tier based on `` `\theta_0` ``: `FOUNDATION` (`` `\theta_0 < -0.5` ``), `ACCELERATION` (`` `-0.5 \le \theta_0 \le 0.5` ``), `BREAKTHROUGH` (`` `\theta_0 > 0.5` ``).
    - Finds or initializes the corresponding class in `Classes` for the student's registered `CampusId`.
    - Records enrollment in `ClassEnrollments` linked to `diagnostic_submission_id`.
    - Returns full response payload with radar coordinates and Socratic guidance in under 2 seconds (Happy Case).
+
+### 3.2 Unhappy Cases Acceptance (Edge Cases & Resilience)
+1. **Unhappy Case 1 (Network Disconnection During Exam)**:
+   - Backend gracefully accepts submission payloads regardless of delay, computing accurate duration from recorded `time_spent_seconds` per question item.
+2. **Unhappy Case 2 (Abandoned Exam & 24-Hour Session Expiration)**:
+   - Submissions exceeding 24 hours (`(DateTime.UtcNow - StartedAt).TotalHours > 24` or `TotalTimeSpentSeconds > 86400`) are automatically intercepted.
+   - The session is persisted into the database with `Status = "EXPIRED"` and zero score, locking the old test.
+   - Returns RFC 7807 validation error `Exam.Expired`, prompting the student to retake a new randomized diagnostic test to protect psychometrics model integrity.
+   - Attempts to resubmit locked expired exams are prevented with `Exam.Locked`.
+3. **Unhappy Case 3 (Untracked Sub-Skills in Compact Exam)**:
+   - Missing sub-skills automatically inherit `P(L_0)` priors derived from their parent domain ability (`theta_domain`), preventing Topo Sort graph calculation failures.
 
 ---
 
