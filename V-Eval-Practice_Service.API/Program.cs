@@ -56,6 +56,7 @@ var app = builder.Build();
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
 app.UseCors("AllowAll");
+app.UseStaticFiles();
 
 // 6. Kích hoạt Swagger UI
 app.UseSwagger();

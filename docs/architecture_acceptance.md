@@ -101,6 +101,9 @@
 ---
 
 ## 5. ACCEPTANCE & VERIFICATION METRICS
+- **Diagnostic Assessment & AI Exam Studio Runner UI**: Interactive web runner hosted at `http://localhost:5261/view-diagnostic.html` with KaTeX formula support, interactive Chart.js Radar Chart, multi-scenario Demo Solver, and AI Exam Studio Tab with customizable teacher prompt and Bloom 6 difficulty levels.
+- **Database Save Pending & Publishing Flow**: Dedicated button to save generated exam into Supabase PostgreSQL with `IsPublished = false` (Pending Approval), seamlessly published (`IsPublished = true`) on teacher acceptance.
+- **Cognitive Taxonomy Standardization**: Standardized difficulty metrics across 6 Revised Bloom's Taxonomy levels (Remembering, Understanding, Applying, Analyzing, Evaluating, Creating).
 - **Solution Build**: Compiled cleanly with **0 Warning(s), 0 Error(s)** (`V-Eval-Practice_Service.sln`).
 - **Database Schema**: All 4 target tables (`LearningRoadmaps`, `RoadmapNodes`, `LiveSessions`, `LiveSessionAttendance`) mapped in `PracticeDbContext` under `v_eval_practice` schema and provisioned on Supabase PostgreSQL.
 - **End-to-End Integration Verification**: Complete automated test script (`e2e_core_flow1.ps1`) verified all 5 steps across 3 microservices (Identity, Content, Practice): **Passed 100%**.
