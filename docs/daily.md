@@ -1,5 +1,18 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [28/09/2026] - Triển Khai Giai Đoạn 2 Core Flow 2: Graph Engine 4 Thuật Toán Đồ Thị & Toán Học
+- **Thuật Toán 1: `TarjanCycleDetector.cs` (Tarjan SCC)**:
+  - Cài đặt thuật toán Tarjan tìm SCC phát hiện chu trình kín trong đồ thị tiên quyết kỹ năng.
+- **Thuật Toán 2: `PathPruner.cs` (Path Pruning Engine)**:
+  - Cài đặt chiến lược cắt tỉa 3 tầng: Trọng số < 5%, `P(L0) >= 85%`, dồn trọng tâm điểm rơi.
+- **Thuật Toán 3: `TopologicalSorter.cs` (Kahn + Priority Queue)**:
+  - Cài đặt thuật toán Kahn Topological Sort với hàm ưu tiên sư phạm đa tiêu chí.
+- **Thuật Toán 4: `MilestoneBinder.cs` (Milestone Binding Engine)**:
+  - Chuyển đổi danh sách kỹ năng Topo thành `RoadmapNode`, gắn kết 3 thành phần và khởi tạo State Machine.
+- **Kiểm Thử Biên Dịch**: Solution biên dịch sạch 100% (**0 Warning, 0 Error**) sau mỗi thuật toán.
+
+---
+
 ## [28/09/2026] - Khởi Tạo Thực Thể LearningRoadmaps, RoadmapNodes, LiveSessions & LiveSessionAttendance (Core Flow 2 - Giai Đoạn 1)
 - **Thực Thể Lộ Trình Cá Nhân Hóa & Chặng Học (`LearningRoadmap.cs` & `RoadmapNode.cs`)**:
   - Khởi tạo entity [`LearningRoadmap.cs`](../V-Eval-Practice_Service.Domain/Entities/LearningRoadmap.cs) quản lý lộ trình học tập cá nhân hóa, liên kết với kết quả bài thi chẩn đoán `ExamSubmissions`, lưu trữ trạng thái cắt tỉa (`IsPruned`, `PrunedReason`) và tổng số mốc học.

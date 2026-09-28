@@ -48,3 +48,4 @@
 | 16 | **Core Flow 1 (Bước 5): Tự Động Gợi Ý Phân Lớp Tại Campus** | `Repositories/ClassEnrollmentRepository.cs` | 🟢 Hoàn thành | 100% | Phân lớp `` `\theta_0` `` (FOUNDATION / ACCELERATION / BREAKTHROUGH) -> Tự động ghi danh `ClassEnrollments` |
 | 17 | **Core Flow 1 (Unhappy Case 2): Khóa Bài Thi Hết Hạn 24h & Khóa Đề** | `SubmitDiagnosticCommandHandler.cs` | 🟢 Hoàn thành | 100% | Phát hiện bỏ dở > 24h, ghi nhận `EXPIRED`, khóa đề thi và chống gian lận nộp lại |
 | 18 | **Core Flow 2 (Phase 1): Thực Thể Roadmaps & LiveSessions** | `Domain/Entities/` & `Infrastructure/Persistence/PracticeDbContext.cs` | 🟢 Hoàn thành | 100% | `LearningRoadmap`, `RoadmapNode`, `LiveSession`, `LiveSessionAttendance` và Fluent API mappings |
+| 19 | **Core Flow 2 (Phase 2): Graph Engine 4 Thuật Toán** | `Application/Common/Graph/` | 🟢 Hoàn thành | 100% | `TarjanCycleDetector`, `PathPruner`, `TopologicalSorter`, `MilestoneBinder` |

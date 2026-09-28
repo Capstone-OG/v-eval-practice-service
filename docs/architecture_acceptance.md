@@ -84,6 +84,20 @@
    - Manages physical campus cohort online Q&A sessions (`meeting_url`).
    - Implements Unhappy Case 3 fallback: records sessions (`recording_url`, `is_recorded = true`) and tracks mandatory makeup quizzes (`makeup_quiz_id`, `is_makeup_quiz_passed = false`) for absent students.
 
+### 4.2 Phase 2 Graph Engine Algorithms
+1. **`TarjanCycleDetector`** (`Application/Common/Graph/TarjanCycleDetector.cs`):
+   - Implements Tarjan's Strongly Connected Components (SCC) algorithm for cycle detection in skill prerequisite graphs.
+   - Returns empty list for valid DAGs; detects multi-node cycles and self-loops.
+2. **`PathPruner`** (`Application/Common/Graph/PathPruner.cs`):
+   - Implements 3-tier pruning: weight threshold (<5%), mastery threshold (`P(L0) >= 85%`), and focus-concentration for high-value domains.
+   - Calculates available vs required time budget and triggers pruning when overloaded.
+3. **`TopologicalSorter`** (`Application/Common/Graph/TopologicalSorter.cs`):
+   - Implements Kahn's algorithm with pedagogical PriorityQueue multi-criteria scoring.
+   - Priority formula: `(1.0 - P(L0)) * 0.5 + Weight * 0.3 + IsWeak * 0.2`.
+4. **`MilestoneBinder`** (`Application/Common/Graph/MilestoneBinder.cs`):
+   - Converts Topo-sorted skill list into `RoadmapNode` entities with 3-component binding (Video, Quiz, Live).
+   - Initializes State Machine: first non-pruned milestone as `IN_PROGRESS`, rest as `LOCKED`.
+
 ---
 
 ## 5. ACCEPTANCE & VERIFICATION METRICS
