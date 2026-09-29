@@ -127,6 +127,17 @@
    - Validates prerequisites: enforces $\ge 80\%$ lecture watch completion and verified `ABSENT` attendance status.
    - Grades makeup quiz (5 questions) server-to-server via Content Service gRPC and creates audit submission (`ExamType = "MAKEUP_QUIZ"`).
    - Milestone Unblocking: When student achieves $\ge 60\%$ (`IsMakeupQuizPassed = true`) AND has passed the formative milestone quiz (`node.IsQuizPassed = true`), the absenteeism block is fully cleared, milestone transitions to `COMPLETED`, and next `LOCKED` milestone transitions to `IN_PROGRESS`.
+8. **API 8 - Create Live Q&A Session (`POST /api/v1/practice/live-sessions`)**:
+   - Enables Academic Managers to schedule live cohort Q&A sessions linked to campus classes (`Classes`).
+   - Automatically binds class teacher (`TeacherId`) if omitted and generates unique room links (`MeetingUrl`).
+9. **API 9 - Assign Teacher to Campus Class (`PUT /api/v1/practice/classes/{classId}/assign-teacher`)**:
+   - Facilitates cohort teacher assignment and reassignment (`TeacherId`, `AssignedBy`, `AssignedAt`).
+10. **API 10 - Get Student Live Q&A Cohort Schedule (`GET /api/v1/practice/live-sessions/my-schedule`)**:
+    - Queries active campus enrollment (`ClassEnrollments`) and retrieves upcoming live sessions.
+    - Aggregates individual attendance status (`ATTENDED`, `ABSENT`, `NOT_ATTENDED`), recording links, and makeup quiz results.
+11. **API 11 - Join Live Session & Auto Attendance Tracking (`POST /api/v1/practice/live-sessions/{sessionId}/join`)**:
+    - Validates session state (rejects cancelled sessions) and supplies live room URL (`MeetingUrl`).
+    - Upserts `LiveSessionAttendance` recording `AttendanceStatus = "ATTENDED"` and exact participation timestamp (`JoinedAt = UtcNow`).
 
 ---
 

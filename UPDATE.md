@@ -1,29 +1,26 @@
 # Nhật Ký Cập Nhật (Update Log) - Practice Service
 
-## [29/09/2026] - Triển Khai Hoàn Thiện API 7: Nộp Bài Quiz Bù Cho Học Sinh Vắng Mặt Buổi Live Q&A & Giải Phóng Phong Tỏa Chặng
+## [29/09/2026] - Triển Khai Hoàn Thiện Giai Đoạn 3: Quản Lý Buổi Học Live Q&A, Phân Công Giáo Viên, Thời Khóa Biểu & Điểm Danh Trực Tuyến (APIs 8, 9, 10, 11)
 
-- **Kiến Trúc CQRS & Result Pattern Cho Phân Hệ Lộ Trình (Features/Roadmaps/Commands/SubmitMakeupQuiz)**:
-  - Khởi tạo DTOs [`SubmitMakeupQuizDtos.cs`](./V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/SubmitMakeupQuizDtos.cs): `SubmitMakeupQuizRequestDto`, `SubmitMakeupQuizResponseDto`.
-  - Xây dựng FluentValidation `SubmitMakeupQuizCommandValidator` kiểm tra ràng buộc đầu vào.
-  - Triển khai `SubmitMakeupQuizCommand` và [`SubmitMakeupQuizCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Roadmaps/Commands/SubmitMakeupQuiz/SubmitMakeupQuizCommandHandler.cs):
-    1. Kiểm tra tồn tại chặng học (`404 Not Found`) và phân quyền sở hữu học sinh (`403 Forbidden`).
-    2. Kiểm tra State Machine: Chặn nếu chặng học bị khóa (`LOCKED`) hoặc đã cắt tỉa (`SKIPPED_PRUNED`).
-    3. Kiểm tra điều kiện tiên quyết xem video: Bắt buộc `node.IsVideoCompleted == true` (xem $\ge 80\%$ video bài giảng lý thuyết).
-    4. Kiểm tra buổi Live Q&A và trạng thái điểm danh: Bắt buộc chặng học có liên kết buổi Live (`node.LiveSessionId != null`) và học sinh có trạng thái điểm danh là `ABSENT` trong `LiveSessionAttendance` (chặn `400 BadRequest` nếu không thuộc diện vắng mặt).
-    5. Tự động khởi tạo hoặc nạp đề Quiz bù từ Content Service qua gRPC `GetMilestoneQuizAsync` (nếu chưa gán).
-    6. Lấy bảng đáp án gốc bảo mật từ Content Service qua gRPC `GetExamAnswerKeysAsync(attendance.MakeupQuizId)`.
-    7. Chấm điểm chi tiết từng câu hỏi, lưu bản ghi làm bài vào `ExamSubmissions` (`ExamType = "MAKEUP_QUIZ"`).
-    8. Cập nhật `attendance.IsMakeupQuizPassed = isPassed` ($\ge 60\%$).
-    9. **Kích Hoạt Máy Trạng Thái Hữu Hạn (FSM)**:
-       - Nếu vượt qua bài Quiz bù VÀ học sinh đã vượt qua cả bài Quiz củng cố chuyên đề (`node.IsQuizPassed == true`): Hệ thống chính thức gỡ bỏ điều kiện phong tỏa do vắng mặt, đánh dấu chặng `Status = "COMPLETED"`, tăng `roadmap.CompletedMilestones++` và tự động mở khóa chặng `LOCKED` kế tiếp thành `IN_PROGRESS` (`UnlockedAt = UtcNow`).
-       - Nếu trượt bài Quiz bù ($< 60\%$): Chặng tiếp tục bị giữ ở `IN_PROGRESS`, nhắc học sinh xem lại video ghi hình buổi Live (`recording_url`) và làm lại bài Quiz bù.
-- **Tầng API Controller (`RoadmapsController.cs`)**:
-  - Bổ sung endpoint `[HttpPost("nodes/{nodeId:guid}/submit-makeup-quiz")]` kèm bóc tách `X-User-Id` header xác thực phân quyền.
+- **API 8: Tạo Lịch Buổi Học Live Q&A Cho Lớp Học Cơ Sở (`POST /api/v1/practice/live-sessions`)**:
+  - Khởi tạo Repository [`ILiveSessionRepository.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILiveSessionRepository.cs) và [`LiveSessionRepository.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LiveSessionRepository.cs) quản lý thực thể `LiveSessions` và `LiveSessionAttendance`. Đăng ký Scoped trong `DependencyInjection.cs`.
+  - Khởi tạo CQRS: [`CreateLiveSessionDtos.cs`](./V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/CreateLiveSessionDtos.cs), `CreateLiveSessionCommand.cs`, `CreateLiveSessionCommandValidator.cs`, [`CreateLiveSessionCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/LiveSessions/Commands/CreateLiveSession/CreateLiveSessionCommandHandler.cs).
+  - Nghiệp vụ: Xác thực lớp học tồn tại, tự động kế thừa `TeacherId` của lớp nếu không truyền, sinh link phòng học `meeting_url` nếu chưa có, lưu bản ghi trạng thái `SCHEDULED`.
+- **API 9: Phân Công Hoặc Điều Chuyển Giáo Viên Phụ Trách Lớp Học Cơ Sở (`PUT /api/v1/practice/classes/{classId}/assign-teacher`)**:
+  - Khởi tạo CQRS: [`AssignTeacherDtos.cs`](./V-Eval-Practice_Service.Application/Features/Classes/DTOs/AssignTeacherDtos.cs), `AssignTeacherCommand.cs`, `AssignTeacherCommandValidator.cs`, [`AssignTeacherCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Classes/Commands/AssignTeacher/AssignTeacherCommandHandler.cs).
+  - Tầng API: [`ClassesController.cs`](./V-Eval-Practice_Service.API/Controllers/ClassesController.cs) endpoint `[HttpPut("{classId:guid}/assign-teacher")]`.
+  - Nghiệp vụ: Cập nhật `TeacherId`, `AssignedBy` (từ Header `X-User-Id`), `AssignedAt = UtcNow` cho thực thể `Class`.
+- **API 10: Lấy Thời Khóa Biểu Các Buổi Live Q&A Của Lớp Cơ Sở Học Sinh Ghi Danh (`GET /api/v1/practice/live-sessions/my-schedule`)**:
+  - Khởi tạo CQRS: [`GetMyLiveScheduleDtos.cs`](./V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/GetMyLiveScheduleDtos.cs), `GetMyLiveScheduleQuery.cs`, [`GetMyLiveScheduleQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/LiveSessions/Queries/GetMyLiveSchedule/GetMyLiveScheduleQueryHandler.cs).
+  - Tầng API: [`LiveSessionsController.cs`](./V-Eval-Practice_Service.API/Controllers/LiveSessionsController.cs) endpoint `[HttpGet("my-schedule")]`.
+  - Nghiệp vụ: Truy vấn thông tin lớp học học sinh đang ghi danh (`ClassEnrollments`), nạp danh sách các buổi học Live Q&A của lớp, bóc tách trạng thái điểm danh cá nhân (`ATTENDED`, `ABSENT`, `NOT_ATTENDED`), link video ghi hình và cờ `IsMakeupQuizPassed`.
+- **API 11: Tham Gia Buổi Học Trực Tuyến Live Q&A & Ghi Nhận Dấu Vết Vào Lớp (`POST /api/v1/practice/live-sessions/{sessionId}/join`)**:
+  - Khởi tạo CQRS: [`JoinLiveSessionDtos.cs`](./V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/JoinLiveSessionDtos.cs), `JoinLiveSessionCommand.cs`, `JoinLiveSessionCommandValidator.cs`, [`JoinLiveSessionCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/LiveSessions/Commands/JoinLiveSession/JoinLiveSessionCommandHandler.cs).
+  - Tầng API: [`LiveSessionsController.cs`](./V-Eval-Practice_Service.API/Controllers/LiveSessionsController.cs) endpoint `[HttpPost("{sessionId:guid}/join")]`.
+  - Nghiệp vụ: Cung cấp đường dẫn phòng học trực tuyến (`MeetingUrl`), ghi nhận thời điểm vào lớp `JoinedAt = UtcNow`. Bảo lưu độc quyền điểm danh chuyên cần (`ATTENDED` hoặc `ABSENT`) cho Giảng viên tại API 12 (không tự ý ghi đè trạng thái điểm danh khi học sinh chỉ mới click vào link phòng học).
 - **Kiểm Thử Vận Hành Trực Tiếp (Live End-to-End Test)**:
-  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
-  - Kiểm thử trực tiếp 5 kịch bản:
-    1. Chặn khi chưa xem đủ 80% video lý thuyết: Trả về `400 BadRequest` chuẩn xác.
-    2. Chặn khi học sinh không thuộc diện `ABSENT`: Trả về `400 BadRequest` chuẩn xác.
-    3. Nộp bài Quiz củng cố khi đang bị `ABSENT`: Ghi nhận 100% điểm quiz củng cố nhưng State Machine chặn không cho hoàn thành chặng (chờ Quiz bù).
-    4. Nộp bài Quiz bù điểm dưới 60%: Trả về `scorePercentage: 0%`, `isPassed: false`, chặng học giữ `IN_PROGRESS`.
-    5. Nộp bài Quiz bù đạt chuẩn $\ge 60\%$ (100%): Gỡ bỏ hoàn toàn phong tỏa chặng, Node 2 ("Đại số, Hàm số & Giải tích") chuyển thành `COMPLETED`, tự động mở khóa Node 3 ("Ngữ pháp & Logic câu Tiếng Việt") thành `IN_PROGRESS`, `CompletedMilestones` tăng lên 2/437!
+  - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Kịch bản API 9: Phân công giáo viên `99999999-9999-9999-9999-999999999999` cho lớp `33333333-3333-3333-3333-333333333333` -> `200 OK`.
+  - Kịch bản API 8: Tạo buổi Live Q&A chuyên sâu -> `201 Created` tự động kế thừa `TeacherId`.
+  - Kịch bản API 10: Tra cứu thời khóa biểu -> `200 OK` hiển thị đầy đủ danh sách các buổi Live và trạng thái điểm danh.
+  - Kịch bản API 11: Học sinh `11111111-1111-1111-1111-111111111111` tham gia buổi Live -> `200 OK`, trả về URL phòng học, lưu vết thời điểm `JoinedAt`, bảo lưu trạng thái chờ Giảng viên đánh giá chuyên cần tại API 12.

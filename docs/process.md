@@ -60,5 +60,10 @@
 | 28 | **Core Flow 2 - API 5: Lấy Đề Thi Quiz Củng Cố Chặng** | `RoadmapsController.cs` & `GetMilestoneQuizQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/v1/practice/roadmaps/nodes/{nodeId}/quiz` kiểm tra điều kiện xem video >= 80%, ẩn đáp án đúng bảo mật |
 | 29 | **Core Flow 2 - API 6: Nộp Bài Quiz & Mở Khóa FSM** | `RoadmapsController.cs` & `SubmitMilestoneQuizCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/v1/practice/roadmaps/nodes/{nodeId}/submit-quiz` chấm điểm bảo mật gRPC, kích hoạt State Machine mở khóa chặng kế tiếp khi đạt >= 60% |
 | 30 | **Core Flow 2 - API 7: Nộp Quiz Bù Khi Vắng Mặt Live** | `RoadmapsController.cs` & `SubmitMakeupQuizCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/v1/practice/roadmaps/nodes/{nodeId}/submit-makeup-quiz` giải phóng phong tỏa chặng học cho học sinh ABSENT khi đạt >= 60% |
+| 31 | **Core Flow 2 - API 8: Tạo Lịch Buổi Học Live Q&A** | `LiveSessionsController.cs` & `CreateLiveSessionCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/v1/practice/live-sessions` quản trị viên tạo lịch Live Q&A, tự động gắn giáo viên |
+| 32 | **Core Flow 2 - API 9: Phân Công Giáo Viên Cho Lớp** | `ClassesController.cs` & `AssignTeacherCommandHandler.cs` | 🟢 Hoàn thành | 100% | `PUT /api/v1/practice/classes/{classId}/assign-teacher` quản trị cơ sở phân công/điều chuyển giáo viên |
+| 33 | **Core Flow 2 - API 10: Thời Khóa Biểu Buổi Học Live** | `LiveSessionsController.cs` & `GetMyLiveScheduleQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/v1/practice/live-sessions/my-schedule` tra cứu lịch Live Q&A của lớp cơ sở kèm trạng thái điểm danh |
+| 34 | **Core Flow 2 - API 11: Tham Gia & Điểm Danh Trực Tuyến** | `LiveSessionsController.cs` & `JoinLiveSessionCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/v1/practice/live-sessions/{sessionId}/join` nhận link phòng học và tự động ghi nhận điểm danh ATTENDED |
+
 
 
