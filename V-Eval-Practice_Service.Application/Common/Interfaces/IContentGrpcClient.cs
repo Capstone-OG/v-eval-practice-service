@@ -16,7 +16,16 @@ public record ExamQuestionKeyDto(
     string DomainName = ""
 );
 
+public record SkillTreeNodeDto(
+    Guid SkillId,
+    string Name,
+    double Weight,
+    IReadOnlyList<Guid> PrerequisiteIds,
+    string Description = ""
+);
+
 public interface IContentGrpcClient
 {
     Task<IReadOnlyDictionary<Guid, ExamQuestionKeyDto>> GetExamAnswerKeysAsync(Guid examId, CancellationToken ct = default);
+    Task<IReadOnlyList<SkillTreeNodeDto>> GetSkillsTreeAsync(CancellationToken ct = default);
 }

@@ -1,5 +1,28 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [29/09/2026] - Triển Khai Hoàn Thiện API 1: Khởi Tạo Lộ Trình Học Tập Cá Nhân Hóa (POST /api/v1/practice/roadmaps/generate)
+- **Kiến Trúc Clean Architecture & Result Pattern Cho Phân Hệ Lộ Trình (Features/Roadmaps)**:
+  - Khởi tạo DTOs: `GenerateRoadmapRequestDto`, `GenerateRoadmapResponseDto`, `RoadmapNodeSummaryDto`.
+  - Khởi tạo bộ xác thực FluentValidation: `GenerateRoadmapCommandValidator` (kiểm tra `StudentId`, `DiagnosticSubmissionId`, `ExamDate > UtcNow`, `StudyHoursPerDay` từ 0.5 đến 12h).
+  - Triển khai `GenerateRoadmapCommand` và `GenerateRoadmapCommandHandler` hoàn tất quy trình 7 bước nghiệp vụ:
+    1. Trích xuất hồ sơ Flow 1 (`theta_0`, `TargetScore`, `EnrolledClassId`, `P(L0)` từ `LearningProfiles`, cờ `IsWeak`).
+    2. Nạp Cây khung năng lực 12 kỹ năng chuẩn và cung tiên quyết từ Content Service qua gRPC (`GetSkillsTreeAsync`).
+    3. Kiểm tra chu trình kín với `TarjanCycleDetector` (chặn đứng vòng lặp phụ thuộc).
+    4. Phân tích quỹ thời gian & cắt tỉa 3 tầng với `PathPruner`.
+    5. Sắp xếp thứ tự học sư phạm đa tiêu chí với `TopologicalSorter`.
+    6. Gắn kết 3 tài nguyên (`MaterialId`, `QuizExamId`, `LiveSessionId`) và khởi tạo State Machine (`MilestoneBinder`).
+    7. Lưu vết các lộ trình cũ sang `ARCHIVED`, lưu trữ nguyên tử lộ trình mới và các chặng học vào PostgreSQL.
+- **Hạ Tầng Repository & gRPC Client**:
+  - Khởi tạo `ILearningRoadmapRepository` trong Application Layer và `LearningRoadmapRepository` trong Infrastructure Layer, đăng ký Scoped vào DI.
+  - Mở rộng `content.proto` (bổ sung `double weight = 5`), cập nhật `IContentGrpcClient` và `ContentGrpcClient` hiện thực `GetSkillsTreeAsync`.
+- **Tầng API Controller (`RoadmapsController.cs`)**:
+  - Cung cấp endpoint `POST /api/v1/practice/roadmaps/generate` kế thừa `ApiControllerBase`.
+  - Hỗ trợ linh hoạt bóc tách `StudentId` từ Gateway Header (`X-User-Id`) hoặc payload trực tiếp.
+- **Kiểm Thử Biên Dịch**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
 ## [28/09/2026] - Triển Khai Giai Đoạn 2 Core Flow 2: Graph Engine 4 Thuật Toán Đồ Thị & Toán Học
 - **Thuật Toán 1: `TarjanCycleDetector.cs` (Tarjan SCC)**:
   - Cài đặt thuật toán Tarjan tìm SCC phát hiện chu trình kín trong đồ thị tiên quyết kỹ năng.

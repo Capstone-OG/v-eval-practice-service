@@ -64,4 +64,51 @@ public class ContentGrpcClient : IContentGrpcClient
             throw;
         }
     }
+
+    public async Task<IReadOnlyList<SkillTreeNodeDto>> GetSkillsTreeAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var channel = GrpcChannel.ForAddress(_serviceUrl);
+            var client = new ContentService.ContentServiceClient(channel);
+
+            var request = new GetSkillsTreeRequest();
+            var response = await client.GetSkillsTreeAsync(request, cancellationToken: ct);
+
+            var list = new List<SkillTreeNodeDto>();
+            foreach (var node in response.Skills)
+            {
+                if (Guid.TryParse(node.SkillId, out var skillId))
+                {
+                    var prereqIds = new List<Guid>();
+                    foreach (var pidStr in node.PrerequisiteIds)
+                    {
+                        if (Guid.TryParse(pidStr, out var pid))
+                        {
+                            prereqIds.Add(pid);
+                        }
+                    }
+
+                    double weight = node.Weight > 0 ? node.Weight : 0.05;
+
+                    list.Add(new SkillTreeNodeDto(
+                        skillId,
+                        node.Name,
+                        weight,
+                        prereqIds,
+                        node.Description
+                    ));
+                }
+            }
+
+            _logger.LogInformation("Nhận được {Count} kỹ năng từ Content Service gRPC ({ServiceUrl})",
+                list.Count, _serviceUrl);
+            return list;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi gọi gRPC Content Service ({ServiceUrl}) GetSkillsTree", _serviceUrl);
+            throw;
+        }
+    }
 }

@@ -19,6 +19,12 @@ public static class DependencyInjection
 
         services.AddValidatorsFromAssembly(assembly);
 
+        // Động cơ đồ thị Graph Engine (Core Flow 2)
+        services.AddTransient<Common.Graph.TarjanCycleDetector>();
+        services.AddTransient<Common.Graph.PathPruner>();
+        services.AddTransient<Common.Graph.TopologicalSorter>();
+        services.AddTransient<Common.Graph.MilestoneBinder>();
+
         return services;
     }
 }
