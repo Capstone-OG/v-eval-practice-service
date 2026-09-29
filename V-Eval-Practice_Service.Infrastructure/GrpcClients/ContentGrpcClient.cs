@@ -90,13 +90,16 @@ public class ContentGrpcClient : IContentGrpcClient
                     }
 
                     double weight = node.Weight > 0 ? node.Weight : 0.05;
+                    Guid.TryParse(node.DomainId, out var domainId);
 
                     list.Add(new SkillTreeNodeDto(
                         skillId,
                         node.Name,
                         weight,
                         prereqIds,
-                        node.Description
+                        node.Description,
+                        domainId,
+                        node.DomainName
                     ));
                 }
             }

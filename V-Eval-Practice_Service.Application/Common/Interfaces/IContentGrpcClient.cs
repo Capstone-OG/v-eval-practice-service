@@ -21,7 +21,9 @@ public record SkillTreeNodeDto(
     string Name,
     double Weight,
     IReadOnlyList<Guid> PrerequisiteIds,
-    string Description = ""
+    string Description = "",
+    Guid DomainId = default,
+    string DomainName = ""
 );
 
 public interface IContentGrpcClient

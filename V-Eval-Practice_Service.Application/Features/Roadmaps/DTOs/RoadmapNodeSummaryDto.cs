@@ -9,6 +9,8 @@ public record RoadmapNodeSummaryDto(
     Guid NodeId,
     Guid SkillId,
     string SkillName,
+    Guid DomainId,
+    string DomainName,
     int StepOrder,
     Guid? MaterialId,
     Guid? QuizExamId,

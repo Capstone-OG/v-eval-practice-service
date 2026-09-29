@@ -17,5 +17,6 @@ public record GenerateRoadmapResponseDto(
     string? PrunedReason,
     string Status,
     DateTime CreatedAt,
+    IReadOnlyList<RoadmapStageDto> Stages,
     IReadOnlyList<RoadmapNodeSummaryDto> Nodes
 );

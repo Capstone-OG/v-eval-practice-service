@@ -245,21 +245,40 @@ public class GenerateRoadmapCommandHandler : IRequestHandler<GenerateRoadmapComm
                 Error.Failure("Database.SaveFailed", "Không thể lưu trữ lộ trình học tập vào CSDL."));
         }
 
-        // Map sang DTO phản hồi
+        // Map sang DTO phản hồi và gom nhóm theo Miền năng lực (Stages / Group by Domain)
+        var skillMap = skillsTree.ToDictionary(s => s.SkillId, s => s);
+
         var nodeDtos = roadmap.Nodes
             .OrderBy(n => n.StepOrder)
-            .Select(n => new RoadmapNodeSummaryDto(
-                n.NodeId,
-                n.SkillId,
-                skillNameMap.GetValueOrDefault(n.SkillId, "Kỹ năng chuyên đề"),
-                n.StepOrder,
-                n.MaterialId,
-                n.QuizExamId,
-                n.LiveSessionId,
-                n.Status,
-                n.IsPruned,
-                n.UnlockedAt,
-                n.CompletedAt
+            .Select(n =>
+            {
+                var skillInfo = skillMap.GetValueOrDefault(n.SkillId);
+                return new RoadmapNodeSummaryDto(
+                    n.NodeId,
+                    n.SkillId,
+                    skillInfo?.Name ?? "Kỹ năng chuyên đề",
+                    skillInfo?.DomainId ?? Guid.Empty,
+                    !string.IsNullOrWhiteSpace(skillInfo?.DomainName) ? skillInfo.DomainName : "Lĩnh vực chung",
+                    n.StepOrder,
+                    n.MaterialId,
+                    n.QuizExamId,
+                    n.LiveSessionId,
+                    n.Status,
+                    n.IsPruned,
+                    n.UnlockedAt,
+                    n.CompletedAt
+                );
+            })
+            .ToList();
+
+        var stageDtos = nodeDtos
+            .GroupBy(n => new { n.DomainId, n.DomainName })
+            .Select(g => new RoadmapStageDto(
+                g.Key.DomainId,
+                g.Key.DomainName,
+                g.Count(),
+                g.Count(n => n.Status == "COMPLETED"),
+                g.OrderBy(n => n.StepOrder).ToList()
             ))
             .ToList();
 
@@ -274,6 +293,7 @@ public class GenerateRoadmapCommandHandler : IRequestHandler<GenerateRoadmapComm
             roadmap.PrunedReason,
             roadmap.Status,
             roadmap.CreatedAt,
+            stageDtos,
             nodeDtos
         );
 

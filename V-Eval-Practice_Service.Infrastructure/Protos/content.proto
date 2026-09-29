@@ -29,6 +29,8 @@ message SkillNode {
   repeated string prerequisite_ids = 3; // Danh sách ID các kỹ năng tiên quyết tạo thành đồ thị DAG
   string description = 4;
   double weight = 5; // Trọng số đề thi (0.03 - 0.15)
+  string domain_id = 6;
+  string domain_name = 7;
 }
 
 message GetSkillsTreeResponse {
