@@ -1,5 +1,26 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [29/09/2026] - Triển Khai Hoàn Thiện API 3: Lấy Thông Tin Chi Tiết Chặng Học (GET /api/v1/practice/roadmaps/nodes/{nodeId})
+- **Kiến Trúc CQRS & Result Pattern Cho Phân Hệ Lộ Trình (Features/Roadmaps/Queries/GetRoadmapNodeDetail)**:
+  - Khởi tạo DTO [`RoadmapNodeDetailDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/RoadmapNodeDetailDto.cs) và `LiveSessionDetailDto` thể hiện đầy đủ 3 thành phần tích hợp:
+    1. Bài giảng lý thuyết video (`material_id`).
+    2. Bài Quiz củng cố 5-10 câu (`quiz_exam_id`).
+    3. Buổi học Live Q&A cơ sở (`live_session_id`, `MeetingUrl`, `RecordingUrl`, `AttendanceStatus`, `IsMakeupQuizPassed`).
+  - Triển khai `GetRoadmapNodeDetailQuery` và [`GetRoadmapNodeDetailQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Queries/GetRoadmapNodeDetail/GetRoadmapNodeDetailQueryHandler.cs):
+    1. Truy vấn `ILearningRoadmapRepository.GetNodeByIdAsync` nạp thông tin Node, Roadmap và LiveSession.
+    2. Kiểm tra quyền sở hữu bảo mật: ngăn chặn truy cập chặng học của học sinh khác (`403 Forbidden`).
+    3. Nạp thông tin kỹ năng và miền năng lực từ Content Service qua gRPC (`GetSkillsTreeAsync`).
+    4. Trích xuất chi tiết điểm danh và trạng thái bài Quiz bù (`MakeupQuizId`, `IsMakeupQuizPassed`) phục vụ Unhappy Case 3.
+- **Hạ Tầng Repository Layer**:
+  - Bổ sung `GetNodeByIdAsync` và `GetAttendanceAsync` vào `ILearningRoadmapRepository` và `LearningRoadmapRepository`.
+- **Tầng API Controller (`RoadmapsController.cs`)**:
+  - Bổ sung endpoint `[HttpGet("nodes/{nodeId:guid}")]` kèm bóc tách `X-User-Id` header kiểm tra phân quyền.
+- **Kiểm Thử Biên Dịch & Vận Hành Thực Tế**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Kiểm thử trực tiếp `GET /api/v1/practice/roadmaps/nodes/{nodeId}` thành công trả về `200 OK` đầy đủ 3 thành phần chặng học và kiểm thử chặn 404 chuẩn xác.
+
+---
+
 ## [29/09/2026] - Triển Khai Hoàn Thiện API 2: Tra Cứu Lộ Trình Học Tập Cá Nhân Hóa (GET /api/v1/practice/roadmaps/my-roadmap)
 - **Kiến Trúc CQRS & Result Pattern Cho Phân Hệ Lộ Trình (Features/Roadmaps/Queries/GetMyRoadmap)**:
   - Khởi tạo DTO [`RoadmapTimelineDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/RoadmapTimelineDto.cs) thể hiện toàn diện dòng thời gian học tập: `RoadmapId`, `StudentId`, `TargetScore`, `TotalMilestones`, `CompletedMilestones`, `ProgressPercentage`, `IsPruned`, `PrunedReason`, `Stages` (gom nhóm theo Miền năng lực) và `Nodes` (tuần tự stepOrder).

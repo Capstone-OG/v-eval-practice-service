@@ -68,6 +68,20 @@ public class LearningRoadmapRepository : ILearningRoadmapRepository
             .FirstOrDefaultAsync(ct);
     }
 
+    public async Task<RoadmapNode?> GetNodeByIdAsync(Guid nodeId, CancellationToken ct = default)
+    {
+        return await _context.RoadmapNodes
+            .Include(n => n.Roadmap)
+            .Include(n => n.LiveSession)
+            .FirstOrDefaultAsync(n => n.NodeId == nodeId, ct);
+    }
+
+    public async Task<LiveSessionAttendance?> GetAttendanceAsync(Guid liveSessionId, Guid studentId, CancellationToken ct = default)
+    {
+        return await _context.LiveSessionAttendances
+            .FirstOrDefaultAsync(a => a.SessionId == liveSessionId && a.StudentId == studentId, ct);
+    }
+
     public async Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
         return await _context.SaveChangesAsync(ct);

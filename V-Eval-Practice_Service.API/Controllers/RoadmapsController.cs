@@ -7,6 +7,7 @@ using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Commands.GenerateRoadmap;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.DTOs;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Queries.GetMyRoadmap;
+using V_Eval_Practice_Service.Application.Features.Roadmaps.Queries.GetRoadmapNodeDetail;
 
 namespace V_Eval_Practice_Service.API.Controllers;
 
@@ -98,6 +99,32 @@ public class RoadmapsController : ApiControllerBase
         }
 
         var result = await Mediator.Send(new GetMyRoadmapQuery(targetStudentId));
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 2 - API 3: Lấy thông tin chi tiết một chặng học (Milestone / RoadmapNode)
+    /// </summary>
+    /// <remarks>
+    /// - Trả về đầy đủ 3 thành phần của chặng: Video bài giảng (MaterialId), Bài Quiz củng cố (QuizExamId), và Buổi học Live Q&amp;A cơ sở (LiveSession).
+    /// - Cung cấp trạng thái mở khóa (LOCKED, IN_PROGRESS, COMPLETED, SKIPPED_PRUNED) và lịch sử điểm danh buổi Live.
+    /// - Kiểm tra quyền sở hữu bảo mật: ngăn chặn học sinh truy cập trái phép chặng học của học sinh khác.
+    /// </remarks>
+    [HttpGet("nodes/{nodeId:guid}")]
+    [ProducesResponseType(typeof(RoadmapNodeDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetNodeDetail(Guid nodeId)
+    {
+        Guid? studentId = null;
+
+        // Bóc tách StudentId từ Gateway Header (X-User-Id) nếu có để kiểm tra phân quyền
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            studentId = parsedId;
+        }
+
+        var result = await Mediator.Send(new GetRoadmapNodeDetailQuery(nodeId, studentId));
         return HandleResult(result);
     }
 }
