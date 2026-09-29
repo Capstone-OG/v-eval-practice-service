@@ -25,6 +25,11 @@ public class RoadmapNode
     public DateTime? UnlockedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
 
+    // Tiến độ học video bài giảng lý thuyết (Core Flow 2 - API 4)
+    public int VideoWatchedSeconds { get; set; } = 0;
+    public int VideoTotalSeconds { get; set; } = 0;
+    public bool IsVideoCompleted { get; set; } = false;
+
     // Navigation Properties
     public virtual LearningRoadmap Roadmap { get; set; } = null!;
     public virtual LiveSession? LiveSession { get; set; }

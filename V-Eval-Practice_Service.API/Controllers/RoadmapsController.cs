@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using V_Eval_Practice_Service.API.Controllers.Base;
 using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Commands.GenerateRoadmap;
+using V_Eval_Practice_Service.Application.Features.Roadmaps.Commands.TrackVideo;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.DTOs;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Queries.GetMyRoadmap;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Queries.GetRoadmapNodeDetail;
@@ -125,6 +126,41 @@ public class RoadmapsController : ApiControllerBase
         }
 
         var result = await Mediator.Send(new GetRoadmapNodeDetailQuery(nodeId, studentId));
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 2 - API 4: Ghi nhận thời gian xem video bài giảng lý thuyết của chặng học
+    /// </summary>
+    /// <remarks>
+    /// - Nhận thông tin: `WatchedDurationSeconds` (thời gian đã xem) và `TotalDurationSeconds` (tổng thời lượng video).
+    /// - Tính toán tỷ lệ phần trăm xem bài giảng (`WatchPercentage`).
+    /// - Kiểm tra điều kiện tiên quyết: Yêu cầu học sinh xem đạt tối thiểu 80% thời lượng để được mở quyền làm bài Quiz củng cố (`IsQuizEligible = true`).
+    /// - Hỗ trợ bóc tách StudentId từ Gateway Header (`X-User-Id`) để xác thực bảo mật quyền sở hữu.
+    /// </remarks>
+    [HttpPost("nodes/{nodeId:guid}/track-video")]
+    [ProducesResponseType(typeof(TrackVideoResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> TrackVideo(Guid nodeId, [FromBody] TrackVideoRequestDto request)
+    {
+        Guid? studentId = null;
+
+        // Bóc tách StudentId từ Gateway Header (X-User-Id) nếu có để kiểm tra phân quyền
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            studentId = parsedId;
+        }
+
+        var command = new TrackVideoCommand(
+            NodeId: nodeId,
+            WatchedDurationSeconds: request.WatchedDurationSeconds,
+            TotalDurationSeconds: request.TotalDurationSeconds,
+            StudentId: studentId
+        );
+
+        var result = await Mediator.Send(command);
         return HandleResult(result);
     }
 }

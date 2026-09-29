@@ -98,6 +98,20 @@
    - Converts Topo-sorted skill list into `RoadmapNode` entities with 3-component binding (Video, Quiz, Live).
    - Initializes State Machine: first non-pruned milestone as `IN_PROGRESS`, rest as `LOCKED`.
 
+### 4.3 Phase 3 Implementation (Core Flow 2 Endpoints)
+1. **API 1 - Generate Roadmap (`POST /api/v1/practice/roadmaps/generate`)**:
+   - Executes 7-step pedagogical optimization integrating Flow 1 diagnostic outputs, Content Service gRPC skill tree, Tarjan cycle verification, 3-tier time pruning, Kahn pedagogical topological sort, and 3-component milestone binding.
+   - Implements Domain Grouping (`RoadmapStageDto`) providing structured stages by Competency Domain while maintaining optimal chronological `stepOrder`.
+2. **API 2 - Get My Roadmap (`GET /api/v1/practice/roadmaps/my-roadmap`)**:
+   - Retrieves active learning roadmap timeline including comprehensive progress metrics (`ProgressPercentage`), domain stages, and sequential node milestones.
+3. **API 3 - Get Roadmap Node Detail (`GET /api/v1/practice/roadmaps/nodes/{nodeId}`)**:
+   - Retrieves detailed breakdown of an individual milestone encompassing lecture video (`MaterialId`), formative quiz (`QuizExamId`), and live cohort session (`LiveSession` with attendance tracking & makeup quiz status).
+   - Enforces student ownership security (`403 Forbidden`).
+4. **API 4 - Track Video Progress (`POST /api/v1/practice/roadmaps/nodes/{nodeId}/track-video`)**:
+   - Records cumulative lecture watch duration (`WatchedDurationSeconds`, `TotalDurationSeconds`), calculating real-time percentage (`WatchPercentage`).
+   - Enforces 80% completion prerequisite rule before student is eligible to unlock formative quiz (`IsQuizEligible = true`).
+   - Validates milestone state machine (`LOCKED` and `SKIPPED_PRUNED` states rejected with `400 BadRequest`).
+
 ---
 
 ## 5. ACCEPTANCE & VERIFICATION METRICS

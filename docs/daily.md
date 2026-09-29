@@ -1,5 +1,34 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [29/09/2026] - Triển Khai Hoàn Thiện API 4: Ghi Nhận Tiến Độ Xem Video Lý Thuyết (POST /api/v1/practice/roadmaps/nodes/{nodeId}/track-video)
+- **Kiến Trúc CQRS & Result Pattern Cho Phân Hệ Lộ Trình (Features/Roadmaps/Commands/TrackVideo)**:
+  - Khởi tạo DTOs [`TrackVideoRequestDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/TrackVideoRequestDto.cs) và [`TrackVideoResponseDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/TrackVideoResponseDto.cs):
+    - Nhận: `WatchedDurationSeconds` (thời gian đã xem), `TotalDurationSeconds` (tổng thời lượng video).
+    - Trả về: `NodeId`, `WatchedDurationSeconds`, `TotalDurationSeconds`, `WatchPercentage`, `IsQuizEligible`, `Status`, `Message`.
+  - Khởi tạo FluentValidation `TrackVideoCommandValidator`:
+    - Ràng buộc: `NodeId` không rỗng, `WatchedDurationSeconds >= 0`, `TotalDurationSeconds > 0`, `WatchedDurationSeconds <= TotalDurationSeconds`.
+  - Triển khai `TrackVideoCommand` và [`TrackVideoCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Commands/TrackVideo/TrackVideoCommandHandler.cs):
+    1. Truy vấn `ILearningRoadmapRepository.GetNodeByIdAsync`. Trả về `404 Not Found` nếu không tìm thấy chặng học.
+    2. Kiểm soát phân quyền: chặn học sinh cập nhật tiến độ chặng học của học sinh khác (`403 Forbidden`).
+    3. Kiểm tra State Machine: Chặn nếu chặng học đang bị khóa (`LOCKED` -> `400 BadRequest`) hoặc đã được cắt tỉa (`SKIPPED_PRUNED` -> `400 BadRequest`).
+    4. Cập nhật tiến độ xem lũy tiến (giữ giá trị xem cao nhất: `Math.Max(node.VideoWatchedSeconds, watched)`).
+    5. Tính toán tỷ lệ phần trăm xem bài giảng (`WatchPercentage`).
+    6. Áp dụng quy tắc mở khóa bài Quiz củng cố: Yêu cầu xem đạt tối thiểu 80% thời lượng bài giảng lý thuyết (`watchPercentage >= 80.0` -> `IsVideoCompleted = true`, `IsQuizEligible = true`).
+- **Cơ Sở Dữ Liệu PostgreSQL & Entity Framework Core**:
+  - Bổ sung 3 trường vào bảng `v_eval_practice."RoadmapNodes"`: `video_watched_seconds INT DEFAULT 0`, `video_total_seconds INT DEFAULT 0`, `is_video_completed BOOLEAN DEFAULT FALSE`.
+  - Cập nhật entity [`RoadmapNode.cs`](../V-Eval-Practice_Service.Domain/Entities/RoadmapNode.cs) và Fluent API cấu hình trong `PracticeDbContext.cs`.
+- **Tầng API Controller (`RoadmapsController.cs`)**:
+  - Bổ sung endpoint `[HttpPost("nodes/{nodeId:guid}/track-video")]` kèm trích xuất `X-User-Id` header xác thực phân quyền.
+- **Kiểm Thử Biên Dịch & Vận Hành Thực Tế**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Kiểm thử trực tiếp 4 kịch bản:
+    1. Xem 40% (< 80%): Trả về `watchPercentage: 40%`, `isQuizEligible: false`.
+    2. Xem 85% (>= 80%): Trả về `watchPercentage: 85%`, `isQuizEligible: true`, cập nhật `is_video_completed = true`.
+    3. Học sinh khác can thiệp: Trả về `403 Forbidden` chuẩn xác.
+    4. Cố tình ghi nhận chặng bị khóa (`LOCKED`): Trả về `400 BadRequest` chuẩn xác.
+
+---
+
 ## [29/09/2026] - Triển Khai Hoàn Thiện API 3: Lấy Thông Tin Chi Tiết Chặng Học (GET /api/v1/practice/roadmaps/nodes/{nodeId})
 - **Kiến Trúc CQRS & Result Pattern Cho Phân Hệ Lộ Trình (Features/Roadmaps/Queries/GetRoadmapNodeDetail)**:
   - Khởi tạo DTO [`RoadmapNodeDetailDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/RoadmapNodeDetailDto.cs) và `LiveSessionDetailDto` thể hiện đầy đủ 3 thành phần tích hợp:

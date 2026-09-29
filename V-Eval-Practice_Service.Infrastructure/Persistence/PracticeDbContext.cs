@@ -163,6 +163,9 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.IsPruned).HasColumnName("is_pruned");
             entity.Property(e => e.UnlockedAt).HasColumnName("unlocked_at");
             entity.Property(e => e.CompletedAt).HasColumnName("completed_at");
+            entity.Property(e => e.VideoWatchedSeconds).HasColumnName("video_watched_seconds");
+            entity.Property(e => e.VideoTotalSeconds).HasColumnName("video_total_seconds");
+            entity.Property(e => e.IsVideoCompleted).HasColumnName("is_video_completed");
 
             entity.HasOne(e => e.LiveSession)
                   .WithMany(s => s.RoadmapNodes)
