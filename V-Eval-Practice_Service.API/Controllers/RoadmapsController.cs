@@ -6,6 +6,7 @@ using V_Eval_Practice_Service.API.Controllers.Base;
 using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Commands.GenerateRoadmap;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.DTOs;
+using V_Eval_Practice_Service.Application.Features.Roadmaps.Queries.GetMyRoadmap;
 
 namespace V_Eval_Practice_Service.API.Controllers;
 
@@ -61,6 +62,42 @@ public class RoadmapsController : ApiControllerBase
         );
 
         var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 2 - API 2: Tra cứu lộ trình học tập thích ứng cá nhân hóa (Timeline) đang kích hoạt của học sinh
+    /// </summary>
+    /// <remarks>
+    /// - Hỗ trợ trích xuất StudentId tự động từ Gateway Header (X-User-Id) hoặc query parameter studentId.
+    /// - Trả về dòng thời gian toàn bộ các chặng học (RoadmapTimelineDto) kèm thống kê tiến độ phần trăm hoàn thành.
+    /// - Dữ liệu được gom nhóm theo từng Miền năng lực / Môn học (stages) và danh sách tuần tự toàn bài (nodes).
+    /// </remarks>
+    [HttpGet("my-roadmap")]
+    [ProducesResponseType(typeof(RoadmapTimelineDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyRoadmap([FromQuery] Guid? studentId)
+    {
+        Guid targetStudentId = Guid.Empty;
+
+        // Ưu tiên trích xuất StudentId từ Gateway Header (X-User-Id)
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            targetStudentId = parsedId;
+        }
+        else if (studentId.HasValue && studentId.Value != Guid.Empty)
+        {
+            targetStudentId = studentId.Value;
+        }
+
+        if (targetStudentId == Guid.Empty)
+        {
+            return HandleResult(Result<RoadmapTimelineDto>.Failure(
+                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (X-User-Id header hoặc query parameter studentId).")));
+        }
+
+        var result = await Mediator.Send(new GetMyRoadmapQuery(targetStudentId));
         return HandleResult(result);
     }
 }

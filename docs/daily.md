@@ -1,5 +1,21 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [29/09/2026] - Triển Khai Hoàn Thiện API 2: Tra Cứu Lộ Trình Học Tập Cá Nhân Hóa (GET /api/v1/practice/roadmaps/my-roadmap)
+- **Kiến Trúc CQRS & Result Pattern Cho Phân Hệ Lộ Trình (Features/Roadmaps/Queries/GetMyRoadmap)**:
+  - Khởi tạo DTO [`RoadmapTimelineDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/RoadmapTimelineDto.cs) thể hiện toàn diện dòng thời gian học tập: `RoadmapId`, `StudentId`, `TargetScore`, `TotalMilestones`, `CompletedMilestones`, `ProgressPercentage`, `IsPruned`, `PrunedReason`, `Stages` (gom nhóm theo Miền năng lực) và `Nodes` (tuần tự stepOrder).
+  - Triển khai `GetMyRoadmapQuery` và [`GetMyRoadmapQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Queries/GetMyRoadmap/GetMyRoadmapQueryHandler.cs):
+    1. Truy vấn lộ trình `ACTIVE` qua `ILearningRoadmapRepository.GetActiveByStudentIdAsync`. Trả về `404 Not Found` chuẩn nếu học sinh chưa khởi tạo lộ trình.
+    2. Nạp metadata cây kỹ năng từ Content Service qua gRPC (`GetSkillsTreeAsync`) kèm cơ chế fallback an toàn nếu mất kết nối gRPC.
+    3. Tính toán tiến độ phần trăm học tập hoàn thành thực tế (`ProgressPercentage`).
+    4. Gom nhóm các chặng học thành các `Stages` theo từng Miền Năng Lực / Môn học (Ngôn ngữ, Toán - Logic, KHTN, KHXH).
+- **Tầng API Controller (`RoadmapsController.cs`)**:
+  - Bổ sung endpoint `[HttpGet("my-roadmap")]` hỗ trợ linh hoạt bóc tách `StudentId` từ Gateway Header (`X-User-Id`) hoặc query parameter `studentId`.
+- **Kiểm Thử Biên Dịch & Vận Hành Thực Tế**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Kiểm thử trực tiếp `GET /api/v1/practice/roadmaps/my-roadmap?studentId=...` thành công trả về `200 OK` với đầy đủ timeline, thống kê tiến độ và phân nhóm 5 Stages.
+
+---
+
 ## [29/09/2026] - Triển Khai Hoàn Thiện API 1: Khởi Tạo Lộ Trình Học Tập Cá Nhân Hóa (POST /api/v1/practice/roadmaps/generate) & Phân Nhóm Chặng Theo Miền Năng Lực (Group by Domain)
 - **Kiến Trúc Clean Architecture & Result Pattern Cho Phân Hệ Lộ Trình (Features/Roadmaps)**:
   - Khởi tạo DTOs: `GenerateRoadmapRequestDto`, `GenerateRoadmapResponseDto`, `RoadmapStageDto`, `RoadmapNodeSummaryDto`.
