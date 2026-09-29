@@ -166,6 +166,8 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.VideoWatchedSeconds).HasColumnName("video_watched_seconds");
             entity.Property(e => e.VideoTotalSeconds).HasColumnName("video_total_seconds");
             entity.Property(e => e.IsVideoCompleted).HasColumnName("is_video_completed");
+            entity.Property(e => e.QuizScore).HasColumnName("quiz_score");
+            entity.Property(e => e.IsQuizPassed).HasColumnName("is_quiz_passed");
 
             entity.HasOne(e => e.LiveSession)
                   .WithMany(s => s.RoadmapNodes)

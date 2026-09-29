@@ -116,6 +116,17 @@
    - Enforces prerequisite check: Rejects requests if student has not watched $\ge 80\%$ of theoretical lecture (`IsVideoCompleted = false`).
    - Strict Anti-Cheating Protocol: Strips all correct options (`is_correct`, `correct_option`) and explanations from student payload.
    - Auto-binds and persists `QuizExamId` into `RoadmapNodes` on first access to guarantee consistent re-taking.
+6. **API 6 - Submit Milestone Quiz & FSM State Machine Unlock (`POST /api/v1/practice/roadmaps/nodes/{nodeId}/submit-quiz`)**:
+   - Automated server-to-server grading via Content Service gRPC `GetExamAnswerKeys` obtaining tamper-proof official answer keys.
+   - Creates full audit trail in `ExamSubmissions` (`ExamType = "QUIZ_MILESTONE"`) and `SubmissionAnswers` with individual question performance.
+   - Finite State Machine (FSM) Transition:
+     - Passing Threshold $\ge 60\%$: Transitions current node from `IN_PROGRESS` to `COMPLETED` (`CompletedAt = UtcNow`), increments roadmap `CompletedMilestones`, and automatically queries next `LOCKED` milestone via `GetNextLockedNodeAsync` to unlock it into `IN_PROGRESS` (`UnlockedAt = UtcNow`).
+     - Failing Score $< 60\%$: Milestone remains `IN_PROGRESS`, subsequent nodes stay `LOCKED`, and pedagogical feedback advises lecture review and retake.
+7. **API 7 - Submit Makeup Quiz for Absent Cohort Students (`POST /api/v1/practice/roadmaps/nodes/{nodeId}/submit-makeup-quiz`)**:
+   - Implements Unhappy Case 3 (Absenteeism Fallback): Targets students marked as `ABSENT` during scheduled cohort Live Q&A sessions.
+   - Validates prerequisites: enforces $\ge 80\%$ lecture watch completion and verified `ABSENT` attendance status.
+   - Grades makeup quiz (5 questions) server-to-server via Content Service gRPC and creates audit submission (`ExamType = "MAKEUP_QUIZ"`).
+   - Milestone Unblocking: When student achieves $\ge 60\%$ (`IsMakeupQuizPassed = true`) AND has passed the formative milestone quiz (`node.IsQuizPassed = true`), the absenteeism block is fully cleared, milestone transitions to `COMPLETED`, and next `LOCKED` milestone transitions to `IN_PROGRESS`.
 
 ---
 

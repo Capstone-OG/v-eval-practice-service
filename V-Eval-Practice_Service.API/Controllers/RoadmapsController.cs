@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 using V_Eval_Practice_Service.API.Controllers.Base;
 using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Commands.GenerateRoadmap;
+using V_Eval_Practice_Service.Application.Features.Roadmaps.Commands.SubmitMakeupQuiz;
+using V_Eval_Practice_Service.Application.Features.Roadmaps.Commands.SubmitMilestoneQuiz;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Commands.TrackVideo;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.DTOs;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Queries.GetMilestoneQuiz;
@@ -191,5 +193,79 @@ public class RoadmapsController : ApiControllerBase
         var result = await Mediator.Send(new GetMilestoneQuizQuery(nodeId, studentId));
         return HandleResult(result);
     }
+
+    /// <summary>
+    /// Core Flow 2 - API 6: Nộp bài Quiz củng cố chuyên đề và kích hoạt Máy trạng thái mở khóa chặng học
+    /// </summary>
+    /// <remarks>
+    /// - Nhận danh sách đáp án học sinh đã chọn cho từng câu hỏi bài Quiz củng cố.
+    /// - Truy vấn bảng đáp án gốc bảo mật từ Content Service qua gRPC server-to-server.
+    /// - Chấm điểm chi tiết và lưu kết quả vào ExamSubmissions (ExamType = "QUIZ_MILESTONE").
+    /// - Kích hoạt Finite State Machine (FSM):
+    ///   + NẾU điểm &gt;= 60%: Đánh dấu chặng COMPLETED, cập nhật tiến độ lộ trình, tự động tìm chặng LOCKED kế tiếp và mở khóa thành IN_PROGRESS (UnlockedAt = UtcNow).
+    ///   + NẾU điểm &lt; 60%: Giữ chặng ở IN_PROGRESS, không mở khóa chặng sau, nhắc học sinh xem lại video và làm lại bài Quiz.
+    /// </remarks>
+    [HttpPost("nodes/{nodeId:guid}/submit-quiz")]
+    [ProducesResponseType(typeof(SubmitMilestoneQuizResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SubmitMilestoneQuiz(Guid nodeId, [FromBody] SubmitMilestoneQuizRequestDto request)
+    {
+        Guid? studentId = null;
+
+        // Bóc tách StudentId từ Gateway Header (X-User-Id) nếu có để kiểm tra phân quyền
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            studentId = parsedId;
+        }
+
+        var command = new SubmitMilestoneQuizCommand(
+            NodeId: nodeId,
+            StudentId: studentId,
+            Answers: request.Answers,
+            TotalTimeSpentSeconds: request.TotalTimeSpentSeconds
+        );
+
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 2 - API 7: Nộp bài Quiz bù cho học sinh vắng mặt buổi Live Q&amp;A (Unhappy Case 3 - Absenteeism Fallback)
+    /// </summary>
+    /// <remarks>
+    /// - Dành riêng cho học sinh có trạng thái điểm danh buổi Live Q&amp;A là ABSENT.
+    /// - Chấm điểm bài Quiz bù qua gRPC Content Service.
+    /// - Khi đạt điểm &gt;= 60%: Ghi nhận IsMakeupQuizPassed = true.
+    /// - NẾU học sinh đồng thời đã đạt bài Quiz củng cố: Hệ thống chính thức gỡ bỏ điều kiện phong tỏa chặng, đánh dấu COMPLETED và tự động mở khóa chặng LOCKED kế tiếp.
+    /// </remarks>
+    [HttpPost("nodes/{nodeId:guid}/submit-makeup-quiz")]
+    [ProducesResponseType(typeof(SubmitMakeupQuizResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SubmitMakeupQuiz(Guid nodeId, [FromBody] SubmitMakeupQuizRequestDto request)
+    {
+        Guid? studentId = null;
+
+        // Bóc tách StudentId từ Gateway Header (X-User-Id) nếu có để kiểm tra phân quyền
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            studentId = parsedId;
+        }
+
+        var command = new SubmitMakeupQuizCommand(
+            NodeId: nodeId,
+            StudentId: studentId,
+            Answers: request.Answers,
+            TotalTimeSpentSeconds: request.TotalTimeSpentSeconds
+        );
+
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
 }
+
+
 

@@ -76,10 +76,23 @@ public class LearningRoadmapRepository : ILearningRoadmapRepository
             .FirstOrDefaultAsync(n => n.NodeId == nodeId, ct);
     }
 
+    public async Task<RoadmapNode?> GetNextLockedNodeAsync(Guid roadmapId, int currentStepOrder, CancellationToken ct = default)
+    {
+        return await _context.RoadmapNodes
+            .Where(n => n.RoadmapId == roadmapId && n.StepOrder > currentStepOrder && !n.IsPruned && n.Status == "LOCKED")
+            .OrderBy(n => n.StepOrder)
+            .FirstOrDefaultAsync(ct);
+    }
+
     public async Task<LiveSessionAttendance?> GetAttendanceAsync(Guid liveSessionId, Guid studentId, CancellationToken ct = default)
     {
         return await _context.LiveSessionAttendances
             .FirstOrDefaultAsync(a => a.SessionId == liveSessionId && a.StudentId == studentId, ct);
+    }
+
+    public async Task AddAttendanceAsync(LiveSessionAttendance attendance, CancellationToken ct = default)
+    {
+        await _context.LiveSessionAttendances.AddAsync(attendance, ct);
     }
 
     public async Task<int> SaveChangesAsync(CancellationToken ct = default)

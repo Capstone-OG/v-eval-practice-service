@@ -58,3 +58,7 @@
 | 26 | **Core Flow 2 - API 3: Chi Tiết Chặng Học 3 Thành Phần** | `RoadmapsController.cs` & `GetRoadmapNodeDetailQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/v1/practice/roadmaps/nodes/{nodeId}` chi tiết Video, Quiz củng cố, Buổi học Live Q&A |
 | 27 | **Core Flow 2 - API 4: Ghi Nhận Xem Video Lý Thuyết** | `RoadmapsController.cs` & `TrackVideoCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/v1/practice/roadmaps/nodes/{nodeId}/track-video` tính % xem, mở khóa Quiz khi đạt >= 80% |
 | 28 | **Core Flow 2 - API 5: Lấy Đề Thi Quiz Củng Cố Chặng** | `RoadmapsController.cs` & `GetMilestoneQuizQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/v1/practice/roadmaps/nodes/{nodeId}/quiz` kiểm tra điều kiện xem video >= 80%, ẩn đáp án đúng bảo mật |
+| 29 | **Core Flow 2 - API 6: Nộp Bài Quiz & Mở Khóa FSM** | `RoadmapsController.cs` & `SubmitMilestoneQuizCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/v1/practice/roadmaps/nodes/{nodeId}/submit-quiz` chấm điểm bảo mật gRPC, kích hoạt State Machine mở khóa chặng kế tiếp khi đạt >= 60% |
+| 30 | **Core Flow 2 - API 7: Nộp Quiz Bù Khi Vắng Mặt Live** | `RoadmapsController.cs` & `SubmitMakeupQuizCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/v1/practice/roadmaps/nodes/{nodeId}/submit-makeup-quiz` giải phóng phong tỏa chặng học cho học sinh ABSENT khi đạt >= 60% |
+
+

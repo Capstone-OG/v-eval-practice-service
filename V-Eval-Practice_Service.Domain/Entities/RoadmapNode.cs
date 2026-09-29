@@ -30,6 +30,10 @@ public class RoadmapNode
     public int VideoTotalSeconds { get; set; } = 0;
     public bool IsVideoCompleted { get; set; } = false;
 
+    // Kết quả bài Quiz củng cố chuyên đề (Core Flow 2 - API 6)
+    public double? QuizScore { get; set; } = 0.0;
+    public bool IsQuizPassed { get; set; } = false;
+
     // Navigation Properties
     public virtual LearningRoadmap Roadmap { get; set; } = null!;
     public virtual LiveSession? LiveSession { get; set; }

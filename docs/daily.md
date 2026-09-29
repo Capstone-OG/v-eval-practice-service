@@ -1,5 +1,62 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [29/09/2026] - Triển Khai Hoàn Thiện API 7: Nộp Bài Quiz Bù Cho Học Sinh Vắng Mặt Buổi Live Q&A (POST /api/v1/practice/roadmaps/nodes/{nodeId}/submit-makeup-quiz)
+- **Kiến Trúc CQRS & Result Pattern Cho Phân Hệ Lộ Trình (Features/Roadmaps/Commands/SubmitMakeupQuiz)**:
+  - Khởi tạo DTOs [`SubmitMakeupQuizDtos.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/SubmitMakeupQuizDtos.cs): `SubmitMakeupQuizRequestDto`, `SubmitMakeupQuizResponseDto`.
+  - Xây dựng FluentValidation `SubmitMakeupQuizCommandValidator` kiểm tra ràng buộc đầu vào.
+  - Triển khai `SubmitMakeupQuizCommand` và [`SubmitMakeupQuizCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Commands/SubmitMakeupQuiz/SubmitMakeupQuizCommandHandler.cs):
+    1. Kiểm tra tồn tại chặng học (`404 Not Found`) và phân quyền sở hữu học sinh (`403 Forbidden`).
+    2. Kiểm tra State Machine: Chặn nếu chặng học bị khóa (`LOCKED`) hoặc đã cắt tỉa (`SKIPPED_PRUNED`).
+    3. Kiểm tra điều kiện tiên quyết xem video: Bắt buộc `node.IsVideoCompleted == true` (xem $\ge 80\%$ video bài giảng lý thuyết).
+    4. Kiểm tra buổi Live Q&A và trạng thái điểm danh: Bắt buộc chặng học có liên kết buổi Live (`node.LiveSessionId != null`) và học sinh có trạng thái điểm danh là `ABSENT` trong `LiveSessionAttendance` (chặn `400 BadRequest` nếu không thuộc diện vắng mặt).
+    5. Tự động khởi tạo hoặc nạp đề Quiz bù từ Content Service qua gRPC `GetMilestoneQuizAsync` (nếu chưa gán).
+    6. Lấy bảng đáp án gốc bảo mật từ Content Service qua gRPC `GetExamAnswerKeysAsync(attendance.MakeupQuizId)`.
+    7. Chấm điểm chi tiết từng câu hỏi, lưu bản ghi làm bài vào `ExamSubmissions` (`ExamType = "MAKEUP_QUIZ"`).
+    8. Cập nhật `attendance.IsMakeupQuizPassed = isPassed` ($\ge 60\%$).
+    9. **Kích Hoạt Máy Trạng Thái Hữu Hạn (FSM)**:
+       - Nếu vượt qua bài Quiz bù VÀ học sinh đã vượt qua cả bài Quiz củng cố chuyên đề (`node.IsQuizPassed == true`): Hệ thống chính thức gỡ bỏ điều kiện phong tỏa do vắng mặt, đánh dấu chặng `Status = "COMPLETED"`, tăng `roadmap.CompletedMilestones++` và tự động mở khóa chặng `LOCKED` kế tiếp thành `IN_PROGRESS` (`UnlockedAt = UtcNow`).
+       - Nếu trượt bài Quiz bù ($< 60\%$): Chặng tiếp tục bị giữ ở `IN_PROGRESS`, nhắc học sinh xem lại video ghi hình buổi Live (`recording_url`) và làm lại bài Quiz bù.
+- **Tầng API Controller (`RoadmapsController.cs`)**:
+  - Bổ sung endpoint `[HttpPost("nodes/{nodeId:guid}/submit-makeup-quiz")]` kèm bóc tách `X-User-Id` header xác thực phân quyền.
+- **Kiểm Thử Vận Hành Trực Tiếp (Live End-to-End Test)**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Kiểm thử trực tiếp 5 kịch bản:
+    1. Chặn khi chưa xem đủ 80% video lý thuyết: Trả về `400 BadRequest` chuẩn xác.
+    2. Chặn khi học sinh không thuộc diện `ABSENT`: Trả về `400 BadRequest` chuẩn xác.
+    3. Nộp bài Quiz củng cố khi đang bị `ABSENT`: Ghi nhận 100% điểm quiz củng cố nhưng State Machine chặn không cho hoàn thành chặng (chờ Quiz bù).
+    4. Nộp bài Quiz bù điểm dưới 60%: Trả về `scorePercentage: 0%`, `isPassed: false`, chặng học giữ `IN_PROGRESS`.
+    5. Nộp bài Quiz bù đạt chuẩn $\ge 60\%$ (100%): Gỡ bỏ hoàn toàn phong tỏa chặng, Node 2 ("Đại số, Hàm số & Giải tích") chuyển thành `COMPLETED`, tự động mở khóa Node 3 ("Ngữ pháp & Logic câu Tiếng Việt") thành `IN_PROGRESS`, `CompletedMilestones` tăng lên 2/437!
+
+---
+
+## [29/09/2026] - Triển Khai Hoàn Thiện API 6: Nộp Bài Quiz Củng Cố & Kích Hoạt Máy Trạng Thái Mở Khóa Chặng (POST /api/v1/practice/roadmaps/nodes/{nodeId}/submit-quiz)
+- **Cơ Sở Dữ Liệu PostgreSQL & Entity Framework Core**:
+  - Bổ sung 2 cột lưu vết điểm số vào bảng `v_eval_practice."RoadmapNodes"`: `quiz_score DOUBLE PRECISION DEFAULT 0.0`, `is_quiz_passed BOOLEAN DEFAULT FALSE`.
+  - Cập nhật entity [`RoadmapNode.cs`](../V-Eval-Practice_Service.Domain/Entities/RoadmapNode.cs) và mapping trong `PracticeDbContext.cs`.
+  - Bổ sung phương thức `GetNextLockedNodeAsync(Guid roadmapId, int currentStepOrder)` vào `ILearningRoadmapRepository` và hiện thực trong `LearningRoadmapRepository.cs` phục vụ tìm kiếm mốc học tập kế tiếp để mở khóa.
+- **Kiến Trúc CQRS & Result Pattern Cho Phân Hệ Lộ Trình (Features/Roadmaps/Commands/SubmitMilestoneQuiz)**:
+  - Khởi tạo DTOs [`SubmitMilestoneQuizDtos.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/SubmitMilestoneQuizDtos.cs): `SubmitMilestoneQuizRequestDto`, `MilestoneQuizAnswerItemDto`, `SubmitMilestoneQuizResponseDto`, `MilestoneQuizQuestionResultDto`.
+  - Xây dựng FluentValidation `SubmitMilestoneQuizCommandValidator` kiểm tra ràng buộc dữ liệu đầu vào.
+  - Triển khai `SubmitMilestoneQuizCommand` và [`SubmitMilestoneQuizCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Commands/SubmitMilestoneQuiz/SubmitMilestoneQuizCommandHandler.cs):
+    1. Kiểm tra tồn tại chặng học (`404 Not Found`) và kiểm soát phân quyền học sinh (`403 Forbidden`).
+    2. Kiểm tra State Machine: Chặn nếu chặng đang bị khóa (`LOCKED` -> `400 BadRequest`) hoặc đã cắt tỉa (`SKIPPED_PRUNED` -> `400 BadRequest`).
+    3. Kiểm tra điều kiện tiên quyết xem video: Bắt buộc `node.IsVideoCompleted == true` (xem $\ge 80\%$ video) mới được phép nộp bài Quiz.
+    4. Tự động lấy bảng đáp án gốc bảo mật từ Content Service qua gRPC `GetExamAnswerKeysAsync(node.QuizExamId)`.
+    5. Chấm điểm chi tiết từng câu hỏi, tính `ScorePercentage = Math.Round((totalCorrect / totalQuestions) * 100.0, 2)`.
+    6. Lưu bản ghi nộp bài vào `ExamSubmissions` (`ExamType = "QUIZ_MILESTONE"`) và `SubmissionAnswers` chi tiết từng câu.
+    7. **Kích hoạt Finite State Machine (FSM)**:
+       - Nếu điểm $\ge 60\%$: Đánh dấu chặng hiện tại `Status = "COMPLETED"`, cập nhật `CompletedAt = UtcNow`, tăng `roadmap.CompletedMilestones++` (nếu hoàn thành hết thì `roadmap.Status = "COMPLETED"`). Tự động tìm chặng `LOCKED` kế tiếp qua `GetNextLockedNodeAsync` và chuyển thành `Status = "IN_PROGRESS"` (`UnlockedAt = UtcNow`).
+       - Nếu điểm $< 60\%$: Giữ chặng hiện tại ở `IN_PROGRESS`, không mở khóa chặng sau, trả về thông báo sư phạm yêu cầu xem lại video và làm lại bài Quiz.
+- **Tầng API Controller (`RoadmapsController.cs`)**:
+  - Bổ sung endpoint `[HttpPost("nodes/{nodeId:guid}/submit-quiz")]` kèm bóc tách `X-User-Id` header xác thực phân quyền.
+- **Kiểm Thử Vận Hành Trực Tiếp (Live End-to-End Test)**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Kiểm thử trực tiếp 2 kịch bản chính:
+    1. **Kịch bản điểm dưới 60% (Failing)**: Trả về `scorePercentage: 0%`, `isPassed: false`, chặng học giữ nguyên `IN_PROGRESS`, không mở khóa chặng sau.
+    2. **Kịch bản điểm đạt chuẩn >= 60% (Passing 100%)**: Trả về `scorePercentage: 100%`, `isPassed: true`, chặng 1 chuyển thành `COMPLETED`, chặng 2 ("Đại số, Hàm số & Giải tích") tự động được mở khóa thành `IN_PROGRESS`, `CompletedMilestones` tăng từ 0 lên 1, lưu vết bản ghi chấm thi đầy đủ vào CSDL Supabase.
+
+---
+
 ## [29/09/2026] - Triển Khai Hoàn Thiện API 5: Lấy Đề Thi Quiz Củng Cố Của Chặng Học (GET /api/v1/practice/roadmaps/nodes/{nodeId}/quiz)
 - **Hợp Đồng Giao Thức gRPC Liên Dịch Vụ (`content.proto`)**:
   - Bổ sung RPC `GetMilestoneQuiz (GetMilestoneQuizRequest) returns (GetMilestoneQuizResponse)` vào cả 3 vị trí hợp đồng (`grpc/content.proto`, Content Service và Practice Service).
