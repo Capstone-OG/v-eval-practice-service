@@ -1,5 +1,30 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [29/09/2026] - Triển Khai Hoàn Thiện API 5: Lấy Đề Thi Quiz Củng Cố Của Chặng Học (GET /api/v1/practice/roadmaps/nodes/{nodeId}/quiz)
+- **Hợp Đồng Giao Thức gRPC Liên Dịch Vụ (`content.proto`)**:
+  - Bổ sung RPC `GetMilestoneQuiz (GetMilestoneQuizRequest) returns (GetMilestoneQuizResponse)` vào cả 3 vị trí hợp đồng (`grpc/content.proto`, Content Service và Practice Service).
+  - Triển khai `GetMilestoneQuiz` trong `ContentGrpcService.cs` (Content Service): Nạp câu hỏi theo `ExamId` hoặc `SkillId`, tự động gán đề thi `MockExam` và liên kết `ExamQuestions`, đồng thời **ẩn hoàn toàn đáp án đúng** (`is_correct`, `correct_option`) để bảo mật đề thi tuyệt đối khi gửi về cho học sinh.
+- **Kiến Trúc CQRS & Result Pattern Cho Phân Hệ Lộ Trình (Features/Roadmaps/Queries/GetMilestoneQuiz)**:
+  - Khởi tạo DTO [`MilestoneQuizDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/MilestoneQuizDto.cs), `MilestoneQuizQuestionItemDto`, `MilestoneQuizOptionDto`.
+  - Mở rộng `IContentGrpcClient` và `ContentGrpcClient` hiện thực `GetMilestoneQuizAsync`.
+  - Triển khai `GetMilestoneQuizQuery` và [`GetMilestoneQuizQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Queries/GetMilestoneQuiz/GetMilestoneQuizQueryHandler.cs):
+    1. Kiểm tra tồn tại chặng học: Trả về `404 Not Found` nếu không tìm thấy `NodeId`.
+    2. Kiểm soát phân quyền: Chặn học sinh truy cập bài kiểm tra chặng học của người khác (`403 Forbidden`).
+    3. Kiểm tra State Machine: Chặn nếu chặng đang bị khóa (`LOCKED` -> `400 BadRequest`) hoặc đã cắt tỉa (`SKIPPED_PRUNED` -> `400 BadRequest`).
+    4. Kiểm tra điều kiện tiên quyết xem video lý thuyết (Prerequisite Check): Bắt buộc học sinh xem $\ge 80\%$ thời lượng bài giảng trước (`IsVideoCompleted = true`), chặn nếu chưa xem đủ (`400 BadRequest` - `RoadmapNode.VideoNotCompleted`).
+    5. Gọi gRPC Content Service nạp danh sách 5 câu hỏi củng cố (ẩn đáp án đúng).
+    6. Tự động liên kết `QuizExamId` vào `RoadmapNode` và lưu trữ nguyên tử vào CSDL Supabase PostgreSQL.
+- **Tầng API Controller (`RoadmapsController.cs`)**:
+  - Bổ sung endpoint `[HttpGet("nodes/{nodeId:guid}/quiz")]` kèm bóc tách `X-User-Id` header xác thực phân quyền.
+- **Kiểm Thử Biên Dịch & Vận Hành Thực Tế**:
+  - Cả 2 solution `V-Eval-Content_Service.sln` và `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Kiểm thử trực tiếp 3 kịch bản:
+    1. Lấy đề thi Quiz cho chặng đủ điều kiện: Trả về `200 OK` đầy đủ 5 câu hỏi kèm lựa chọn A, B, C, D (ẩn đáp án đúng), lưu vết `QuizExamId` vào DB.
+    2. Chặn chặng đang bị khóa (`LOCKED`): Trả về `400 BadRequest` chuẩn xác.
+    3. Chặn học sinh khác truy cập trái phép: Trả về `403 Forbidden` chuẩn xác.
+
+---
+
 ## [29/09/2026] - Triển Khai Hoàn Thiện API 4: Ghi Nhận Tiến Độ Xem Video Lý Thuyết (POST /api/v1/practice/roadmaps/nodes/{nodeId}/track-video)
 - **Kiến Trúc CQRS & Result Pattern Cho Phân Hệ Lộ Trình (Features/Roadmaps/Commands/TrackVideo)**:
   - Khởi tạo DTOs [`TrackVideoRequestDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/TrackVideoRequestDto.cs) và [`TrackVideoResponseDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/TrackVideoResponseDto.cs):

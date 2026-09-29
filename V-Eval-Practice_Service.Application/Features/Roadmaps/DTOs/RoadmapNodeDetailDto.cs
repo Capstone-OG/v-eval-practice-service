@@ -37,6 +37,10 @@ public record RoadmapNodeDetailDto(
     DateTime? CompletedAt,
     // Thành phần 1: Bài giảng lý thuyết video
     Guid? MaterialId,
+    int VideoWatchedSeconds,
+    int VideoTotalSeconds,
+    bool IsVideoCompleted,
+    bool IsQuizEligible,
     // Thành phần 2: Bài Quiz củng cố 5-10 câu
     Guid? QuizExamId,
     // Thành phần 3: Buổi học Live Q&A trực tuyến cơ sở

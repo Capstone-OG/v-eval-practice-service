@@ -111,6 +111,11 @@
    - Records cumulative lecture watch duration (`WatchedDurationSeconds`, `TotalDurationSeconds`), calculating real-time percentage (`WatchPercentage`).
    - Enforces 80% completion prerequisite rule before student is eligible to unlock formative quiz (`IsQuizEligible = true`).
    - Validates milestone state machine (`LOCKED` and `SKIPPED_PRUNED` states rejected with `400 BadRequest`).
+5. **API 5 - Get Milestone Formative Quiz (`GET /api/v1/practice/roadmaps/nodes/{nodeId}/quiz`)**:
+   - Inter-service gRPC contract `GetMilestoneQuiz` retrieves 5-10 milestone-aligned questions from Content Service.
+   - Enforces prerequisite check: Rejects requests if student has not watched $\ge 80\%$ of theoretical lecture (`IsVideoCompleted = false`).
+   - Strict Anti-Cheating Protocol: Strips all correct options (`is_correct`, `correct_option`) and explanations from student payload.
+   - Auto-binds and persists `QuizExamId` into `RoadmapNodes` on first access to guarantee consistent re-taking.
 
 ---
 

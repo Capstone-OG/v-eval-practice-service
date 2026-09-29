@@ -7,6 +7,7 @@ using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Commands.GenerateRoadmap;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Commands.TrackVideo;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.DTOs;
+using V_Eval_Practice_Service.Application.Features.Roadmaps.Queries.GetMilestoneQuiz;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Queries.GetMyRoadmap;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Queries.GetRoadmapNodeDetail;
 
@@ -163,4 +164,32 @@ public class RoadmapsController : ApiControllerBase
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }
+
+    /// <summary>
+    /// Core Flow 2 - API 5: Lấy đề thi Quiz củng cố chuyên đề của chặng học (5 - 10 câu hỏi)
+    /// </summary>
+    /// <remarks>
+    /// - Yêu cầu điều kiện tiên quyết: Học sinh phải hoàn thành xem tối thiểu 80% thời lượng bài giảng lý thuyết trước (`IsVideoCompleted = true`).
+    /// - Bảo mật đề thi: Toàn bộ đáp án đúng và lời giải chi tiết được ẩn hoàn toàn để chống gian lận.
+    /// - Kiểm tra quyền sở hữu và trạng thái máy chặng học (LOCKED / SKIPPED_PRUNED bị từ chối).
+    /// </remarks>
+    [HttpGet("nodes/{nodeId:guid}/quiz")]
+    [ProducesResponseType(typeof(MilestoneQuizDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMilestoneQuiz(Guid nodeId)
+    {
+        Guid? studentId = null;
+
+        // Bóc tách StudentId từ Gateway Header (X-User-Id) nếu có để kiểm tra phân quyền
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            studentId = parsedId;
+        }
+
+        var result = await Mediator.Send(new GetMilestoneQuizQuery(nodeId, studentId));
+        return HandleResult(result);
+    }
 }
+

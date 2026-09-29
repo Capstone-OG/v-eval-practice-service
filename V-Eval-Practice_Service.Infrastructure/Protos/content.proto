@@ -17,6 +17,9 @@ service ContentService {
 
   // Lấy bảng đáp án của một đề thi để Practice Service chấm điểm bài thi bảo mật server-to-server
   rpc GetExamAnswerKey (GetExamAnswerKeyRequest) returns (GetExamAnswerKeyResponse);
+
+  // Lấy đề thi Quiz củng cố của chặng học (ẩn đáp án đúng để chống gian lận)
+  rpc GetMilestoneQuiz (GetMilestoneQuizRequest) returns (GetMilestoneQuizResponse);
 }
 
 message GetSkillsTreeRequest {
@@ -94,3 +97,31 @@ message GetExamAnswerKeyResponse {
   repeated QuestionAnswerKey answer_keys = 2;
 }
 
+message GetMilestoneQuizRequest {
+  string skill_id = 1;
+  string exam_id = 2; // Nếu có exam_id thì ưu tiên lấy theo exam_id, nếu không thì lấy theo skill_id
+  int32 question_count = 3; // Mặc định 5-10 câu
+}
+
+message QuizOption {
+  string option_id = 1; // "A", "B", "C", "D"
+  string content = 2; // LaTeX hoặc văn bản
+}
+
+message QuizQuestionItem {
+  string question_id = 1;
+  int32 question_order = 2;
+  string content = 3; // Nội dung câu hỏi LaTeX
+  repeated QuizOption options = 4;
+  int32 difficulty_level = 5;
+  string skill_id = 6;
+  string skill_name = 7;
+}
+
+message GetMilestoneQuizResponse {
+  string exam_id = 1;
+  string title = 2;
+  int32 duration_minutes = 3;
+  int32 total_questions = 4;
+  repeated QuizQuestionItem questions = 5;
+}

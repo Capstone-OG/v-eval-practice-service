@@ -26,8 +26,32 @@ public record SkillTreeNodeDto(
     string DomainName = ""
 );
 
+public record MilestoneQuizQuestionOptionDto(
+    string OptionId,
+    string Content
+);
+
+public record MilestoneQuizQuestionDto(
+    Guid QuestionId,
+    int QuestionOrder,
+    string Content,
+    IReadOnlyList<MilestoneQuizQuestionOptionDto> Options,
+    int DifficultyLevel,
+    Guid SkillId,
+    string SkillName
+);
+
+public record MilestoneQuizResultDto(
+    Guid ExamId,
+    string Title,
+    int DurationMinutes,
+    int TotalQuestions,
+    IReadOnlyList<MilestoneQuizQuestionDto> Questions
+);
+
 public interface IContentGrpcClient
 {
     Task<IReadOnlyDictionary<Guid, ExamQuestionKeyDto>> GetExamAnswerKeysAsync(Guid examId, CancellationToken ct = default);
     Task<IReadOnlyList<SkillTreeNodeDto>> GetSkillsTreeAsync(CancellationToken ct = default);
+    Task<MilestoneQuizResultDto?> GetMilestoneQuizAsync(Guid skillId, Guid? examId, int questionCount = 5, CancellationToken ct = default);
 }

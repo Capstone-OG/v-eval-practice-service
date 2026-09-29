@@ -114,4 +114,71 @@ public class ContentGrpcClient : IContentGrpcClient
             throw;
         }
     }
+
+    public async Task<MilestoneQuizResultDto?> GetMilestoneQuizAsync(
+        Guid skillId,
+        Guid? examId,
+        int questionCount = 5,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var channel = GrpcChannel.ForAddress(_serviceUrl);
+            var client = new ContentService.ContentServiceClient(channel);
+
+            var request = new GetMilestoneQuizRequest
+            {
+                SkillId = skillId.ToString(),
+                ExamId = examId?.ToString() ?? string.Empty,
+                QuestionCount = questionCount
+            };
+
+            var response = await client.GetMilestoneQuizAsync(request, cancellationToken: ct);
+
+            if (response == null || response.Questions.Count == 0)
+            {
+                return null;
+            }
+
+            var questions = new List<MilestoneQuizQuestionDto>();
+            foreach (var q in response.Questions)
+            {
+                if (Guid.TryParse(q.QuestionId, out var qId))
+                {
+                    Guid.TryParse(q.SkillId, out var qSkillId);
+                    var options = new List<MilestoneQuizQuestionOptionDto>();
+                    foreach (var opt in q.Options)
+                    {
+                        options.Add(new MilestoneQuizQuestionOptionDto(opt.OptionId, opt.Content));
+                    }
+
+                    questions.Add(new MilestoneQuizQuestionDto(
+                        QuestionId: qId,
+                        QuestionOrder: q.QuestionOrder,
+                        Content: q.Content,
+                        Options: options,
+                        DifficultyLevel: q.DifficultyLevel,
+                        SkillId: qSkillId,
+                        SkillName: q.SkillName
+                    ));
+                }
+            }
+
+            Guid.TryParse(response.ExamId, out var parsedExamId);
+
+            return new MilestoneQuizResultDto(
+                ExamId: parsedExamId,
+                Title: response.Title,
+                DurationMinutes: response.DurationMinutes,
+                TotalQuestions: response.TotalQuestions,
+                Questions: questions
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi gọi gRPC Content Service ({ServiceUrl}) GetMilestoneQuiz cho SkillId {SkillId}",
+                _serviceUrl, skillId);
+            throw;
+        }
+    }
 }

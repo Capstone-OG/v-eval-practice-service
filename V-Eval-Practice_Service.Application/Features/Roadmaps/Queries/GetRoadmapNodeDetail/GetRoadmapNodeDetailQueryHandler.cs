@@ -92,6 +92,9 @@ public class GetRoadmapNodeDetailQueryHandler : IRequestHandler<GetRoadmapNodeDe
             );
         }
 
+        bool isQuizEligible = node.IsVideoCompleted ||
+            (node.VideoTotalSeconds > 0 && (double)node.VideoWatchedSeconds / node.VideoTotalSeconds >= 0.8);
+
         var detailDto = new RoadmapNodeDetailDto(
             NodeId: node.NodeId,
             RoadmapId: node.RoadmapId,
@@ -106,6 +109,10 @@ public class GetRoadmapNodeDetailQueryHandler : IRequestHandler<GetRoadmapNodeDe
             UnlockedAt: node.UnlockedAt,
             CompletedAt: node.CompletedAt,
             MaterialId: node.MaterialId,
+            VideoWatchedSeconds: node.VideoWatchedSeconds,
+            VideoTotalSeconds: node.VideoTotalSeconds,
+            IsVideoCompleted: node.IsVideoCompleted,
+            IsQuizEligible: isQuizEligible,
             QuizExamId: node.QuizExamId,
             LiveSession: liveSessionDto
         );
