@@ -27,6 +27,14 @@ public class GetTeacherScheduleQueryHandler : IRequestHandler<GetTeacherSchedule
     {
         _logger.LogInformation("Retrieving live teaching schedule for TeacherId: {TeacherId}", request.TeacherId);
 
+        var teacherExists = await _liveSessionRepository.TeacherExistsAsync(request.TeacherId, ct);
+        if (!teacherExists)
+        {
+            _logger.LogWarning("Teacher with ID {TeacherId} does not exist in the training system.", request.TeacherId);
+            return Result<TeacherScheduleDto>.Failure(
+                Error.NotFound("TeacherNotFound", $"Không tìm thấy giáo viên với mã {request.TeacherId} trong hệ thống đào tạo."));
+        }
+
         var sessions = await _liveSessionRepository.GetSessionsForTeacherAsync(request.TeacherId, ct);
 
         var sessionDtos = new List<TeacherLiveSessionItemDto>();

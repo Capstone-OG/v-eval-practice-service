@@ -97,6 +97,12 @@ public class LiveSessionRepository : ILiveSessionRepository
             .ToListAsync(ct);
     }
 
+    public async Task<bool> TeacherExistsAsync(Guid teacherId, CancellationToken ct = default)
+    {
+        return await _context.Classes.AnyAsync(c => c.TeacherId == teacherId, ct) ||
+               await _context.LiveSessions.AnyAsync(s => s.TeacherId == teacherId, ct);
+    }
+
     public async Task<int> GetEnrolledStudentCountByClassIdAsync(Guid classId, CancellationToken ct = default)
     {
         return await _context.ClassEnrollments

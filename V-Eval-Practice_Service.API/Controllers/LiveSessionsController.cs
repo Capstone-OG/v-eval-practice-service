@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using V_Eval_Practice_Service.API.Controllers.Base;
 using V_Eval_Practice_Service.Application.Common.Models;
+using V_Eval_Practice_Service.Application.Features.LiveSessions.Commands.CancelLiveSession;
 using V_Eval_Practice_Service.Application.Features.LiveSessions.Commands.CreateLiveSession;
 using V_Eval_Practice_Service.Application.Features.LiveSessions.Commands.JoinLiveSession;
 using V_Eval_Practice_Service.Application.Features.LiveSessions.Commands.TeacherAttendance;
@@ -196,6 +197,32 @@ public class LiveSessionsController : ApiControllerBase
         }
 
         var command = new UpdateLiveSessionRecordingCommand(sessionId, request.RecordingUrl, teacherId);
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 2 - API 15: Giáo viên hủy buổi học trực tuyến Live Q&amp;A khi bận hoặc có việc đột xuất
+    /// </summary>
+    /// <remarks>
+    /// - Dành cho Giáo viên (Teacher) hoặc Giáo vụ (Academic Manager).
+    /// - Không thực hiện xóa cứng/xóa vật lý bản ghi trong CSDL (vì buổi học do Academic Manager tạo, cần bảo lưu lịch sử).
+    /// - Cập nhật trạng thái buổi học thành 'CANCELLED' kèm lý do hủy (`reason`).
+    /// - Khi đã hủy, học sinh không thể vào phòng học (API 11) và không thể thực hiện điểm danh (API 12) hay nộp video (API 14).
+    /// </remarks>
+    [HttpPut("{sessionId:guid}/cancel")]
+    [ProducesResponseType(typeof(CancelLiveSessionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CancelLiveSession(Guid sessionId, [FromBody] CancelLiveSessionRequestDto request)
+    {
+        Guid? teacherId = null;
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            teacherId = parsedId;
+        }
+
+        var command = new CancelLiveSessionCommand(sessionId, request.Reason, teacherId);
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }

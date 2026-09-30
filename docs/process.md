@@ -67,8 +67,10 @@
 | 35 | **Core Flow 2 - API 12: Giáo Viên Điểm Danh Buổi Live** | `LiveSessionsController.cs` & `TeacherAttendanceCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/v1/practice/live-sessions/{sessionId}/attendance` giáo viên đánh giá chuyên cần (ATTENDED / ABSENT) |
 | 36 | **Core Flow 2 - API 13: Lịch Giảng Dạy Của Giáo Viên** | `LiveSessionsController.cs` & `GetTeacherScheduleQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/v1/practice/live-sessions/teacher-schedule` giáo viên tra cứu lịch Live Q&A được phân công |
 | 37 | **Core Flow 2 - API 14: Cập Nhật Video Ghi Hình Buổi Live** | `LiveSessionsController.cs` & `UpdateLiveSessionRecordingCommandHandler.cs` | 🟢 Hoàn thành | 100% | `PUT /api/v1/practice/live-sessions/{sessionId}/recording` cập nhật recording_url và cờ is_recorded |
-| 38 | **Core Flow 2 - API 21: Danh Sách Học Sinh Thuộc Lớp** | `ClassesController.cs` & `GetClassStudentsQueryHandler.cs` | 🟡 Chưa thực hiện | 0% | `GET /api/v1/practice/classes/{classId}/students` tra cứu tiến độ lộ trình và chuyên cần học sinh |
-| 39 | **Core Flow 2 - API 22: Nhận Diện Học Sinh Nguy Cơ Sa Sút**| `ClassesController.cs` & `GetAtRiskStudentsQueryHandler.cs` | 🟡 Chưa thực hiện | 0% | `GET /api/v1/practice/classes/{classId}/at-risk-students` cảnh báo can thiệp sư phạm học sinh nguy cơ |
+| 38 | **Core Flow 2 - API 15: Hủy Buổi Học Live Khi Bận Đột Xuất** | `LiveSessionsController.cs` & `CancelLiveSessionCommandHandler.cs` | 🟢 Hoàn thành | 100% | `PUT /api/v1/practice/live-sessions/{sessionId}/cancel` chuyển trạng thái CANCELLED kèm lý do hủy (không xóa vật lý bản ghi) |
+| 39 | **Core Flow 2 - API 22: Danh Sách Học Sinh Thuộc Lớp** | `ClassesController.cs` & `GetClassStudentsQueryHandler.cs` | 🟡 Chưa thực hiện | 0% | `GET /api/v1/practice/classes/{classId}/students` tra cứu tiến độ lộ trình và chuyên cần học sinh |
+| 40 | **Core Flow 2 - API 23: Nhận Diện Học Sinh Nguy Cơ Sa Sút**| `ClassesController.cs` & `GetAtRiskStudentsQueryHandler.cs` | 🟡 Chưa thực hiện | 0% | `GET /api/v1/practice/classes/{classId}/at-risk-students` cảnh báo can thiệp sư phạm học sinh nguy cơ |
+
 
 
 

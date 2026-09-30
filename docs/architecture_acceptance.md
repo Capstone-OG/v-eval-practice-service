@@ -145,6 +145,11 @@
     - Queries assigned sessions for a teacher (`teacherId`), aggregating cohort enrollment size, attendance counts (`totalAttended`, `totalAbsent`), meeting and recording URLs.
 14. **API 14 - Update Live Session Recording (`PUT /api/v1/practice/live-sessions/{sessionId}/recording`)**:
     - Enables teachers to publish session video archive (`RecordingUrl`), marks `IsRecorded = true` and updates session status to `COMPLETED` for absent student review.
+15. **API 15 - Teacher / Academic Manager Cancel Live Session (`PUT /api/v1/practice/live-sessions/{sessionId}/cancel`)**:
+    - Grants teachers or academic managers the ability to cancel scheduled sessions when an emergency occurs.
+    - Preserves data integrity: prevents physical deletion (since sessions are created by Academic Managers and require audit history).
+    - Updates `Status` to `CANCELLED` and appends cancellation reason to description.
+    - Prevents downstream interactions: cancelled sessions reject student join attempts (API 11), teacher attendance grading (API 12), and recording uploads (API 14).
 
 ---
 

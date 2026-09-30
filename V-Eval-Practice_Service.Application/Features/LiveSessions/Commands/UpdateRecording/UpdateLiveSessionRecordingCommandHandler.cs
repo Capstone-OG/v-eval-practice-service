@@ -34,6 +34,13 @@ public class UpdateLiveSessionRecordingCommandHandler : IRequestHandler<UpdateLi
                 Error.NotFound("LiveSessionNotFound", $"Không tìm thấy buổi học Live Q&A có ID {request.SessionId}."));
         }
 
+        if (string.Equals(session.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning("Cannot update recording URL for cancelled session {SessionId}.", request.SessionId);
+            return Result<UpdateLiveSessionRecordingResponseDto>.Failure(
+                Error.Validation("SessionCancelled", $"Buổi học Live Q&A {request.SessionId} đã bị hủy bỏ, không thể cập nhật video ghi hình."));
+        }
+
         session.RecordingUrl = request.RecordingUrl.Trim();
         session.IsRecorded = true;
         if (session.Status == "SCHEDULED")

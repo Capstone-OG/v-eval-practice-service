@@ -1,27 +1,37 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
-## [30/09/2026] - Triển Khai Hoàn Thiện APIs 12, 13, 14: Điểm Danh Chuyên Cần, Thời Khóa Biểu Giảng Dạy & Cập Nhật Video Ghi Hình Buổi Live
+## [30/09/2026] - Triển Khai Hoàn Thiện APIs 12, 13, 14, 15: Điểm Danh Chuyên Cần, Thời Khóa Biểu Giảng Dạy, Video Ghi Hình & Hủy Buổi Học Trực Tuyến
 - **API 12: Giáo Viên Điểm Danh Chuyên Cần Cho Học Sinh (POST /api/v1/practice/live-sessions/{sessionId}/attendance)**:
   - Khởi tạo DTOs [`TeacherAttendanceDtos.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/TeacherAttendanceDtos.cs): `StudentAttendanceItemDto`, `TeacherAttendanceRequestDto`, `TeacherAttendanceResponseDto`.
   - Xây dựng FluentValidation `TeacherAttendanceCommandValidator` kiểm tra ràng buộc `SessionId`, danh sách học sinh và giá trị trạng thái (`ATTENDED` hoặc `ABSENT`).
   - Triển khai `TeacherAttendanceCommand` và [`TeacherAttendanceCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/Commands/TeacherAttendance/TeacherAttendanceCommandHandler.cs):
     1. Kiểm tra tồn tại buổi Live (`404 Not Found`).
-    2. Duyệt từng học sinh, cập nhật hoặc tạo mới bản ghi `LiveSessionAttendance` với trạng thái `ATTENDED` (kèm `JoinedAt = UtcNow`) hoặc `ABSENT`.
-    3. Thống kê tổng số học sinh đã điểm danh, số tham gia, số vắng mặt.
+    2. Chặn thao tác điểm danh khi buổi học đã bị hủy `session.Status == "CANCELLED"` (`400 Bad Request`).
+    3. Duyệt từng học sinh, cập nhật hoặc tạo mới bản ghi `LiveSessionAttendance` với trạng thái `ATTENDED` hoặc `ABSENT`. Nếu học sinh chưa từng ấn vào phòng qua web, ghi nhận `JoinedAt = null`. Nếu đã vào phòng, bảo lưu nguyên vẹn thời gian `JoinedAt` thực tế.
+    4. Thống kê tổng số học sinh đã điểm danh, số tham gia, số vắng mặt.
 - **API 13: Lấy Thời Khóa Biểu Giảng Dạy Của Giáo Viên (GET /api/v1/practice/live-sessions/teacher-schedule)**:
-  - Bổ sung phương thức `GetSessionsForTeacherAsync` và `GetEnrolledStudentCountByClassIdAsync` vào `ILiveSessionRepository` và `LiveSessionRepository`.
-  - Khởi tạo DTOs [`TeacherScheduleDtos.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/TeacherScheduleDtos.cs), `GetTeacherScheduleQuery.cs` và [`GetTeacherScheduleQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/Queries/GetTeacherSchedule/GetTeacherScheduleQueryHandler.cs).
-  - Nghiệp vụ: Truy vấn danh sách buổi Live được giao cho giáo viên (`TeacherId` trực tiếp hoặc giáo viên phụ trách lớp `Class.TeacherId`), thống kê sĩ số học sinh ghi danh của lớp, số học sinh đã tham gia (`ATTENDED`), số vắng mặt (`ABSENT`), link phòng họp và link video ghi hình.
+  - Bổ sung phương thức `GetSessionsForTeacherAsync`, `TeacherExistsAsync` và `GetEnrolledStudentCountByClassIdAsync` vào `ILiveSessionRepository` và `LiveSessionRepository`.
+  - Khởi tạo DTOs [`TeacherScheduleDtos.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/TeacherScheduleDtos.cs), `GetTeacherScheduleQuery.cs`, `GetTeacherScheduleQueryValidator.cs` và [`GetTeacherScheduleQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/Queries/GetTeacherSchedule/GetTeacherScheduleQueryHandler.cs).
+  - Nghiệp vụ & Ngoại lệ: Kiểm tra `TeacherId` rỗng (`400 Bad Request`), kiểm tra giáo viên tồn tại trong hệ thống đào tạo qua `TeacherExistsAsync` (`404 Not Found` `TeacherNotFound`). Truy vấn danh sách buổi Live được giao cho giáo viên (`TeacherId` trực tiếp hoặc giáo viên phụ trách lớp `Class.TeacherId`), thống kê sĩ số lớp, số tham gia (`ATTENDED`), số vắng mặt (`ABSENT`), link phòng họp và link video ghi hình.
 - **API 14: Cập Nhật Video Ghi Hình Buổi Live Q&A (PUT /api/v1/practice/live-sessions/{sessionId}/recording)**:
   - Khởi tạo DTOs [`UpdateLiveSessionRecordingDtos.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/UpdateLiveSessionRecordingDtos.cs), `UpdateLiveSessionRecordingCommand.cs`, `UpdateLiveSessionRecordingCommandValidator.cs` và [`UpdateLiveSessionRecordingCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/Commands/UpdateRecording/UpdateLiveSessionRecordingCommandHandler.cs).
-  - Nghiệp vụ: Kiểm tra tính hợp lệ của URL (`http`/`https`), cập nhật `RecordingUrl`, đánh dấu `IsRecorded = true` và chuyển trạng thái buổi học sang `COMPLETED` để học sinh vắng mặt xem lại bài giảng.
+  - Nghiệp vụ & Ngoại lệ: Kiểm tra tính hợp lệ của URL (`http`/`https`), chặn cập nhật khi buổi học đã bị hủy `session.Status == "CANCELLED"` (`400 Bad Request`), cập nhật `RecordingUrl`, đánh dấu `IsRecorded = true` và chuyển trạng thái buổi học sang `COMPLETED` để học sinh vắng mặt xem lại bài giảng.
+- **API 15: Giáo Viên / Giáo Vụ Hủy Buổi Học Trực Tuyến Khi Bận Đột Xuất (PUT /api/v1/practice/live-sessions/{sessionId}/cancel)**:
+  - Khởi tạo DTOs [`CancelLiveSessionDtos.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/CancelLiveSessionDtos.cs): `CancelLiveSessionRequestDto`, `CancelLiveSessionResponseDto`.
+  - Xây dựng FluentValidation `CancelLiveSessionCommandValidator` kiểm tra ràng buộc `SessionId` và `Reason` (không quá 500 ký tự).
+  - Triển khai `CancelLiveSessionCommand` và [`CancelLiveSessionCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/Commands/CancelLiveSession/CancelLiveSessionCommandHandler.cs):
+    1. Kiểm tra tồn tại buổi Live (`404 Not Found`).
+    2. Chặn hủy khi buổi học đã hoàn thành `session.Status == "COMPLETED"` (`400 Bad Request`).
+    3. Chặn hủy lặp lại khi buổi học đã ở trạng thái `CANCELLED` (`400 Bad Request`).
+    4. Không xóa vật lý bản ghi (do Academic Manager tạo, bảo lưu lịch sử đào tạo). Cập nhật `Status = "CANCELLED"` và đính kèm lý do hủy vào `Description`.
 - **Tầng API Controller (`LiveSessionsController.cs`)**:
-  - Bổ sung 3 endpoint: `[HttpPost("{sessionId:guid}/attendance")]`, `[HttpGet("teacher-schedule")]`, `[HttpPut("{sessionId:guid}/recording")]`.
+  - Bổ sung 4 endpoint: `[HttpPost("{sessionId:guid}/attendance")]`, `[HttpGet("teacher-schedule")]`, `[HttpPut("{sessionId:guid}/recording")]`, `[HttpPut("{sessionId:guid}/cancel")]`.
 - **Kiểm Thử Vận Hành Trực Tiếp (Live End-to-End Test)**:
   - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
-  - Kịch bản API 12: Giáo viên điểm danh 2 học sinh (`1111...` ATTENDED, `2222...` ABSENT) cho Session `2a196c82...` -> `200 OK`, `totalAttended: 1`, `totalAbsent: 1`.
-  - Kịch bản API 13: Tra cứu lịch dạy của giáo viên `99999999-9999-9999-9999-999999999999` -> `200 OK`, trả về 5 buổi Live đầy đủ số liệu sĩ số lớp, số tham gia, số vắng mặt.
+  - Kịch bản API 12: Giáo viên điểm danh 2 học sinh (`1111...` ATTENDED, `2222...` ABSENT) cho Session `2a196c82...` -> `200 OK`, `totalAttended: 1`, `totalAbsent: 1`. Chặn điểm danh session đã hủy -> `400 Bad Request`.
+  - Kịch bản API 13: Tra cứu lịch dạy của giáo viên `99999999-9999-9999-9999-999999999999` -> `200 OK`, trả về 5 buổi Live đầy đủ số liệu sĩ số lớp, số tham gia, số vắng mặt. Tra cứu giáo viên không tồn tại -> `404 Not Found` (`TeacherNotFound`).
   - Kịch bản API 14: Cập nhật URL ghi hình -> `200 OK`, `isRecorded: true`, `status: "COMPLETED"`.
+  - Kịch bản API 15: Giáo viên hủy buổi học `8ebfe3ee...` vì bận công tác -> `200 OK`, trạng thái chuyển sang `CANCELLED`. Bấm hủy lại -> `400 Bad Request`. Học sinh gọi API 11 Join -> `400 Bad Request` ("Buổi học này đã bị hủy bỏ").
   - Kịch bản xác thực chéo API 10: Học sinh `1111...` tra cứu lịch thấy ngay trạng thái `ATTENDED`, link video recording và trạng thái `COMPLETED`.
 
 ---
