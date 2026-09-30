@@ -12,7 +12,7 @@ namespace V_Eval_Practice_Service.API.Controllers;
 /// <summary>
 /// Quản lý lớp học cơ sở, phân công giáo viên và điều phối học sinh (Core Flow 2 - Phase 3 and 5)
 /// </summary>
-[Route("api/v1/practice/classes")]
+[Route("api/practice/classes")]
 public class ClassesController : ApiControllerBase
 {
     /// <summary>

@@ -24,6 +24,9 @@
     2. Chặn hủy khi buổi học đã hoàn thành `session.Status == "COMPLETED"` (`400 Bad Request`).
     3. Chặn hủy lặp lại khi buổi học đã ở trạng thái `CANCELLED` (`400 Bad Request`).
     4. Không xóa vật lý bản ghi (do Academic Manager tạo, bảo lưu lịch sử đào tạo). Cập nhật `Status = "CANCELLED"` và đính kèm lý do hủy vào `Description`.
+- **Chuẩn Hóa Đồng Bộ Route API (`api/practice/...`) Khớp Với API Gateway**:
+  - Gỡ bỏ hoàn toàn tiền tố `v1` khỏi các Controller trong Practice Service ([`ClassesController.cs`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs), [`DiagnosticSubmissionsController.cs`](../V-Eval-Practice_Service.API/Controllers/DiagnosticSubmissionsController.cs), [`LiveSessionsController.cs`](../V-Eval-Practice_Service.API/Controllers/LiveSessionsController.cs), [`RoadmapsController.cs`](../V-Eval-Practice_Service.API/Controllers/RoadmapsController.cs)).
+  - Đồng bộ 100% với cấu hình định tuyến của YARP API Gateway (`/api/practice/{**catch-all}`).
 - **Tầng API Controller (`LiveSessionsController.cs`)**:
   - Bổ sung 4 endpoint: `[HttpPost("{sessionId:guid}/attendance")]`, `[HttpGet("teacher-schedule")]`, `[HttpPut("{sessionId:guid}/recording")]`, `[HttpPut("{sessionId:guid}/cancel")]`.
 - **Kiểm Thử Vận Hành Trực Tiếp (Live End-to-End Test)**:

@@ -18,7 +18,7 @@ namespace V_Eval_Practice_Service.API.Controllers;
 /// <summary>
 /// Quản lý các buổi học trực tuyến Live Q&amp;A, lịch học và điểm danh cơ sở (Core Flow 2 - Phase 3)
 /// </summary>
-[Route("api/v1/practice/live-sessions")]
+[Route("api/practice/live-sessions")]
 public class LiveSessionsController : ApiControllerBase
 {
     /// <summary>

@@ -16,6 +16,9 @@
 - **API 15: Giáo Viên / Giáo Vụ Hủy Buổi Học Trực Tuyến Khi Bận Đột Xuất (`PUT /api/v1/practice/live-sessions/{sessionId}/cancel`)**:
   - Khởi tạo DTOs [`CancelLiveSessionDtos.cs`](./V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/CancelLiveSessionDtos.cs), `CancelLiveSessionCommand.cs`, `CancelLiveSessionCommandValidator.cs` và [`CancelLiveSessionCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/LiveSessions/Commands/CancelLiveSession/CancelLiveSessionCommandHandler.cs).
   - Nghiệp vụ: Chặn xóa vật lý bản ghi (buổi học do Academic Manager tạo, bảo lưu lịch sử đào tạo). Kiểm tra trạng thái đã `COMPLETED` hoặc đã `CANCELLED` (`400 Bad Request`), cập nhật trạng thái sang `CANCELLED` kèm lý do hủy `reason`. Khi đã hủy, ngăn chặn toàn bộ thao tác Join phòng (API 11), điểm danh (API 12) và gắn video ghi hình (API 14).
+- **Chuẩn Hóa Đồng Bộ Route API (`api/practice/...`) Khớp Với API Gateway**:
+  - Loại bỏ tiền tố `v1` khỏi toàn bộ các Controller trong Practice Service ([`ClassesController.cs`](./V-Eval-Practice_Service.API/Controllers/ClassesController.cs), [`DiagnosticSubmissionsController.cs`](./V-Eval-Practice_Service.API/Controllers/DiagnosticSubmissionsController.cs), [`LiveSessionsController.cs`](./V-Eval-Practice_Service.API/Controllers/LiveSessionsController.cs), [`RoadmapsController.cs`](./V-Eval-Practice_Service.API/Controllers/RoadmapsController.cs)).
+  - Đồng bộ 100% với cấu hình YARP Reverse Proxy của API Gateway (`/api/practice/{**catch-all}`).
 - **Tầng API Controller ([`LiveSessionsController.cs`](./V-Eval-Practice_Service.API/Controllers/LiveSessionsController.cs))**:
   - Khởi tạo 4 endpoints: `[HttpPost("{sessionId:guid}/attendance")]`, `[HttpGet("teacher-schedule")]`, `[HttpPut("{sessionId:guid}/recording")]`, `[HttpPut("{sessionId:guid}/cancel")]`.
 - **Kiểm Thử Vận Hành Trực Tiếp (Live End-to-End Test)**:

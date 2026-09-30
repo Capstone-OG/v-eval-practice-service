@@ -18,7 +18,7 @@ namespace V_Eval_Practice_Service.API.Controllers;
 /// <summary>
 /// Quản lý quy hoạch lộ trình học tập cá nhân hóa và máy trạng thái thích ứng (Core Flow 2)
 /// </summary>
-[Route("api/v1/practice/roadmaps")]
+[Route("api/practice/roadmaps")]
 public class RoadmapsController : ApiControllerBase
 {
     /// <summary>
