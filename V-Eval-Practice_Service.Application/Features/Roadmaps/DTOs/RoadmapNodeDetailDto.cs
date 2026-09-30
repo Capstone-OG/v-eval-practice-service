@@ -44,5 +44,6 @@ public record RoadmapNodeDetailDto(
     // Thành phần 2: Bài Quiz củng cố 5-10 câu
     Guid? QuizExamId,
     // Thành phần 3: Buổi học Live Q&A trực tuyến cơ sở
-    LiveSessionDetailDto? LiveSession
+    LiveSessionDetailDto? LiveSession,
+    string DomainCode = ""
 );

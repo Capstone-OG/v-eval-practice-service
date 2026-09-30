@@ -266,19 +266,21 @@ public class GenerateRoadmapCommandHandler : IRequestHandler<GenerateRoadmapComm
                     n.Status,
                     n.IsPruned,
                     n.UnlockedAt,
-                    n.CompletedAt
+                    n.CompletedAt,
+                    skillInfo?.DomainCode ?? ""
                 );
             })
             .ToList();
 
         var stageDtos = nodeDtos
-            .GroupBy(n => new { n.DomainId, n.DomainName })
+            .GroupBy(n => new { n.DomainId, n.DomainName, n.DomainCode })
             .Select(g => new RoadmapStageDto(
                 g.Key.DomainId,
                 g.Key.DomainName,
                 g.Count(),
                 g.Count(n => n.Status == "COMPLETED"),
-                g.OrderBy(n => n.StepOrder).ToList()
+                g.OrderBy(n => n.StepOrder).ToList(),
+                g.Key.DomainCode
             ))
             .ToList();
 
@@ -294,7 +296,8 @@ public class GenerateRoadmapCommandHandler : IRequestHandler<GenerateRoadmapComm
             roadmap.Status,
             roadmap.CreatedAt,
             stageDtos,
-            nodeDtos
+            nodeDtos,
+            submission.PlacementClass ?? "ACCELERATION"
         );
 
         return Result<GenerateRoadmapResponseDto>.Success(responseDto);

@@ -177,3 +177,12 @@
 - **Migration & Verification**:
   - Migration `AddThematicCohortFields` executed cleanly and verified via live Supabase PostgreSQL schema inspection (`class_type`, `cluster_index`, `domain_code`, `domain_id`).
   - Backward compatibility preserved 100% across all existing core flow 1 and core flow 2 handlers.
+
+### 6.2 gRPC Protocol & DTO Chain Serialization (Step 2)
+- **gRPC Contract Alignment**: Added `domain_code` to `SkillNode` message in `content.proto`.
+- **Client Deserialization**: Extended `SkillTreeNodeDto` in `IContentGrpcClient` and deserialized in `ContentGrpcClient.cs`.
+- **DTO Chain Propagation**:
+  - `RoadmapNodeSummaryDto`: Includes `DomainCode` for each milestone.
+  - `RoadmapStageDto`: Includes `DomainCode` to enable stage-level domain coloring and categorization on Frontend.
+  - `RoadmapNodeDetailDto`: Includes `DomainCode` for milestone inspection.
+  - `GenerateRoadmapResponseDto`: Transmits `PlacementClass` (`FOUNDATION` / `ACCELERATION` / `BREAKTHROUGH`) alongside structured stages.

@@ -71,6 +71,7 @@
 | 39 | **Core Flow 5 - API 22: Danh Sách Học Sinh Thuộc Lớp** | `ClassesController.cs` & `GetClassStudentsQueryHandler.cs` | 🟡 Chuyển giao Core Flow 5 | 0% | Quy hoạch sang Core Flow 5 (Learning Analytics): `GET /api/practice/classes/{classId}/students` tra cứu tiến độ lộ trình và chuyên cần học sinh |
 | 40 | **Core Flow 5 - API 23: Nhận Diện Học Sinh Nguy Cơ Sa Sút**| `ClassesController.cs` & `GetAtRiskStudentsQueryHandler.cs` | 🟡 Chuyển giao Core Flow 5 | 0% | Quy hoạch sang Core Flow 5 (Learning Analytics): `GET /api/practice/classes/{classId}/at-risk-students` cảnh báo can thiệp sư phạm học sinh nguy cơ |
 | 41 | **Core Flow 2 (Thematic Cohort - Bước 1): Mở Rộng Thực Thể Class & Di Trú CSDL** | `Domain/Entities/Class.cs` & `Infrastructure/Migrations/` | 🟢 Hoàn thành | 100% | Bổ sung `ClassType`, `DomainId`, `DomainCode`, `ClusterIndex` vào bảng `Classes`, chạy migration `AddThematicCohortFields` |
+| 42 | **Core Flow 2 (Thematic Cohort - Bước 2): Đồng Bộ DomainCode & PlacementClass DTOs** | `Protos/content.proto`, `GrpcClients/` & `DTOs/` | 🟢 Hoàn thành | 100% | Mở rộng proto, `SkillTreeNodeDto`, ánh xạ `DomainCode` vào Stages/Nodes và `PlacementClass` vào response |
 
 
 

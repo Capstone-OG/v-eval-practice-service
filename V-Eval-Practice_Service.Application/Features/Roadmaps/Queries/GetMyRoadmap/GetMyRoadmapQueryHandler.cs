@@ -77,20 +77,22 @@ public class GetMyRoadmapQueryHandler : IRequestHandler<GetMyRoadmapQuery, Resul
                     n.Status,
                     n.IsPruned,
                     n.UnlockedAt,
-                    n.CompletedAt
+                    n.CompletedAt,
+                    skillInfo?.DomainCode ?? ""
                 );
             })
             .ToList();
 
         // Gom nhóm theo Miền năng lực / Môn học (Stages / Group by Domain)
         var stageDtos = nodeDtos
-            .GroupBy(n => new { n.DomainId, n.DomainName })
+            .GroupBy(n => new { n.DomainId, n.DomainName, n.DomainCode })
             .Select(g => new RoadmapStageDto(
                 g.Key.DomainId,
                 g.Key.DomainName,
                 g.Count(),
                 g.Count(n => n.Status == "COMPLETED"),
-                g.OrderBy(n => n.StepOrder).ToList()
+                g.OrderBy(n => n.StepOrder).ToList(),
+                g.Key.DomainCode
             ))
             .ToList();
 

@@ -18,5 +18,6 @@ public record GenerateRoadmapResponseDto(
     string Status,
     DateTime CreatedAt,
     IReadOnlyList<RoadmapStageDto> Stages,
-    IReadOnlyList<RoadmapNodeSummaryDto> Nodes
+    IReadOnlyList<RoadmapNodeSummaryDto> Nodes,
+    string PlacementClass = "ACCELERATION"
 );

@@ -14,8 +14,15 @@
   - Tinh chỉnh migration để chỉ tác động thêm 4 cột mới vào bảng `Classes`, đảm bảo tương thích 100% với các bảng đã có trong PostgreSQL (`LearningRoadmaps`, `LiveSessions`, `RoadmapNodes`, `LiveSessionAttendance`).
   - Thực thi `dotnet ef database update` thành công, lưu bản ghi migration vào `practice."__EFMigrationsHistory"`.
   - Xác thực trực tiếp qua kiểm tra schema CSDL Supabase PostgreSQL: 4 cột `class_type (integer)`, `cluster_index (integer)`, `domain_code (character varying)`, `domain_id (uuid)` đã sẵn sàng vận hành.
-- **Kiểm Thử Biên Dịch (Build Check)**:
+- **Kiểm Thử Biên Dịch Bước 1**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+- **Nâng Cấp Core Flow 2 (Bước 2): Đồng Bộ DomainCode Qua gRPC & Chuỗi DTO Lộ Trình**:
+  - Đồng bộ hợp đồng [`content.proto`](../V-Eval-Practice_Service.Infrastructure/Protos/content.proto) khớp với Content Service với trường `string domain_code = 8;` trong `SkillNode`.
+  - Mở rộng [`IContentGrpcClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IContentGrpcClient.cs) (`SkillTreeNodeDto`) và [`ContentGrpcClient.cs`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/ContentGrpcClient.cs) ánh xạ deserialization trường `DomainCode`.
+  - Bổ sung `DomainCode` vào các DTO lộ trình: [`RoadmapNodeSummaryDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/RoadmapNodeSummaryDto.cs), [`RoadmapStageDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/RoadmapStageDto.cs), [`RoadmapNodeDetailDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/RoadmapNodeDetailDto.cs).
+  - Bổ sung `PlacementClass` vào [`GenerateRoadmapResponseDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/GenerateRoadmapResponseDto.cs) giúp Frontend định danh chính xác tier năng lực (`FOUNDATION` / `ACCELERATION` / `BREAKTHROUGH`).
+  - Cập nhật [`GenerateRoadmapCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Commands/GenerateRoadmap/GenerateRoadmapCommandHandler.cs), [`GetMyRoadmapQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Queries/GetMyRoadmap/GetMyRoadmapQueryHandler.cs) và [`GetRoadmapNodeDetailQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Queries/GetRoadmapNodeDetail/GetRoadmapNodeDetailQueryHandler.cs) trích xuất và ánh xạ hoàn chỉnh chuỗi `DomainCode` và `PlacementClass`.
+  - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
 
 ## [30/09/2026] - Triển Khai Hoàn Thiện APIs 12, 13, 14, 15: Điểm Danh Chuyên Cần, Thời Khóa Biểu Giảng Dạy, Video Ghi Hình & Hủy Buổi Học Trực Tuyến
 - **API 12: Giáo Viên Điểm Danh Chuyên Cần Cho Học Sinh (POST /api/v1/practice/live-sessions/{sessionId}/attendance)**:

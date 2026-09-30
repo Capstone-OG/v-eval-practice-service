@@ -18,5 +18,6 @@ public record RoadmapNodeSummaryDto(
     string Status,
     bool IsPruned,
     DateTime? UnlockedAt,
-    DateTime? CompletedAt
+    DateTime? CompletedAt,
+    string DomainCode = ""
 );
