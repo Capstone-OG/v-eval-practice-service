@@ -70,6 +70,7 @@
 | 38 | **Core Flow 2 - API 15: Hủy Buổi Học Live Khi Bận Đột Xuất** | `LiveSessionsController.cs` & `CancelLiveSessionCommandHandler.cs` | 🟢 Hoàn thành | 100% | `PUT /api/practice/live-sessions/{sessionId}/cancel` chuyển trạng thái CANCELLED kèm lý do hủy (không xóa vật lý bản ghi) |
 | 39 | **Core Flow 5 - API 22: Danh Sách Học Sinh Thuộc Lớp** | `ClassesController.cs` & `GetClassStudentsQueryHandler.cs` | 🟡 Chuyển giao Core Flow 5 | 0% | Quy hoạch sang Core Flow 5 (Learning Analytics): `GET /api/practice/classes/{classId}/students` tra cứu tiến độ lộ trình và chuyên cần học sinh |
 | 40 | **Core Flow 5 - API 23: Nhận Diện Học Sinh Nguy Cơ Sa Sút**| `ClassesController.cs` & `GetAtRiskStudentsQueryHandler.cs` | 🟡 Chuyển giao Core Flow 5 | 0% | Quy hoạch sang Core Flow 5 (Learning Analytics): `GET /api/practice/classes/{classId}/at-risk-students` cảnh báo can thiệp sư phạm học sinh nguy cơ |
+| 41 | **Core Flow 2 (Thematic Cohort - Bước 1): Mở Rộng Thực Thể Class & Di Trú CSDL** | `Domain/Entities/Class.cs` & `Infrastructure/Migrations/` | 🟢 Hoàn thành | 100% | Bổ sung `ClassType`, `DomainId`, `DomainCode`, `ClusterIndex` vào bảng `Classes`, chạy migration `AddThematicCohortFields` |
 
 
 

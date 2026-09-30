@@ -164,3 +164,16 @@
   - Identity Service: Port 5155 (REST HTTP/1) + Port 5156 (gRPC HTTP/2).
   - Content Service: Port 5249 (REST HTTP/1) + Port 5250 (gRPC HTTP/2).
   - Practice Service: Port 5261 (REST HTTP/1 + Swagger UI).
+
+---
+
+## 6. THEMATIC COHORT ARCHITECTURE (CORE FLOW 2 UPGRADE - STEP 1)
+- **Problem Formulation**: Shift from homogeneous administrative cohorting to domain-specialized cohorts (Thematic Cohorts) formed through K-Means clustering over multi-dimensional student vulnerability vectors.
+- **Data Model Extensions ([`Class.cs`](../V-Eval-Practice_Service.Domain/Entities/Class.cs))**:
+  - `ClassType` (`int`): Discern between Tier-based Administrative Classes (`0`) and Thematic Cohorts (`1`).
+  - `DomainId` (`Guid?`): Unique identifier of target educational domain.
+  - `DomainCode` (`string?`): Domain identifier (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`).
+  - `ClusterIndex` (`int?`): Index of the optimal K-Means cluster cluster centroid producing this thematic cohort.
+- **Migration & Verification**:
+  - Migration `AddThematicCohortFields` executed cleanly and verified via live Supabase PostgreSQL schema inspection (`class_type`, `cluster_index`, `domain_code`, `domain_id`).
+  - Backward compatibility preserved 100% across all existing core flow 1 and core flow 2 handlers.
