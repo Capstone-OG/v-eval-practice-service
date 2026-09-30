@@ -16,6 +16,9 @@ public class LiveSessionScheduleItemDto
     public string Status { get; set; } = string.Empty;
     public string? MyAttendanceStatus { get; set; }
     public bool? IsMakeupQuizPassed { get; set; }
+    public Guid ClassId { get; set; }
+    public string ClassName { get; set; } = string.Empty;
+    public string? DomainCode { get; set; }
 }
 
 public class MyLiveScheduleDto

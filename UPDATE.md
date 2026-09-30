@@ -1,6 +1,6 @@
 # Nhật Ký Cập Nhật (Update Log) - Practice Service
 
-## [01/10/2026] - Nâng Cấp Core Flow 2 (Bước 1 -> 5): Entity Class, Migration CSDL, gRPC DomainCode, Thuật Toán K-Means, API Auto-Cluster & Gắn LiveSession Theo Miền Chuyên Đề
+## [01/10/2026] - Nâng Cấp Toàn Diện Core Flow 2 (Bước 1 -> 6): Thematic Cohort, K-Means Clustering, Roadmap Binding & Multi-Class Schedule
 
 - **Bước 1 - Mở Rộng Mô Hình Thực Thể [`Class.cs`](./V-Eval-Practice_Service.Domain/Entities/Class.cs) & Migration CSDL**:
   - Bổ sung 4 trường dữ liệu cho lớp chuyên đề K-Means: `ClassType`, `DomainId`, `DomainCode`, `ClusterIndex`.
@@ -29,5 +29,9 @@
   - Bổ sung phương thức `GetUpcomingThematicLiveSessionsAsync` trong [`ILearningRoadmapRepository.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILearningRoadmapRepository.cs) & [`LearningRoadmapRepository.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LearningRoadmapRepository.cs).
   - Triển khai cơ chế truy vấn 3 tầng: Ưu tiên lớp chuyên đề học sinh đã ghi danh $\rightarrow$ Lớp chuyên đề cùng Campus $\rightarrow$ Fallback lớp hành chính chung.
   - Cập nhật Bước 6 trong [`GenerateRoadmapCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Roadmaps/Commands/GenerateRoadmap/GenerateRoadmapCommandHandler.cs): Ánh xạ `LiveSessionId` riêng biệt theo đúng `DomainCode` của từng chặng kỹ năng (Toán $\rightarrow$ Live Toán, Ngôn ngữ $\rightarrow$ Live Ngôn ngữ).
+- **Bước 6 - Hỗ Trợ Đa Ghi Danh (Multi-Class Enrollment) Trong API Thời Khóa Biểu (GET /api/practice/live-sessions/my-schedule)**:
+  - Nâng cấp [`LiveSessionRepository.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LiveSessionRepository.cs) truy vấn LiveSessions trên toàn bộ các lớp mà học sinh ghi danh (`classIds.Contains(s.ClassId)`).
+  - Bổ sung `ClassId`, `ClassName`, `DomainCode` vào [`GetMyLiveScheduleDtos.cs`](./V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/GetMyLiveScheduleDtos.cs) và cập nhật [`GetMyLiveScheduleQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/LiveSessions/Queries/GetMyLiveSchedule/GetMyLiveScheduleQueryHandler.cs).
 - **Kiểm Thử Toàn Diện & Biên Dịch Solution**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Kiểm thử live end-to-end thành công trên Swagger UI và PowerShell script.

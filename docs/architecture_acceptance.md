@@ -217,3 +217,11 @@
 - **Handler Integration (`GenerateRoadmapCommandHandler`)**:
   - Evaluates `SkillTreeNodeDto.DomainCode` for each milestone during Kahn Topological Sort output binding.
   - Binds the precise domain-specific interactive session `LiveSessionId` (e.g., Mathematics chặng $\rightarrow$ Math Live Session, Language chặng $\rightarrow$ Language Live Session).
+
+### 6.6 Multi-Class Enrollment & Schedule Aggregation (Step 6)
+- **Problem Resolution**: Following K-Means thematic clustering, students belong concurrently to an administrative placement class (`ClassType = 0`) and one or more thematic vulnerability cohorts (`ClassType = 1`).
+- **Repository Upgrade (`LiveSessionRepository.GetUpcomingSessionsForStudentAsync`)**:
+  - Replaced single-record selection (`FirstOrDefaultAsync`) with multi-class aggregation: queries all active enrollments for `studentId` (`e.Status == "ENROLLED"`), yielding `classIds`.
+  - Dispatches an aggregated query across all classes via `classIds.Contains(s.ClassId)` ordered chronologically.
+- **DTO Model Enhancements (`LiveSessionScheduleItemDto`)**:
+  - Exposed `ClassId`, `ClassName`, and `DomainCode` (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`) for each scheduled session, empowering students to readily distinguish domain live lectures from general cohort meetings.

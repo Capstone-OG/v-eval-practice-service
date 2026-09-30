@@ -61,6 +61,17 @@
     - Di chuyển từ điển kỹ năng `skillMap` lên trước Bước 6 để xác định chính xác `DomainCode` cho từng chặng học.
     - Ánh xạ `LiveSessionId` cho từng `SkillResourceBinding`: Chặng Toán gắn Live của lớp Chuyên đề Toán, Chặng Văn gắn Live lớp Chuyên đề Ngôn ngữ... thay vì gắn chung 1 buổi Live cho toàn bộ lộ trình.
   - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
+- **Nâng Cấp Core Flow 2 (Bước 6): Hỗ Trợ Đa Ghi Danh (Multi-Class Enrollment) Trong API Thời Khóa Biểu (GET /api/practice/live-sessions/my-schedule)**:
+  - Cập nhật [`LiveSessionRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LiveSessionRepository.cs) tại phương thức `GetUpcomingSessionsForStudentAsync`:
+    - Thay vì chỉ lấy 1 lớp học gần nhất (`FirstOrDefaultAsync`), chuyển sang lấy toàn bộ danh sách `classIds` mà học sinh đang ghi danh (`Status = "ENROLLED"`), bao gồm cả lớp hành chính và tất cả các lớp chuyên đề K-Means.
+    - Truy vấn toàn bộ các buổi LiveSession sắp diễn ra của tất cả các lớp mà học sinh theo học qua mệnh đề `classIds.Contains(s.ClassId)`.
+  - Mở rộng DTO [`GetMyLiveScheduleDtos.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/GetMyLiveScheduleDtos.cs) bổ sung các trường nhận diện lớp và môn học:
+    - `ClassId`: Định danh lớp học tổ chức buổi Live.
+    - `ClassName`: Tên lớp học (ví dụ: *"Chuyên đề: Trọng điểm Toán - Logic"*).
+    - `DomainCode`: Mã môn học/miền năng lực chuyên đề (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`).
+  - Cập nhật [`GetMyLiveScheduleQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/Queries/GetMyLiveSchedule/GetMyLiveScheduleQueryHandler.cs) map đầy đủ các trường thông tin lớp học và miền chuyên đề vào danh sách buổi học trả về.
+  - Kiểm thử trực tiếp qua API: Học sinh xem được trọn vẹn buổi học của lớp chuyên đề Toán kèm trạng thái điểm danh cá nhân.
+  - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
 
 ## [30/09/2026] - Triển Khai Hoàn Thiện APIs 12, 13, 14, 15: Điểm Danh Chuyên Cần, Thời Khóa Biểu Giảng Dạy, Video Ghi Hình & Hủy Buổi Học Trực Tuyến
 - **API 12: Giáo Viên Điểm Danh Chuyên Cần Cho Học Sinh (POST /api/v1/practice/live-sessions/{sessionId}/attendance)**:

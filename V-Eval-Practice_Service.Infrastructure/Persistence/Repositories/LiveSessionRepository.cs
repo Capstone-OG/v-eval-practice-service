@@ -44,22 +44,23 @@ public class LiveSessionRepository : ILiveSessionRepository
 
     public async Task<IReadOnlyList<LiveSession>> GetUpcomingSessionsForStudentAsync(Guid studentId, CancellationToken ct = default)
     {
-        // 1. Tìm lớp học mà học sinh đang ghi danh
-        var enrollment = await _context.ClassEnrollments
+        // 1. Tìm TẤT CẢ các lớp học (hành chính + chuyên đề) mà học sinh đang ghi danh
+        var classIds = await _context.ClassEnrollments
             .Where(e => e.StudentId == studentId && e.Status == "ENROLLED")
-            .OrderByDescending(e => e.EnrolledAt)
-            .FirstOrDefaultAsync(ct);
+            .Select(e => e.ClassId)
+            .Distinct()
+            .ToListAsync(ct);
 
-        if (enrollment == null)
+        if (classIds.Count == 0)
         {
             return Array.Empty<LiveSession>();
         }
 
-        // 2. Lấy toàn bộ buổi Live của lớp học đó
+        // 2. Lấy toàn bộ buổi Live của tất cả các lớp học đó
         return await _context.LiveSessions
             .Include(s => s.Class)
             .Include(s => s.Attendances.Where(a => a.StudentId == studentId))
-            .Where(s => s.ClassId == enrollment.ClassId)
+            .Where(s => classIds.Contains(s.ClassId))
             .OrderBy(s => s.ScheduledAt)
             .ToListAsync(ct);
     }

@@ -60,7 +60,10 @@ public class GetMyLiveScheduleQueryHandler : IRequestHandler<GetMyLiveScheduleQu
                 IsRecorded = s.IsRecorded,
                 Status = s.Status,
                 MyAttendanceStatus = attendance?.AttendanceStatus ?? "NOT_ATTENDED",
-                IsMakeupQuizPassed = attendance?.IsMakeupQuizPassed
+                IsMakeupQuizPassed = attendance?.IsMakeupQuizPassed,
+                ClassId = s.ClassId,
+                ClassName = s.Class?.Name ?? string.Empty,
+                DomainCode = s.Class?.DomainCode
             };
         }).ToList();
 
