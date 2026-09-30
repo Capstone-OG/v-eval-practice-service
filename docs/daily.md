@@ -32,7 +32,24 @@
     3. **Elbow Method (Chord Method)**: Tính tổng bình phương khoảng cách cụm (WCSS) cho dải $K \in [2, K_{\max}]$, tìm điểm gập khuỷu tay hình học tối ưu dựa trên khoảng cách vuông góc cực đại đến dây cung nối 2 đầu.
   - Phân tích sư phạm Centroid tự động: Tự động phát hiện miền kiến thức yếu nổi trội (< 0.60), đặt tên lớp chuyên đề gợi ý (ví dụ: *"Chuyên đề: Trọng điểm Toán - Logic"*, *"Chuyên đề: Tăng cường Ngôn ngữ & KHTN"*), và gán mã miền mục tiêu `TargetDomainCode`.
   - Đăng ký `IStudentKMeansClusterer` vào DI container ([`DependencyInjection.cs`](../V-Eval-Practice_Service.Application/DependencyInjection.cs)).
-  - **Kiểm thử thực nghiệm**: Chạy thử nghiệm với 45 học sinh phân hóa 4 nhóm lỗ hổng (Toán, Ngôn ngữ, KHTN, Giỏi toàn diện) $\rightarrow$ Elbow Method tự động xác định $K = 4$ tối ưu với độ suy giảm WCSS từ 4.2867 xuống 0.1173 (khuỷu tay chuẩn xác 100%), phân bổ 12 HS Toán, 15 HS Ngôn ngữ, 10 HS KHTN, 8 HS Nâng cao.
+- **Nâng Cấp Core Flow 2 (Bước 4): Hiện Thực API Tự Động Phân Cụm Lớp Chuyên Đề (POST /api/practice/classes/auto-cluster)**:
+  - Khởi tạo các DTOs [`AutoClusterThematicClassesDtos.cs`](../V-Eval-Practice_Service.Application/Features/Classes/DTOs/AutoClusterThematicClassesDtos.cs):
+    - `AutoClusterThematicClassesRequestDto`: `CampusId`, `Grade` (mặc định 12), `MaxCohortCapacity` (mặc định 30).
+    - `ThematicClassCreatedDto`: `ClassId`, `ClassName`, `DomainId`, `DomainCode`, `ClusterIndex`, `DominantWeakDomain`, `EnrolledStudentCount`, `StudentIds`.
+    - `AutoClusterThematicClassesResponseDto`: `CampusId`, `TotalStudentsProcessed`, `OptimalK`, `ClassesCreated`.
+  - Mở rộng Repository [`ILearningProfileRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILearningProfileRepository.cs) và [`LearningProfileRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LearningProfileRepository.cs) với phương thức `GetByStudentIdsAsync(IEnumerable<Guid> studentIds)`.
+  - Mở rộng Repository [`IClassEnrollmentRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassEnrollmentRepository.cs) và [`ClassEnrollmentRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs) với `GetEnrolledStudentIdsByCampusIdAsync(Guid campusId)` và `CreateThematicClassWithEnrollmentsAsync(...)`.
+  - Xây dựng CQRS:
+    - Command `AutoClusterThematicClassesCommand.cs` và `AutoClusterThematicClassesCommandValidator.cs`.
+    - Handler [`AutoClusterThematicClassesCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/AutoClusterThematicClasses/AutoClusterThematicClassesCommandHandler.cs):
+      1. Truy vấn danh sách học sinh thuộc cơ sở đào tạo qua `GetEnrolledStudentIdsByCampusIdAsync`.
+      2. Truy vấn dữ liệu hồ sơ năng lực vi mô `LearningProfiles` của toàn bộ học sinh.
+      3. Lấy Skill Tree từ Content Service qua gRPC `IContentGrpcClient` để ánh xạ `SkillId -> DomainCode`.
+      4. Tổng hợp vector lỗ hổng 4 miền $[\text{DOM\_LANG}, \text{DOM\_MATH}, \text{DOM\_NAT\_SCI}, \text{DOM\_SOC\_SCI}]$ cho $N$ học sinh.
+      5. Thực thi phân cụm K-Means Elbow Method thông qua `IStudentKMeansClusterer`.
+      6. Khởi tạo các lớp chuyên đề `Class` (`ClassType = 1`, `DomainId`, `DomainCode`, `ClusterIndex`) kèm phân chia sĩ số phù hợp `MaxCohortCapacity`.
+      7. Tự động ghi danh học sinh vào lớp chuyên đề trong `ClassEnrollments`.
+  - Bổ sung endpoint `[HttpPost("auto-cluster")]` vào [`ClassesController.cs`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs).
   - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
 
 ## [30/09/2026] - Triển Khai Hoàn Thiện APIs 12, 13, 14, 15: Điểm Danh Chuyên Cần, Thời Khóa Biểu Giảng Dạy, Video Ghi Hình & Hủy Buổi Học Trực Tuyến

@@ -196,3 +196,16 @@
   - Geometric Elbow Method: Computes within-cluster sum of squares (WCSS) and identifies the optimal inflection point via maximum perpendicular chord distance.
   - Centroid Pedagogical Profiling: Automatically deduces prominent vulnerability domains (scores $< 0.60$), maps `TargetDomainId` and generates tailored cohort titles (e.g., *"Chuyên đề: Trọng điểm Toán - Logic"*).
 - **Verification**: Verified with 45-student heterogeneous dataset; automatically isolated $K = 4$ optimal cohorts with WCSS sharp drop from 4.2867 to 0.1173.
+
+### 6.4 Thematic Cohort Formation & Auto-Cluster API (Step 4)
+- **API Specification**: `POST /api/practice/classes/auto-cluster`
+  - Request: `AutoClusterThematicClassesRequestDto` (`CampusId`, `Grade`, `MaxCohortCapacity`).
+  - Response: `AutoClusterThematicClassesResponseDto` (`TotalStudentsProcessed`, `OptimalK`, `ClassesCreated`).
+- **Orchestration Pipeline (`AutoClusterThematicClassesCommandHandler`)**:
+  1. Retrieve enrolled student IDs within campus (`GetEnrolledStudentIdsByCampusIdAsync`).
+  2. Batch load multi-dimensional student skill priors (`LearningProfiles`) across all cohort students.
+  3. Query Content Service gRPC `GetSkillsTree` to map granular skills to top-level domains (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`).
+  4. Aggregate 4D mastery vectors for $N$ dynamic students ($N \ge 2$).
+  5. Execute `IStudentKMeansClusterer` with adaptive Elbow Method to isolate optimal cluster count $K^*$ and centroids.
+  6. Partition and persist thematic classes (`ClassType = 1`, `DomainId`, `DomainCode`, `ClusterIndex`) while respecting `MaxCohortCapacity`.
+  7. Enroll students into their respective thematic classes in `ClassEnrollments`.

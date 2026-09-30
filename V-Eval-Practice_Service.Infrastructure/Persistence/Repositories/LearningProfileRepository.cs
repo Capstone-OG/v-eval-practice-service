@@ -72,4 +72,17 @@ public class LearningProfileRepository : ILearningProfileRepository
             .Where(p => p.StudentId == studentId)
             .ToListAsync(ct);
     }
+
+    public async Task<IReadOnlyList<LearningProfile>> GetByStudentIdsAsync(
+        IEnumerable<Guid> studentIds,
+        CancellationToken ct = default)
+    {
+        var idList = studentIds.ToList();
+        if (idList.Count == 0) return Array.Empty<LearningProfile>();
+
+        return await _context.LearningProfiles
+            .AsNoTracking()
+            .Where(p => idList.Contains(p.StudentId))
+            .ToListAsync(ct);
+    }
 }

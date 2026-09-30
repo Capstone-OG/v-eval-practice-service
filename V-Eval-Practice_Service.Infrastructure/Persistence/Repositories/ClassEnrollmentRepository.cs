@@ -118,4 +118,59 @@ public class ClassEnrollmentRepository : IClassEnrollmentRepository
             .Include(e => e.Class)
             .FirstOrDefaultAsync(e => e.StudentId == studentId, ct);
     }
+
+    public async Task<IReadOnlyList<Guid>> GetEnrolledStudentIdsByCampusIdAsync(
+        Guid campusId,
+        CancellationToken ct = default)
+    {
+        return await _context.ClassEnrollments
+            .Where(e => e.Class != null && e.Class.CampusId == campusId && e.Status == "ENROLLED")
+            .Select(e => e.StudentId)
+            .Distinct()
+            .ToListAsync(ct);
+    }
+
+    public async Task<Class> CreateThematicClassWithEnrollmentsAsync(
+        Guid campusId,
+        string name,
+        Guid? domainId,
+        string? domainCode,
+        int clusterIndex,
+        IEnumerable<Guid> studentIds,
+        CancellationToken ct = default)
+    {
+        var thematicClass = new Class
+        {
+            ClassId = Guid.NewGuid(),
+            CampusId = campusId,
+            Name = name,
+            Status = "ACTIVE",
+            CreatedAt = DateTime.UtcNow,
+            ClassType = 1, // 1 = Lớp Chuyên Đề
+            DomainId = domainId,
+            DomainCode = domainCode,
+            ClusterIndex = clusterIndex
+        };
+
+        await _context.Classes.AddAsync(thematicClass, ct);
+
+        foreach (var studentId in studentIds)
+        {
+            var enrollment = new ClassEnrollment
+            {
+                EnrollmentId = Guid.NewGuid(),
+                ClassId = thematicClass.ClassId,
+                StudentId = studentId,
+                Status = "ENROLLED",
+                EnrolledAt = DateTime.UtcNow
+            };
+            await _context.ClassEnrollments.AddAsync(enrollment, ct);
+        }
+
+        await _context.SaveChangesAsync(ct);
+        _logger.LogInformation("Created thematic class '{ClassName}' (Id: {ClassId}, Cluster: {Cluster}) with {Count} enrolled students",
+            name, thematicClass.ClassId, clusterIndex, studentIds.Count());
+
+        return thematicClass;
+    }
 }

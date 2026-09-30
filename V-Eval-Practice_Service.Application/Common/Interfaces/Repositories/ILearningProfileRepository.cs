@@ -16,4 +16,8 @@ public interface ILearningProfileRepository
     Task<IReadOnlyList<LearningProfile>> GetByStudentIdAsync(
         Guid studentId,
         CancellationToken ct = default);
+
+    Task<IReadOnlyList<LearningProfile>> GetByStudentIdsAsync(
+        IEnumerable<Guid> studentIds,
+        CancellationToken ct = default);
 }
