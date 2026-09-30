@@ -135,9 +135,16 @@
 10. **API 10 - Get Student Live Q&A Cohort Schedule (`GET /api/v1/practice/live-sessions/my-schedule`)**:
     - Queries active campus enrollment (`ClassEnrollments`) and retrieves upcoming live sessions.
     - Aggregates individual attendance status (`ATTENDED`, `ABSENT`, `NOT_ATTENDED`), recording links, and makeup quiz results.
-11. **API 11 - Join Live Session & Auto Attendance Tracking (`POST /api/v1/practice/live-sessions/{sessionId}/join`)**:
+11. **API 11 - Join Live Session & Arrival Telemetry (`POST /api/v1/practice/live-sessions/{sessionId}/join`)**:
     - Validates session state (rejects cancelled sessions) and supplies live room URL (`MeetingUrl`).
-    - Upserts `LiveSessionAttendance` recording `AttendanceStatus = "ATTENDED"` and exact participation timestamp (`JoinedAt = UtcNow`).
+    - Records arrival timestamp (`JoinedAt = UtcNow`) while strictly preserving official attendance grading authority for teachers in API 12.
+12. **API 12 - Teacher Attendance Grading (`POST /api/v1/practice/live-sessions/{sessionId}/attendance`)**:
+    - Allows teachers to formally grade attendance for class students (`ATTENDED` or `ABSENT`).
+    - Upserts `LiveSessionAttendance` records and tracks cohort attendance counts.
+13. **API 13 - Teacher Live Schedule & Cohort Monitoring (`GET /api/v1/practice/live-sessions/teacher-schedule`)**:
+    - Queries assigned sessions for a teacher (`teacherId`), aggregating cohort enrollment size, attendance counts (`totalAttended`, `totalAbsent`), meeting and recording URLs.
+14. **API 14 - Update Live Session Recording (`PUT /api/v1/practice/live-sessions/{sessionId}/recording`)**:
+    - Enables teachers to publish session video archive (`RecordingUrl`), marks `IsRecorded = true` and updates session status to `COMPLETED` for absent student review.
 
 ---
 

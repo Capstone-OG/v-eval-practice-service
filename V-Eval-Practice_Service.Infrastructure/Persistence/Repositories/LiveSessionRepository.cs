@@ -87,6 +87,22 @@ public class LiveSessionRepository : ILiveSessionRepository
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<LiveSession>> GetSessionsForTeacherAsync(Guid teacherId, CancellationToken ct = default)
+    {
+        return await _context.LiveSessions
+            .Include(s => s.Class)
+            .Include(s => s.Attendances)
+            .Where(s => s.TeacherId == teacherId || (s.Class != null && s.Class.TeacherId == teacherId))
+            .OrderBy(s => s.ScheduledAt)
+            .ToListAsync(ct);
+    }
+
+    public async Task<int> GetEnrolledStudentCountByClassIdAsync(Guid classId, CancellationToken ct = default)
+    {
+        return await _context.ClassEnrollments
+            .CountAsync(e => e.ClassId == classId && e.Status == "ENROLLED", ct);
+    }
+
     public async Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
         return await _context.SaveChangesAsync(ct);

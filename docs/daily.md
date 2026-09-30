@@ -1,5 +1,31 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [30/09/2026] - Triển Khai Hoàn Thiện APIs 12, 13, 14: Điểm Danh Chuyên Cần, Thời Khóa Biểu Giảng Dạy & Cập Nhật Video Ghi Hình Buổi Live
+- **API 12: Giáo Viên Điểm Danh Chuyên Cần Cho Học Sinh (POST /api/v1/practice/live-sessions/{sessionId}/attendance)**:
+  - Khởi tạo DTOs [`TeacherAttendanceDtos.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/TeacherAttendanceDtos.cs): `StudentAttendanceItemDto`, `TeacherAttendanceRequestDto`, `TeacherAttendanceResponseDto`.
+  - Xây dựng FluentValidation `TeacherAttendanceCommandValidator` kiểm tra ràng buộc `SessionId`, danh sách học sinh và giá trị trạng thái (`ATTENDED` hoặc `ABSENT`).
+  - Triển khai `TeacherAttendanceCommand` và [`TeacherAttendanceCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/Commands/TeacherAttendance/TeacherAttendanceCommandHandler.cs):
+    1. Kiểm tra tồn tại buổi Live (`404 Not Found`).
+    2. Duyệt từng học sinh, cập nhật hoặc tạo mới bản ghi `LiveSessionAttendance` với trạng thái `ATTENDED` (kèm `JoinedAt = UtcNow`) hoặc `ABSENT`.
+    3. Thống kê tổng số học sinh đã điểm danh, số tham gia, số vắng mặt.
+- **API 13: Lấy Thời Khóa Biểu Giảng Dạy Của Giáo Viên (GET /api/v1/practice/live-sessions/teacher-schedule)**:
+  - Bổ sung phương thức `GetSessionsForTeacherAsync` và `GetEnrolledStudentCountByClassIdAsync` vào `ILiveSessionRepository` và `LiveSessionRepository`.
+  - Khởi tạo DTOs [`TeacherScheduleDtos.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/TeacherScheduleDtos.cs), `GetTeacherScheduleQuery.cs` và [`GetTeacherScheduleQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/Queries/GetTeacherSchedule/GetTeacherScheduleQueryHandler.cs).
+  - Nghiệp vụ: Truy vấn danh sách buổi Live được giao cho giáo viên (`TeacherId` trực tiếp hoặc giáo viên phụ trách lớp `Class.TeacherId`), thống kê sĩ số học sinh ghi danh của lớp, số học sinh đã tham gia (`ATTENDED`), số vắng mặt (`ABSENT`), link phòng họp và link video ghi hình.
+- **API 14: Cập Nhật Video Ghi Hình Buổi Live Q&A (PUT /api/v1/practice/live-sessions/{sessionId}/recording)**:
+  - Khởi tạo DTOs [`UpdateLiveSessionRecordingDtos.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/UpdateLiveSessionRecordingDtos.cs), `UpdateLiveSessionRecordingCommand.cs`, `UpdateLiveSessionRecordingCommandValidator.cs` và [`UpdateLiveSessionRecordingCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/Commands/UpdateRecording/UpdateLiveSessionRecordingCommandHandler.cs).
+  - Nghiệp vụ: Kiểm tra tính hợp lệ của URL (`http`/`https`), cập nhật `RecordingUrl`, đánh dấu `IsRecorded = true` và chuyển trạng thái buổi học sang `COMPLETED` để học sinh vắng mặt xem lại bài giảng.
+- **Tầng API Controller (`LiveSessionsController.cs`)**:
+  - Bổ sung 3 endpoint: `[HttpPost("{sessionId:guid}/attendance")]`, `[HttpGet("teacher-schedule")]`, `[HttpPut("{sessionId:guid}/recording")]`.
+- **Kiểm Thử Vận Hành Trực Tiếp (Live End-to-End Test)**:
+  - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Kịch bản API 12: Giáo viên điểm danh 2 học sinh (`1111...` ATTENDED, `2222...` ABSENT) cho Session `2a196c82...` -> `200 OK`, `totalAttended: 1`, `totalAbsent: 1`.
+  - Kịch bản API 13: Tra cứu lịch dạy của giáo viên `99999999-9999-9999-9999-999999999999` -> `200 OK`, trả về 5 buổi Live đầy đủ số liệu sĩ số lớp, số tham gia, số vắng mặt.
+  - Kịch bản API 14: Cập nhật URL ghi hình -> `200 OK`, `isRecorded: true`, `status: "COMPLETED"`.
+  - Kịch bản xác thực chéo API 10: Học sinh `1111...` tra cứu lịch thấy ngay trạng thái `ATTENDED`, link video recording và trạng thái `COMPLETED`.
+
+---
+
 ## [29/09/2026] - Triển Khai Hoàn Thiện Giai Đoạn 3: Quản Lý Buổi Học Live Q&A, Phân Công Giáo Viên, Thời Khóa Biểu & Điểm Danh Trực Tuyến (APIs 8, 9, 10, 11)
 - **API 8: Tạo Lịch Buổi Học Live Q&A Cho Lớp Học Cơ Sở (POST /api/v1/practice/live-sessions)**:
   - Khởi tạo Repository [`ILiveSessionRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILiveSessionRepository.cs) và [`LiveSessionRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LiveSessionRepository.cs) quản lý thực thể `LiveSessions` và `LiveSessionAttendance`. Đăng ký Scoped trong `DependencyInjection.cs`.

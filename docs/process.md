@@ -63,7 +63,13 @@
 | 31 | **Core Flow 2 - API 8: Tạo Lịch Buổi Học Live Q&A** | `LiveSessionsController.cs` & `CreateLiveSessionCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/v1/practice/live-sessions` quản trị viên tạo lịch Live Q&A, tự động gắn giáo viên |
 | 32 | **Core Flow 2 - API 9: Phân Công Giáo Viên Cho Lớp** | `ClassesController.cs` & `AssignTeacherCommandHandler.cs` | 🟢 Hoàn thành | 100% | `PUT /api/v1/practice/classes/{classId}/assign-teacher` quản trị cơ sở phân công/điều chuyển giáo viên |
 | 33 | **Core Flow 2 - API 10: Thời Khóa Biểu Buổi Học Live** | `LiveSessionsController.cs` & `GetMyLiveScheduleQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/v1/practice/live-sessions/my-schedule` tra cứu lịch Live Q&A của lớp cơ sở kèm trạng thái điểm danh |
-| 34 | **Core Flow 2 - API 11: Tham Gia & Điểm Danh Trực Tuyến** | `LiveSessionsController.cs` & `JoinLiveSessionCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/v1/practice/live-sessions/{sessionId}/join` nhận link phòng học và tự động ghi nhận điểm danh ATTENDED |
+| 34 | **Core Flow 2 - API 11: Tham Gia & Dấu Vết Vào Lớp** | `LiveSessionsController.cs` & `JoinLiveSessionCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/v1/practice/live-sessions/{sessionId}/join` nhận link phòng học và ghi vết JoinedAt |
+| 35 | **Core Flow 2 - API 12: Giáo Viên Điểm Danh Buổi Live** | `LiveSessionsController.cs` & `TeacherAttendanceCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/v1/practice/live-sessions/{sessionId}/attendance` giáo viên đánh giá chuyên cần (ATTENDED / ABSENT) |
+| 36 | **Core Flow 2 - API 13: Lịch Giảng Dạy Của Giáo Viên** | `LiveSessionsController.cs` & `GetTeacherScheduleQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/v1/practice/live-sessions/teacher-schedule` giáo viên tra cứu lịch Live Q&A được phân công |
+| 37 | **Core Flow 2 - API 14: Cập Nhật Video Ghi Hình Buổi Live** | `LiveSessionsController.cs` & `UpdateLiveSessionRecordingCommandHandler.cs` | 🟢 Hoàn thành | 100% | `PUT /api/v1/practice/live-sessions/{sessionId}/recording` cập nhật recording_url và cờ is_recorded |
+| 38 | **Core Flow 2 - API 21: Danh Sách Học Sinh Thuộc Lớp** | `ClassesController.cs` & `GetClassStudentsQueryHandler.cs` | 🟡 Chưa thực hiện | 0% | `GET /api/v1/practice/classes/{classId}/students` tra cứu tiến độ lộ trình và chuyên cần học sinh |
+| 39 | **Core Flow 2 - API 22: Nhận Diện Học Sinh Nguy Cơ Sa Sút**| `ClassesController.cs` & `GetAtRiskStudentsQueryHandler.cs` | 🟡 Chưa thực hiện | 0% | `GET /api/v1/practice/classes/{classId}/at-risk-students` cảnh báo can thiệp sư phạm học sinh nguy cơ |
+
 
 
 

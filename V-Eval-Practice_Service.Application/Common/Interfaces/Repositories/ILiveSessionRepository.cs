@@ -19,5 +19,7 @@ public interface ILiveSessionRepository
     Task<LiveSessionAttendance?> GetAttendanceAsync(Guid sessionId, Guid studentId, CancellationToken ct = default);
     Task AddAttendanceAsync(LiveSessionAttendance attendance, CancellationToken ct = default);
     Task<IReadOnlyList<LiveSessionAttendance>> GetAttendancesBySessionIdAsync(Guid sessionId, CancellationToken ct = default);
+    Task<IReadOnlyList<LiveSession>> GetSessionsForTeacherAsync(Guid teacherId, CancellationToken ct = default);
+    Task<int> GetEnrolledStudentCountByClassIdAsync(Guid classId, CancellationToken ct = default);
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }
