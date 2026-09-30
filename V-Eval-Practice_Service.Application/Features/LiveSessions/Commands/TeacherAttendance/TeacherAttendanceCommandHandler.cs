@@ -55,23 +55,22 @@ public class TeacherAttendanceCommandHandler : IRequestHandler<TeacherAttendance
             var attendance = await _liveSessionRepository.GetAttendanceAsync(session.SessionId, item.StudentId, ct);
             if (attendance == null)
             {
+                // Học sinh chưa từng bấm Join trong hệ thống, giáo viên tạo bản ghi điểm danh
                 attendance = new LiveSessionAttendance
                 {
                     AttendanceId = Guid.NewGuid(),
                     SessionId = session.SessionId,
                     StudentId = item.StudentId,
                     AttendanceStatus = normalizedStatus,
-                    JoinedAt = normalizedStatus == "ATTENDED" ? now : null
+                    JoinedAt = null // Học sinh chưa từng bấm vào phòng qua web
                 };
                 await _liveSessionRepository.AddAttendanceAsync(attendance, ct);
             }
             else
             {
+                // Giáo viên chỉ cập nhật trạng thái chuyên cần (ATTENDED / ABSENT),
+                // bảo lưu nguyên vẹn thời gian vào lớp JoinedAt do chính học sinh ghi nhận ở API 11
                 attendance.AttendanceStatus = normalizedStatus;
-                if (normalizedStatus == "ATTENDED")
-                {
-                    attendance.JoinedAt ??= now;
-                }
             }
         }
 
