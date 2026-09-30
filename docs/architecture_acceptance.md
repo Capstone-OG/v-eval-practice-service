@@ -186,3 +186,13 @@
   - `RoadmapStageDto`: Includes `DomainCode` to enable stage-level domain coloring and categorization on Frontend.
   - `RoadmapNodeDetailDto`: Includes `DomainCode` for milestone inspection.
   - `GenerateRoadmapResponseDto`: Transmits `PlacementClass` (`FOUNDATION` / `ACCELERATION` / `BREAKTHROUGH`) alongside structured stages.
+
+### 6.3 Student K-Means Clustering & Adaptive Elbow Method Engine (Step 3)
+- **Algorithm Architecture ([`StudentKMeansClusterer.cs`](../V-Eval-Practice_Service.Application/Common/Graph/StudentKMeansClusterer.cs))**:
+  - Input: $N$ dynamic students, each represented by a 4-dimensional vector $[\text{DOM\_LANG}, \text{DOM\_MATH}, \text{DOM\_NAT\_SCI}, \text{DOM\_SOC\_SCI}]$ representing domain-aggregated prior knowledge $P(L_0)$.
+  - Adaptive Cluster Bounds: Evaluates $K \in [2, K_{\max}]$ where $K_{\max} = \min(8, \max(2, \lfloor N / 3 \rfloor))$ to guarantee pedagogically viable cohort sizes.
+  - K-Means++ Seeding: Samples initial centroids proportionally to squared Euclidean distance $D(x)^2$, circumventing degenerate local minima.
+  - Lloyd's Iterative Optimization: Executes iterative nearest-centroid assignment and vector mean updates until convergence with empty-cluster recovery.
+  - Geometric Elbow Method: Computes within-cluster sum of squares (WCSS) and identifies the optimal inflection point via maximum perpendicular chord distance.
+  - Centroid Pedagogical Profiling: Automatically deduces prominent vulnerability domains (scores $< 0.60$), maps `TargetDomainId` and generates tailored cohort titles (e.g., *"Chuyên đề: Trọng điểm Toán - Logic"*).
+- **Verification**: Verified with 45-student heterogeneous dataset; automatically isolated $K = 4$ optimal cohorts with WCSS sharp drop from 4.2867 to 0.1173.

@@ -23,6 +23,17 @@
   - Bổ sung `PlacementClass` vào [`GenerateRoadmapResponseDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/GenerateRoadmapResponseDto.cs) giúp Frontend định danh chính xác tier năng lực (`FOUNDATION` / `ACCELERATION` / `BREAKTHROUGH`).
   - Cập nhật [`GenerateRoadmapCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Commands/GenerateRoadmap/GenerateRoadmapCommandHandler.cs), [`GetMyRoadmapQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Queries/GetMyRoadmap/GetMyRoadmapQueryHandler.cs) và [`GetRoadmapNodeDetailQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Queries/GetRoadmapNodeDetail/GetRoadmapNodeDetailQueryHandler.cs) trích xuất và ánh xạ hoàn chỉnh chuỗi `DomainCode` và `PlacementClass`.
   - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
+- **Nâng Cấp Core Flow 2 (Bước 3): Viết Thuật Toán K-Means Student Clustering (K-Means++ & Elbow Method)**:
+  - Khởi tạo thuật toán phân cụm chuẩn mực [`StudentKMeansClusterer.cs`](../V-Eval-Practice_Service.Application/Common/Graph/StudentKMeansClusterer.cs) và interface `IStudentKMeansClusterer` trong thư mục `Common/Graph`.
+  - Hỗ trợ số lượng học sinh $N$ động ($N \ge 2$), tự động thích ứng giới hạn số cụm $K_{\max} = \min(8, \max(2, \lfloor N / 3 \rfloor))$.
+  - Thuật toán gồm 3 thành phần chính:
+    1. **K-Means++ Initialization**: Lấy mẫu xác suất theo bình phương khoảng cách Euclidean $D(x)^2$ giúp các tâm cụm ban đầu phân bố đều trên không gian 4 chiều, chống local minima.
+    2. **Lloyd's Algorithm**: Vòng lặp gán học sinh vào tâm cụm gần nhất và cập nhật toạ độ tâm cụm theo vector trung bình đến khi hội tụ (hỗ trợ phục hồi cụm rỗng).
+    3. **Elbow Method (Chord Method)**: Tính tổng bình phương khoảng cách cụm (WCSS) cho dải $K \in [2, K_{\max}]$, tìm điểm gập khuỷu tay hình học tối ưu dựa trên khoảng cách vuông góc cực đại đến dây cung nối 2 đầu.
+  - Phân tích sư phạm Centroid tự động: Tự động phát hiện miền kiến thức yếu nổi trội (< 0.60), đặt tên lớp chuyên đề gợi ý (ví dụ: *"Chuyên đề: Trọng điểm Toán - Logic"*, *"Chuyên đề: Tăng cường Ngôn ngữ & KHTN"*), và gán mã miền mục tiêu `TargetDomainCode`.
+  - Đăng ký `IStudentKMeansClusterer` vào DI container ([`DependencyInjection.cs`](../V-Eval-Practice_Service.Application/DependencyInjection.cs)).
+  - **Kiểm thử thực nghiệm**: Chạy thử nghiệm với 45 học sinh phân hóa 4 nhóm lỗ hổng (Toán, Ngôn ngữ, KHTN, Giỏi toàn diện) $\rightarrow$ Elbow Method tự động xác định $K = 4$ tối ưu với độ suy giảm WCSS từ 4.2867 xuống 0.1173 (khuỷu tay chuẩn xác 100%), phân bổ 12 HS Toán, 15 HS Ngôn ngữ, 10 HS KHTN, 8 HS Nâng cao.
+  - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
 
 ## [30/09/2026] - Triển Khai Hoàn Thiện APIs 12, 13, 14, 15: Điểm Danh Chuyên Cần, Thời Khóa Biểu Giảng Dạy, Video Ghi Hình & Hủy Buổi Học Trực Tuyến
 - **API 12: Giáo Viên Điểm Danh Chuyên Cần Cho Học Sinh (POST /api/v1/practice/live-sessions/{sessionId}/attendance)**:
