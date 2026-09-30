@@ -1,6 +1,6 @@
 # Nhật Ký Cập Nhật (Update Log) - Practice Service
 
-## [01/10/2026] - Nâng Cấp Core Flow 2 (Bước 1 -> 4): Entity Class, Migration CSDL, gRPC DomainCode, Thuật Toán K-Means & API Auto-Cluster Lớp Chuyên Đề
+## [01/10/2026] - Nâng Cấp Core Flow 2 (Bước 1 -> 5): Entity Class, Migration CSDL, gRPC DomainCode, Thuật Toán K-Means, API Auto-Cluster & Gắn LiveSession Theo Miền Chuyên Đề
 
 - **Bước 1 - Mở Rộng Mô Hình Thực Thể [`Class.cs`](./V-Eval-Practice_Service.Domain/Entities/Class.cs) & Migration CSDL**:
   - Bổ sung 4 trường dữ liệu cho lớp chuyên đề K-Means: `ClassType`, `DomainId`, `DomainCode`, `ClusterIndex`.
@@ -25,5 +25,9 @@
   - Bổ sung `GetEnrolledStudentIdsByCampusIdAsync` và `CreateThematicClassWithEnrollmentsAsync` trong [`IClassEnrollmentRepository.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassEnrollmentRepository.cs) & `ClassEnrollmentRepository.cs`.
   - Xây dựng `AutoClusterThematicClassesCommand`, `AutoClusterThematicClassesCommandValidator` và handler [`AutoClusterThematicClassesCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Classes/Commands/AutoClusterThematicClasses/AutoClusterThematicClassesCommandHandler.cs).
   - Bổ sung endpoint `[HttpPost("auto-cluster")]` vào [`ClassesController.cs`](./V-Eval-Practice_Service.API/Controllers/ClassesController.cs).
+- **Bước 5 - Liên Kết Buổi Học LiveSession Cho Từng Chặng Lộ Trình Theo Đúng Miền Chuyên Đề (Thematic Cohort Binding)**:
+  - Bổ sung phương thức `GetUpcomingThematicLiveSessionsAsync` trong [`ILearningRoadmapRepository.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILearningRoadmapRepository.cs) & [`LearningRoadmapRepository.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LearningRoadmapRepository.cs).
+  - Triển khai cơ chế truy vấn 3 tầng: Ưu tiên lớp chuyên đề học sinh đã ghi danh $\rightarrow$ Lớp chuyên đề cùng Campus $\rightarrow$ Fallback lớp hành chính chung.
+  - Cập nhật Bước 6 trong [`GenerateRoadmapCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Roadmaps/Commands/GenerateRoadmap/GenerateRoadmapCommandHandler.cs): Ánh xạ `LiveSessionId` riêng biệt theo đúng `DomainCode` của từng chặng kỹ năng (Toán $\rightarrow$ Live Toán, Ngôn ngữ $\rightarrow$ Live Ngôn ngữ).
 - **Kiểm Thử Toàn Diện & Biên Dịch Solution**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).

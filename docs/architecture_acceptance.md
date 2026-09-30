@@ -205,7 +205,15 @@
   1. Retrieve enrolled student IDs within campus (`GetEnrolledStudentIdsByCampusIdAsync`).
   2. Batch load multi-dimensional student skill priors (`LearningProfiles`) across all cohort students.
   3. Query Content Service gRPC `GetSkillsTree` to map granular skills to top-level domains (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`).
-  4. Aggregate 4D mastery vectors for $N$ dynamic students ($N \ge 2$).
-  5. Execute `IStudentKMeansClusterer` with adaptive Elbow Method to isolate optimal cluster count $K^*$ and centroids.
-  6. Partition and persist thematic classes (`ClassType = 1`, `DomainId`, `DomainCode`, `ClusterIndex`) while respecting `MaxCohortCapacity`.
   7. Enroll students into their respective thematic classes in `ClassEnrollments`.
+
+### 6.5 Thematic Cohort Milestone LiveSession Binding (Step 5)
+- **Domain-Specialized Interactive Binding**: Overcomes the previous limitation of attaching a single static administrative live session across all milestones.
+- **Repository Abstraction (`GetUpcomingThematicLiveSessionsAsync`)**:
+  - Implements a resilient 3-tier lookup hierarchy:
+    1. *Individual Thematic Tier*: Queries scheduled live sessions (`SCHEDULED`) for thematic classes (`ClassType = 1`) that the individual student is currently enrolled in, keyed by `DomainCode`.
+    2. *Campus Thematic Tier*: In cases where the student is not yet enrolled across all 4 knowledge domains, inspects campus-wide thematic cohorts (`CampusId`) for matching domain sessions.
+    3. *Administrative Cohort Fallback*: Falls back to the baseline tier class (`ClassType = 0`) session via the `"DEFAULT"` fallback key.
+- **Handler Integration (`GenerateRoadmapCommandHandler`)**:
+  - Evaluates `SkillTreeNodeDto.DomainCode` for each milestone during Kahn Topological Sort output binding.
+  - Binds the precise domain-specific interactive session `LiveSessionId` (e.g., Mathematics chặng $\rightarrow$ Math Live Session, Language chặng $\rightarrow$ Language Live Session).

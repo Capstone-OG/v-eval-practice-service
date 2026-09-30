@@ -51,6 +51,16 @@
       7. Tự động ghi danh học sinh vào lớp chuyên đề trong `ClassEnrollments`.
   - Bổ sung endpoint `[HttpPost("auto-cluster")]` vào [`ClassesController.cs`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs).
   - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
+- **Nâng Cấp Core Flow 2 (Bước 5): Liên Kết Buổi Học LiveSession Cho Từng Chặng Lộ Trình Theo Đúng Miền Chuyên Đề (Thematic Cohort Binding)**:
+  - Mở rộng Repository [`ILearningRoadmapRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILearningRoadmapRepository.cs) và [`LearningRoadmapRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LearningRoadmapRepository.cs) với phương thức `GetUpcomingThematicLiveSessionsAsync(Guid studentId, Guid? administrativeClassId, CancellationToken ct)`.
+  - Cơ chế truy vấn 3 tầng tối ưu:
+    1. **Tầng 1 (Cá nhân hóa chuyên đề)**: Quét danh sách lớp chuyên đề (`ClassType = 1`) mà học sinh đã ghi danh (`ClassEnrollments`), nạp các buổi LiveSession sắp diễn ra (`SCHEDULED`) map theo `DomainCode` (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`).
+    2. **Tầng 2 (Bổ khuyết theo Campus)**: Nếu học sinh chưa ghi danh đủ 4 miền, tự động tìm kiếm buổi LiveSession chuyên đề tương ứng tại cùng `CampusId`.
+    3. **Tầng 3 (Fallback hành chính)**: Nếu miền kiến thức chưa có lớp chuyên đề nào mở Live, fallback về buổi LiveSession chung của lớp hành chính (`submission.EnrolledClassId`).
+  - Cập nhật [`GenerateRoadmapCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Commands/GenerateRoadmap/GenerateRoadmapCommandHandler.cs) tại Bước 6:
+    - Di chuyển từ điển kỹ năng `skillMap` lên trước Bước 6 để xác định chính xác `DomainCode` cho từng chặng học.
+    - Ánh xạ `LiveSessionId` cho từng `SkillResourceBinding`: Chặng Toán gắn Live của lớp Chuyên đề Toán, Chặng Văn gắn Live lớp Chuyên đề Ngôn ngữ... thay vì gắn chung 1 buổi Live cho toàn bộ lộ trình.
+  - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
 
 ## [30/09/2026] - Triển Khai Hoàn Thiện APIs 12, 13, 14, 15: Điểm Danh Chuyên Cần, Thời Khóa Biểu Giảng Dạy, Video Ghi Hình & Hủy Buổi Học Trực Tuyến
 - **API 12: Giáo Viên Điểm Danh Chuyên Cần Cho Học Sinh (POST /api/v1/practice/live-sessions/{sessionId}/attendance)**:

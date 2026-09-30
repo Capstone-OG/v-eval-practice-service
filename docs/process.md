@@ -74,6 +74,7 @@
 | 42 | **Core Flow 2 (Thematic Cohort - Bước 2): Đồng Bộ DomainCode & PlacementClass DTOs** | `Protos/content.proto`, `GrpcClients/` & `DTOs/` | 🟢 Hoàn thành | 100% | Mở rộng proto, `SkillTreeNodeDto`, ánh xạ `DomainCode` vào Stages/Nodes và `PlacementClass` vào response |
 | 43 | **Core Flow 2 (Thematic Cohort - Bước 3): Thuật Toán K-Means Student Clustering** | `Application/Common/Graph/StudentKMeansClusterer.cs` | 🟢 Hoàn thành | 100% | Thuật toán KMeans++ và Elbow Method tìm K tối ưu phân cụm lỗ hổng 4 chiều cho N học sinh |
 | 44 | **Core Flow 2 (Thematic Cohort - Bước 4): API Tự Động Phân Cụm Lớp Chuyên Đề** | `ClassesController.cs` & `AutoClusterThematicClassesCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/classes/auto-cluster` tự động gom cụm N học sinh theo lỗ hổng 4 miền, sinh lớp chuyên đề và ghi danh tự động |
+| 45 | **Core Flow 2 (Thematic Cohort - Bước 5): Gắn LiveSession Theo Miền Chuyên Đề** | `LearningRoadmapRepository.cs` & `GenerateRoadmapCommandHandler.cs` | 🟢 Hoàn thành | 100% | Tự động ánh xạ LiveSession theo đúng DomainCode của chặng lộ trình học tập thay vì gán 1 buổi Live chung |
 
 
 

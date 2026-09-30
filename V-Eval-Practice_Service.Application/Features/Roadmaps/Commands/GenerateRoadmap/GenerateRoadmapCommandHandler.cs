@@ -180,21 +180,42 @@ public class GenerateRoadmapCommandHandler : IRequestHandler<GenerateRoadmapComm
         // =====================================================================
         // Bước 6: Đóng gói chặng học 3 thành phần & Khởi tạo State Machine (Milestone Binding)
         // =====================================================================
-        // Tìm kiếm buổi LiveSession có sẵn của lớp học được phân bổ (nếu có)
-        LiveSession? upcomingLiveSession = null;
-        if (submission.EnrolledClassId.HasValue)
-        {
-            upcomingLiveSession = await _roadmapRepository.GetUpcomingLiveSessionAsync(submission.EnrolledClassId.Value, ct);
-        }
+        var skillMap = skillsTree.ToDictionary(s => s.SkillId, s => s);
+
+        // Nạp danh sách các buổi LiveSession chuyên đề theo Domain (DOM_MATH, DOM_LANG, DOM_NAT_SCI, DOM_SOC_SCI)
+        // Ưu tiên lớp chuyên đề học sinh đã ghi danh -> fallback lớp chuyên đề campus -> fallback lớp hành chính
+        var thematicLiveSessions = await _roadmapRepository.GetUpcomingThematicLiveSessionsAsync(
+            request.StudentId,
+            submission.EnrolledClassId,
+            ct);
+
+        var defaultLiveSession = thematicLiveSessions.GetValueOrDefault("DEFAULT");
 
         var resourceBindings = new Dictionary<Guid, SkillResourceBinding>();
         foreach (var skillId in sortedSkillIds)
         {
+            string? domainCode = null;
+            if (skillMap.TryGetValue(skillId, out var skillDto))
+            {
+                domainCode = skillDto.DomainCode;
+            }
+
+            // Gắn LiveSession chuyên đề tương ứng theo Domain của skill
+            LiveSession? liveForSkill = null;
+            if (!string.IsNullOrEmpty(domainCode) && thematicLiveSessions.TryGetValue(domainCode, out var domainSession))
+            {
+                liveForSkill = domainSession;
+            }
+            else
+            {
+                liveForSkill = defaultLiveSession;
+            }
+
             resourceBindings[skillId] = new SkillResourceBinding(
                 SkillId: skillId,
                 MaterialId: null,
                 QuizExamId: null,
-                LiveSessionId: upcomingLiveSession?.SessionId
+                LiveSessionId: liveForSkill?.SessionId
             );
         }
 
@@ -246,7 +267,6 @@ public class GenerateRoadmapCommandHandler : IRequestHandler<GenerateRoadmapComm
         }
 
         // Map sang DTO phản hồi và gom nhóm theo Miền năng lực (Stages / Group by Domain)
-        var skillMap = skillsTree.ToDictionary(s => s.SkillId, s => s);
 
         var nodeDtos = roadmap.Nodes
             .OrderBy(n => n.StepOrder)
