@@ -34,6 +34,7 @@ message SkillNode {
   double weight = 5; // Trọng số đề thi (0.03 - 0.15)
   string domain_id = 6;
   string domain_name = 7;
+  string domain_code = 8;
 }
 
 message GetSkillsTreeResponse {

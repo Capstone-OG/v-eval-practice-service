@@ -11,5 +11,6 @@ public record RoadmapStageDto(
     string DomainName,
     int TotalNodes,
     int CompletedNodes,
-    IReadOnlyList<RoadmapNodeSummaryDto> Nodes
+    IReadOnlyList<RoadmapNodeSummaryDto> Nodes,
+    string DomainCode = ""
 );

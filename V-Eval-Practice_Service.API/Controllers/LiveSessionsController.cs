@@ -4,17 +4,21 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using V_Eval_Practice_Service.API.Controllers.Base;
 using V_Eval_Practice_Service.Application.Common.Models;
+using V_Eval_Practice_Service.Application.Features.LiveSessions.Commands.CancelLiveSession;
 using V_Eval_Practice_Service.Application.Features.LiveSessions.Commands.CreateLiveSession;
 using V_Eval_Practice_Service.Application.Features.LiveSessions.Commands.JoinLiveSession;
+using V_Eval_Practice_Service.Application.Features.LiveSessions.Commands.TeacherAttendance;
+using V_Eval_Practice_Service.Application.Features.LiveSessions.Commands.UpdateRecording;
 using V_Eval_Practice_Service.Application.Features.LiveSessions.DTOs;
 using V_Eval_Practice_Service.Application.Features.LiveSessions.Queries.GetMyLiveSchedule;
+using V_Eval_Practice_Service.Application.Features.LiveSessions.Queries.GetTeacherSchedule;
 
 namespace V_Eval_Practice_Service.API.Controllers;
 
 /// <summary>
 /// Quản lý các buổi học trực tuyến Live Q&amp;A, lịch học và điểm danh cơ sở (Core Flow 2 - Phase 3)
 /// </summary>
-[Route("api/v1/practice/live-sessions")]
+[Route("api/practice/live-sessions")]
 public class LiveSessionsController : ApiControllerBase
 {
     /// <summary>
@@ -85,12 +89,12 @@ public class LiveSessionsController : ApiControllerBase
     }
 
     /// <summary>
-    /// Core Flow 2 - API 11: Tham gia buổi học trực tuyến Live Q&amp;A và tự động ghi nhận điểm danh
+    /// Core Flow 2 - API 11: Tham gia buổi học trực tuyến Live Q&amp;A và ghi nhận dấu vết vào lớp
     /// </summary>
     /// <remarks>
     /// - Dành cho Học sinh (Student).
     /// - Trả về thông tin buổi học và link phòng họp trực tuyến (`MeetingUrl`).
-    /// - Tự động tạo hoặc cập nhật bản ghi điểm danh `LiveSessionAttendance` sang trạng thái `ATTENDED` kèm thời gian `JoinedAt`.
+    /// - Ghi nhận thời gian `JoinedAt`. Bảo lưu thẩm quyền điểm danh chuyên cần cho Giáo viên ở API 12.
     /// </remarks>
     [HttpPost("{sessionId:guid}/join")]
     [ProducesResponseType(typeof(JoinLiveSessionResponseDto), StatusCodes.Status200OK)]
@@ -113,6 +117,112 @@ public class LiveSessionsController : ApiControllerBase
         }
 
         var command = new JoinLiveSessionCommand(sessionId, effectiveStudentId);
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 2 - API 12: Giáo viên thực hiện điểm danh chuyên cần cho học sinh trong buổi học Live Q&amp;A
+    /// </summary>
+    /// <remarks>
+    /// - Dành cho Giáo viên (Teacher).
+    /// - Ghi nhận trạng thái điểm danh chính thức (ATTENDED hoặc ABSENT) cho từng học sinh.
+    /// </remarks>
+    [HttpPost("{sessionId:guid}/attendance")]
+    [ProducesResponseType(typeof(TeacherAttendanceResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SubmitTeacherAttendance(Guid sessionId, [FromBody] TeacherAttendanceRequestDto request)
+    {
+        Guid? teacherId = null;
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            teacherId = parsedId;
+        }
+
+        var command = new TeacherAttendanceCommand(sessionId, request.Items, teacherId);
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 2 - API 13: Lấy thời khóa biểu giảng dạy và danh sách buổi Live Q&amp;A được phân công của giáo viên
+    /// </summary>
+    /// <remarks>
+    /// - Dành cho Giáo viên (Teacher).
+    /// - Lấy teacherId từ query param hoặc Header 'X-User-Id'.
+    /// - Trả về danh sách toàn bộ các buổi học Live Q&amp;A do giáo viên phụ trách kèm thông tin lớp và số liệu chuyên cần.
+    /// </remarks>
+    [HttpGet("teacher-schedule")]
+    [ProducesResponseType(typeof(TeacherScheduleDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetTeacherSchedule([FromQuery] Guid? teacherId)
+    {
+        Guid effectiveTeacherId = teacherId ?? Guid.Empty;
+
+        if (effectiveTeacherId == Guid.Empty &&
+            Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) &&
+            Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            effectiveTeacherId = parsedId;
+        }
+
+        if (effectiveTeacherId == Guid.Empty)
+        {
+            return BadRequest(new { Message = "TeacherId không được để trống. Vui lòng truyền qua query param hoặc Header 'X-User-Id'." });
+        }
+
+        var query = new GetTeacherScheduleQuery(effectiveTeacherId);
+        var result = await Mediator.Send(query);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 2 - API 14: Giáo viên cập nhật link video ghi hình buổi học trực tuyến Live Q&amp;A
+    /// </summary>
+    /// <remarks>
+    /// - Dành cho Giáo viên (Teacher).
+    /// - Cập nhật link video ghi hình (`RecordingUrl`) và đánh dấu `IsRecorded = true` để học sinh xem lại bài giảng.
+    /// </remarks>
+    [HttpPut("{sessionId:guid}/recording")]
+    [ProducesResponseType(typeof(UpdateLiveSessionRecordingResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateRecording(Guid sessionId, [FromBody] UpdateLiveSessionRecordingRequestDto request)
+    {
+        Guid? teacherId = null;
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            teacherId = parsedId;
+        }
+
+        var command = new UpdateLiveSessionRecordingCommand(sessionId, request.RecordingUrl, teacherId);
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 2 - API 15: Giáo viên hủy buổi học trực tuyến Live Q&amp;A khi bận hoặc có việc đột xuất
+    /// </summary>
+    /// <remarks>
+    /// - Dành cho Giáo viên (Teacher) hoặc Giáo vụ (Academic Manager).
+    /// - Không thực hiện xóa cứng/xóa vật lý bản ghi trong CSDL (vì buổi học do Academic Manager tạo, cần bảo lưu lịch sử).
+    /// - Cập nhật trạng thái buổi học thành 'CANCELLED' kèm lý do hủy (`reason`).
+    /// - Khi đã hủy, học sinh không thể vào phòng học (API 11) và không thể thực hiện điểm danh (API 12) hay nộp video (API 14).
+    /// </remarks>
+    [HttpPut("{sessionId:guid}/cancel")]
+    [ProducesResponseType(typeof(CancelLiveSessionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CancelLiveSession(Guid sessionId, [FromBody] CancelLiveSessionRequestDto request)
+    {
+        Guid? teacherId = null;
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            teacherId = parsedId;
+        }
+
+        var command = new CancelLiveSessionCommand(sessionId, request.Reason, teacherId);
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }

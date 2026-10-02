@@ -95,6 +95,11 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(50);
             entity.Property(e => e.AssignedAt).HasColumnName("assigned_at");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+
+            entity.Property(e => e.ClassType).HasColumnName("class_type").HasDefaultValue(0);
+            entity.Property(e => e.DomainId).HasColumnName("domain_id");
+            entity.Property(e => e.DomainCode).HasColumnName("domain_code").HasMaxLength(50);
+            entity.Property(e => e.ClusterIndex).HasColumnName("cluster_index");
         });
 
         // Cấu hình bảng ClassEnrollments

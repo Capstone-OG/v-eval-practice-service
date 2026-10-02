@@ -44,22 +44,23 @@ public class LiveSessionRepository : ILiveSessionRepository
 
     public async Task<IReadOnlyList<LiveSession>> GetUpcomingSessionsForStudentAsync(Guid studentId, CancellationToken ct = default)
     {
-        // 1. Tìm lớp học mà học sinh đang ghi danh
-        var enrollment = await _context.ClassEnrollments
+        // 1. Tìm TẤT CẢ các lớp học (hành chính + chuyên đề) mà học sinh đang ghi danh
+        var classIds = await _context.ClassEnrollments
             .Where(e => e.StudentId == studentId && e.Status == "ENROLLED")
-            .OrderByDescending(e => e.EnrolledAt)
-            .FirstOrDefaultAsync(ct);
+            .Select(e => e.ClassId)
+            .Distinct()
+            .ToListAsync(ct);
 
-        if (enrollment == null)
+        if (classIds.Count == 0)
         {
             return Array.Empty<LiveSession>();
         }
 
-        // 2. Lấy toàn bộ buổi Live của lớp học đó
+        // 2. Lấy toàn bộ buổi Live của tất cả các lớp học đó
         return await _context.LiveSessions
             .Include(s => s.Class)
             .Include(s => s.Attendances.Where(a => a.StudentId == studentId))
-            .Where(s => s.ClassId == enrollment.ClassId)
+            .Where(s => classIds.Contains(s.ClassId))
             .OrderBy(s => s.ScheduledAt)
             .ToListAsync(ct);
     }
@@ -85,6 +86,28 @@ public class LiveSessionRepository : ILiveSessionRepository
         return await _context.LiveSessionAttendances
             .Where(a => a.SessionId == sessionId)
             .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<LiveSession>> GetSessionsForTeacherAsync(Guid teacherId, CancellationToken ct = default)
+    {
+        return await _context.LiveSessions
+            .Include(s => s.Class)
+            .Include(s => s.Attendances)
+            .Where(s => s.TeacherId == teacherId || (s.Class != null && s.Class.TeacherId == teacherId))
+            .OrderBy(s => s.ScheduledAt)
+            .ToListAsync(ct);
+    }
+
+    public async Task<bool> TeacherExistsAsync(Guid teacherId, CancellationToken ct = default)
+    {
+        return await _context.Classes.AnyAsync(c => c.TeacherId == teacherId, ct) ||
+               await _context.LiveSessions.AnyAsync(s => s.TeacherId == teacherId, ct);
+    }
+
+    public async Task<int> GetEnrolledStudentCountByClassIdAsync(Guid classId, CancellationToken ct = default)
+    {
+        return await _context.ClassEnrollments
+            .CountAsync(e => e.ClassId == classId && e.Status == "ENROLLED", ct);
     }
 
     public async Task<int> SaveChangesAsync(CancellationToken ct = default)

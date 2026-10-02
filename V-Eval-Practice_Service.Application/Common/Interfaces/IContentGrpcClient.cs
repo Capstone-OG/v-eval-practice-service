@@ -23,7 +23,8 @@ public record SkillTreeNodeDto(
     IReadOnlyList<Guid> PrerequisiteIds,
     string Description = "",
     Guid DomainId = default,
-    string DomainName = ""
+    string DomainName = "",
+    string DomainCode = ""
 );
 
 public record MilestoneQuizQuestionOptionDto(

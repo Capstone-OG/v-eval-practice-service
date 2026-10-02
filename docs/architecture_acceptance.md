@@ -135,9 +135,21 @@
 10. **API 10 - Get Student Live Q&A Cohort Schedule (`GET /api/v1/practice/live-sessions/my-schedule`)**:
     - Queries active campus enrollment (`ClassEnrollments`) and retrieves upcoming live sessions.
     - Aggregates individual attendance status (`ATTENDED`, `ABSENT`, `NOT_ATTENDED`), recording links, and makeup quiz results.
-11. **API 11 - Join Live Session & Auto Attendance Tracking (`POST /api/v1/practice/live-sessions/{sessionId}/join`)**:
+11. **API 11 - Join Live Session & Arrival Telemetry (`POST /api/v1/practice/live-sessions/{sessionId}/join`)**:
     - Validates session state (rejects cancelled sessions) and supplies live room URL (`MeetingUrl`).
-    - Upserts `LiveSessionAttendance` recording `AttendanceStatus = "ATTENDED"` and exact participation timestamp (`JoinedAt = UtcNow`).
+    - Records arrival timestamp (`JoinedAt = UtcNow`) while strictly preserving official attendance grading authority for teachers in API 12.
+12. **API 12 - Teacher Attendance Grading (`POST /api/v1/practice/live-sessions/{sessionId}/attendance`)**:
+    - Allows teachers to formally grade attendance for class students (`ATTENDED` or `ABSENT`).
+    - Upserts `LiveSessionAttendance` records and tracks cohort attendance counts.
+13. **API 13 - Teacher Live Schedule & Cohort Monitoring (`GET /api/v1/practice/live-sessions/teacher-schedule`)**:
+    - Queries assigned sessions for a teacher (`teacherId`), aggregating cohort enrollment size, attendance counts (`totalAttended`, `totalAbsent`), meeting and recording URLs.
+14. **API 14 - Update Live Session Recording (`PUT /api/v1/practice/live-sessions/{sessionId}/recording`)**:
+    - Enables teachers to publish session video archive (`RecordingUrl`), marks `IsRecorded = true` and updates session status to `COMPLETED` for absent student review.
+15. **API 15 - Teacher / Academic Manager Cancel Live Session (`PUT /api/v1/practice/live-sessions/{sessionId}/cancel`)**:
+    - Grants teachers or academic managers the ability to cancel scheduled sessions when an emergency occurs.
+    - Preserves data integrity: prevents physical deletion (since sessions are created by Academic Managers and require audit history).
+    - Updates `Status` to `CANCELLED` and appends cancellation reason to description.
+    - Prevents downstream interactions: cancelled sessions reject student join attempts (API 11), teacher attendance grading (API 12), and recording uploads (API 14).
 
 ---
 
@@ -152,3 +164,64 @@
   - Identity Service: Port 5155 (REST HTTP/1) + Port 5156 (gRPC HTTP/2).
   - Content Service: Port 5249 (REST HTTP/1) + Port 5250 (gRPC HTTP/2).
   - Practice Service: Port 5261 (REST HTTP/1 + Swagger UI).
+
+---
+
+## 6. THEMATIC COHORT ARCHITECTURE (CORE FLOW 2 UPGRADE - STEP 1)
+- **Problem Formulation**: Shift from homogeneous administrative cohorting to domain-specialized cohorts (Thematic Cohorts) formed through K-Means clustering over multi-dimensional student vulnerability vectors.
+- **Data Model Extensions ([`Class.cs`](../V-Eval-Practice_Service.Domain/Entities/Class.cs))**:
+  - `ClassType` (`int`): Discern between Tier-based Administrative Classes (`0`) and Thematic Cohorts (`1`).
+  - `DomainId` (`Guid?`): Unique identifier of target educational domain.
+  - `DomainCode` (`string?`): Domain identifier (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`).
+  - `ClusterIndex` (`int?`): Index of the optimal K-Means cluster cluster centroid producing this thematic cohort.
+- **Migration & Verification**:
+  - Migration `AddThematicCohortFields` executed cleanly and verified via live Supabase PostgreSQL schema inspection (`class_type`, `cluster_index`, `domain_code`, `domain_id`).
+  - Backward compatibility preserved 100% across all existing core flow 1 and core flow 2 handlers.
+
+### 6.2 gRPC Protocol & DTO Chain Serialization (Step 2)
+- **gRPC Contract Alignment**: Added `domain_code` to `SkillNode` message in `content.proto`.
+- **Client Deserialization**: Extended `SkillTreeNodeDto` in `IContentGrpcClient` and deserialized in `ContentGrpcClient.cs`.
+- **DTO Chain Propagation**:
+  - `RoadmapNodeSummaryDto`: Includes `DomainCode` for each milestone.
+  - `RoadmapStageDto`: Includes `DomainCode` to enable stage-level domain coloring and categorization on Frontend.
+  - `RoadmapNodeDetailDto`: Includes `DomainCode` for milestone inspection.
+  - `GenerateRoadmapResponseDto`: Transmits `PlacementClass` (`FOUNDATION` / `ACCELERATION` / `BREAKTHROUGH`) alongside structured stages.
+
+### 6.3 Student K-Means Clustering & Adaptive Elbow Method Engine (Step 3)
+- **Algorithm Architecture ([`StudentKMeansClusterer.cs`](../V-Eval-Practice_Service.Application/Common/Graph/StudentKMeansClusterer.cs))**:
+  - Input: $N$ dynamic students, each represented by a 4-dimensional vector $[\text{DOM\_LANG}, \text{DOM\_MATH}, \text{DOM\_NAT\_SCI}, \text{DOM\_SOC\_SCI}]$ representing domain-aggregated prior knowledge $P(L_0)$.
+  - Adaptive Cluster Bounds: Evaluates $K \in [2, K_{\max}]$ where $K_{\max} = \min(8, \max(2, \lfloor N / 3 \rfloor))$ to guarantee pedagogically viable cohort sizes.
+  - K-Means++ Seeding: Samples initial centroids proportionally to squared Euclidean distance $D(x)^2$, circumventing degenerate local minima.
+  - Lloyd's Iterative Optimization: Executes iterative nearest-centroid assignment and vector mean updates until convergence with empty-cluster recovery.
+  - Geometric Elbow Method: Computes within-cluster sum of squares (WCSS) and identifies the optimal inflection point via maximum perpendicular chord distance.
+  - Centroid Pedagogical Profiling: Automatically deduces prominent vulnerability domains (scores $< 0.60$), maps `TargetDomainId` and generates tailored cohort titles (e.g., *"Chuyên đề: Trọng điểm Toán - Logic"*).
+- **Verification**: Verified with 45-student heterogeneous dataset; automatically isolated $K = 4$ optimal cohorts with WCSS sharp drop from 4.2867 to 0.1173.
+
+### 6.4 Thematic Cohort Formation & Auto-Cluster API (Step 4)
+- **API Specification**: `POST /api/practice/classes/auto-cluster`
+  - Request: `AutoClusterThematicClassesRequestDto` (`CampusId`, `Grade`, `MaxCohortCapacity`).
+  - Response: `AutoClusterThematicClassesResponseDto` (`TotalStudentsProcessed`, `OptimalK`, `ClassesCreated`).
+- **Orchestration Pipeline (`AutoClusterThematicClassesCommandHandler`)**:
+  1. Retrieve enrolled student IDs within campus (`GetEnrolledStudentIdsByCampusIdAsync`).
+  2. Batch load multi-dimensional student skill priors (`LearningProfiles`) across all cohort students.
+  3. Query Content Service gRPC `GetSkillsTree` to map granular skills to top-level domains (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`).
+  7. Enroll students into their respective thematic classes in `ClassEnrollments`.
+
+### 6.5 Thematic Cohort Milestone LiveSession Binding (Step 5)
+- **Domain-Specialized Interactive Binding**: Overcomes the previous limitation of attaching a single static administrative live session across all milestones.
+- **Repository Abstraction (`GetUpcomingThematicLiveSessionsAsync`)**:
+  - Implements a resilient 3-tier lookup hierarchy:
+    1. *Individual Thematic Tier*: Queries scheduled live sessions (`SCHEDULED`) for thematic classes (`ClassType = 1`) that the individual student is currently enrolled in, keyed by `DomainCode`.
+    2. *Campus Thematic Tier*: In cases where the student is not yet enrolled across all 4 knowledge domains, inspects campus-wide thematic cohorts (`CampusId`) for matching domain sessions.
+    3. *Administrative Cohort Fallback*: Falls back to the baseline tier class (`ClassType = 0`) session via the `"DEFAULT"` fallback key.
+- **Handler Integration (`GenerateRoadmapCommandHandler`)**:
+  - Evaluates `SkillTreeNodeDto.DomainCode` for each milestone during Kahn Topological Sort output binding.
+  - Binds the precise domain-specific interactive session `LiveSessionId` (e.g., Mathematics chặng $\rightarrow$ Math Live Session, Language chặng $\rightarrow$ Language Live Session).
+
+### 6.6 Multi-Class Enrollment & Schedule Aggregation (Step 6)
+- **Problem Resolution**: Following K-Means thematic clustering, students belong concurrently to an administrative placement class (`ClassType = 0`) and one or more thematic vulnerability cohorts (`ClassType = 1`).
+- **Repository Upgrade (`LiveSessionRepository.GetUpcomingSessionsForStudentAsync`)**:
+  - Replaced single-record selection (`FirstOrDefaultAsync`) with multi-class aggregation: queries all active enrollments for `studentId` (`e.Status == "ENROLLED"`), yielding `classIds`.
+  - Dispatches an aggregated query across all classes via `classIds.Contains(s.ClassId)` ordered chronologically.
+- **DTO Model Enhancements (`LiveSessionScheduleItemDto`)**:
+  - Exposed `ClassId`, `ClassName`, and `DomainCode` (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`) for each scheduled session, empowering students to readily distinguish domain live lectures from general cohort meetings.

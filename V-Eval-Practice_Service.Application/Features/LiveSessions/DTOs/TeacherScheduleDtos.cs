@@ -3,9 +3,11 @@ using System.Collections.Generic;
 
 namespace V_Eval_Practice_Service.Application.Features.LiveSessions.DTOs;
 
-public class LiveSessionScheduleItemDto
+public class TeacherLiveSessionItemDto
 {
     public Guid SessionId { get; set; }
+    public Guid ClassId { get; set; }
+    public string ClassName { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public DateTime ScheduledAt { get; set; }
@@ -14,18 +16,14 @@ public class LiveSessionScheduleItemDto
     public string? RecordingUrl { get; set; }
     public bool IsRecorded { get; set; }
     public string Status { get; set; } = string.Empty;
-    public string? MyAttendanceStatus { get; set; }
-    public bool? IsMakeupQuizPassed { get; set; }
-    public Guid ClassId { get; set; }
-    public string ClassName { get; set; } = string.Empty;
-    public string? DomainCode { get; set; }
+    public int TotalEnrolledStudents { get; set; }
+    public int TotalAttended { get; set; }
+    public int TotalAbsent { get; set; }
 }
 
-public class MyLiveScheduleDto
+public class TeacherScheduleDto
 {
-    public Guid StudentId { get; set; }
-    public Guid? EnrolledClassId { get; set; }
-    public string ClassName { get; set; } = string.Empty;
+    public Guid TeacherId { get; set; }
     public int TotalSessions { get; set; }
-    public List<LiveSessionScheduleItemDto> Sessions { get; set; } = new();
+    public List<TeacherLiveSessionItemDto> Sessions { get; set; } = new();
 }

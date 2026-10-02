@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddTransient<Common.Graph.PathPruner>();
         services.AddTransient<Common.Graph.TopologicalSorter>();
         services.AddTransient<Common.Graph.MilestoneBinder>();
+        services.AddTransient<Common.Graph.IStudentKMeansClusterer, Common.Graph.StudentKMeansClusterer>();
 
         return services;
     }

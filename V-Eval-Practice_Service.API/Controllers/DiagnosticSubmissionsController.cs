@@ -14,7 +14,7 @@ namespace V_Eval_Practice_Service.API.Controllers;
 /// <summary>
 /// Quản lý nộp bài khảo sát chẩn đoán năng lực đầu vào và chấm điểm tự động (Core Flow 1 - Bước 3)
 /// </summary>
-[Route("api/v1/practice/diagnostic-submissions")]
+[Route("api/practice/diagnostic-submissions")]
 public class DiagnosticSubmissionsController : ApiControllerBase
 {
     /// <summary>

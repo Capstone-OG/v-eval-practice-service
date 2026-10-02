@@ -1,5 +1,117 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [01/10/2026] - Nâng Cấp Core Flow 2 (Bước 1): Mở Rộng Mô Hình Thực Thể Class & Di Trú CSDL Phục Vụ Lớp Học Chuyên Đề (Thematic Cohort)
+- **Mở Rộng Mô Hình Thực Thể [`Class.cs`](../V-Eval-Practice_Service.Domain/Entities/Class.cs)**:
+  - Bổ sung 4 trường dữ liệu trọng yếu cho bài toán phân cụm lớp chuyên đề:
+    - `ClassType` (`int`, mặc định `0` = Lớp hành chính phổ thông theo năng lực tổng thể $\theta_0$, `1` = Lớp chuyên đề theo cụm lỗ hổng K-Means).
+    - `DomainId` (`Guid?`): Định danh miền kiến thức chuyên đề (Toán, Ngôn ngữ, KHTN, KHXH).
+    - `DomainCode` (`string?`, max length 50): Mã định danh chuẩn (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`).
+    - `ClusterIndex` (`int?`): Chỉ số cụm tương ứng sinh ra bởi thuật toán phân cụm K-Means.
+- **Cấu Hình Fluent API & DbContext ([`PracticeDbContext.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs))**:
+  - Ánh xạ rõ ràng các cột `class_type`, `domain_id`, `domain_code`, `cluster_index` vào bảng `Classes` thuộc schema `v_eval_practice`.
+- **Di Trú CSDL (Database Migration & Verification)**:
+  - Khởi tạo migration `20260930184119_AddThematicCohortFields`.
+  - Tinh chỉnh migration để chỉ tác động thêm 4 cột mới vào bảng `Classes`, đảm bảo tương thích 100% với các bảng đã có trong PostgreSQL (`LearningRoadmaps`, `LiveSessions`, `RoadmapNodes`, `LiveSessionAttendance`).
+  - Thực thi `dotnet ef database update` thành công, lưu bản ghi migration vào `practice."__EFMigrationsHistory"`.
+  - Xác thực trực tiếp qua kiểm tra schema CSDL Supabase PostgreSQL: 4 cột `class_type (integer)`, `cluster_index (integer)`, `domain_code (character varying)`, `domain_id (uuid)` đã sẵn sàng vận hành.
+- **Kiểm Thử Biên Dịch Bước 1**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+- **Nâng Cấp Core Flow 2 (Bước 2): Đồng Bộ DomainCode Qua gRPC & Chuỗi DTO Lộ Trình**:
+  - Đồng bộ hợp đồng [`content.proto`](../V-Eval-Practice_Service.Infrastructure/Protos/content.proto) khớp với Content Service với trường `string domain_code = 8;` trong `SkillNode`.
+  - Mở rộng [`IContentGrpcClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IContentGrpcClient.cs) (`SkillTreeNodeDto`) và [`ContentGrpcClient.cs`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/ContentGrpcClient.cs) ánh xạ deserialization trường `DomainCode`.
+  - Bổ sung `DomainCode` vào các DTO lộ trình: [`RoadmapNodeSummaryDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/RoadmapNodeSummaryDto.cs), [`RoadmapStageDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/RoadmapStageDto.cs), [`RoadmapNodeDetailDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/RoadmapNodeDetailDto.cs).
+  - Bổ sung `PlacementClass` vào [`GenerateRoadmapResponseDto.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/DTOs/GenerateRoadmapResponseDto.cs) giúp Frontend định danh chính xác tier năng lực (`FOUNDATION` / `ACCELERATION` / `BREAKTHROUGH`).
+  - Cập nhật [`GenerateRoadmapCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Commands/GenerateRoadmap/GenerateRoadmapCommandHandler.cs), [`GetMyRoadmapQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Queries/GetMyRoadmap/GetMyRoadmapQueryHandler.cs) và [`GetRoadmapNodeDetailQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Queries/GetRoadmapNodeDetail/GetRoadmapNodeDetailQueryHandler.cs) trích xuất và ánh xạ hoàn chỉnh chuỗi `DomainCode` và `PlacementClass`.
+  - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
+- **Nâng Cấp Core Flow 2 (Bước 3): Viết Thuật Toán K-Means Student Clustering (K-Means++ & Elbow Method)**:
+  - Khởi tạo thuật toán phân cụm chuẩn mực [`StudentKMeansClusterer.cs`](../V-Eval-Practice_Service.Application/Common/Graph/StudentKMeansClusterer.cs) và interface `IStudentKMeansClusterer` trong thư mục `Common/Graph`.
+  - Hỗ trợ số lượng học sinh $N$ động ($N \ge 2$), tự động thích ứng giới hạn số cụm $K_{\max} = \min(8, \max(2, \lfloor N / 3 \rfloor))$.
+  - Thuật toán gồm 3 thành phần chính:
+    1. **K-Means++ Initialization**: Lấy mẫu xác suất theo bình phương khoảng cách Euclidean $D(x)^2$ giúp các tâm cụm ban đầu phân bố đều trên không gian 4 chiều, chống local minima.
+    2. **Lloyd's Algorithm**: Vòng lặp gán học sinh vào tâm cụm gần nhất và cập nhật toạ độ tâm cụm theo vector trung bình đến khi hội tụ (hỗ trợ phục hồi cụm rỗng).
+    3. **Elbow Method (Chord Method)**: Tính tổng bình phương khoảng cách cụm (WCSS) cho dải $K \in [2, K_{\max}]$, tìm điểm gập khuỷu tay hình học tối ưu dựa trên khoảng cách vuông góc cực đại đến dây cung nối 2 đầu.
+  - Phân tích sư phạm Centroid tự động: Tự động phát hiện miền kiến thức yếu nổi trội (< 0.60), đặt tên lớp chuyên đề gợi ý (ví dụ: *"Chuyên đề: Trọng điểm Toán - Logic"*, *"Chuyên đề: Tăng cường Ngôn ngữ & KHTN"*), và gán mã miền mục tiêu `TargetDomainCode`.
+  - Đăng ký `IStudentKMeansClusterer` vào DI container ([`DependencyInjection.cs`](../V-Eval-Practice_Service.Application/DependencyInjection.cs)).
+- **Nâng Cấp Core Flow 2 (Bước 4): Hiện Thực API Tự Động Phân Cụm Lớp Chuyên Đề (POST /api/practice/classes/auto-cluster)**:
+  - Khởi tạo các DTOs [`AutoClusterThematicClassesDtos.cs`](../V-Eval-Practice_Service.Application/Features/Classes/DTOs/AutoClusterThematicClassesDtos.cs):
+    - `AutoClusterThematicClassesRequestDto`: `CampusId`, `Grade` (mặc định 12), `MaxCohortCapacity` (mặc định 30).
+    - `ThematicClassCreatedDto`: `ClassId`, `ClassName`, `DomainId`, `DomainCode`, `ClusterIndex`, `DominantWeakDomain`, `EnrolledStudentCount`, `StudentIds`.
+    - `AutoClusterThematicClassesResponseDto`: `CampusId`, `TotalStudentsProcessed`, `OptimalK`, `ClassesCreated`.
+  - Mở rộng Repository [`ILearningProfileRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILearningProfileRepository.cs) và [`LearningProfileRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LearningProfileRepository.cs) với phương thức `GetByStudentIdsAsync(IEnumerable<Guid> studentIds)`.
+  - Mở rộng Repository [`IClassEnrollmentRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassEnrollmentRepository.cs) và [`ClassEnrollmentRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs) với `GetEnrolledStudentIdsByCampusIdAsync(Guid campusId)` và `CreateThematicClassWithEnrollmentsAsync(...)`.
+  - Xây dựng CQRS:
+    - Command `AutoClusterThematicClassesCommand.cs` và `AutoClusterThematicClassesCommandValidator.cs`.
+    - Handler [`AutoClusterThematicClassesCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/AutoClusterThematicClasses/AutoClusterThematicClassesCommandHandler.cs):
+      1. Truy vấn danh sách học sinh thuộc cơ sở đào tạo qua `GetEnrolledStudentIdsByCampusIdAsync`.
+      2. Truy vấn dữ liệu hồ sơ năng lực vi mô `LearningProfiles` của toàn bộ học sinh.
+      3. Lấy Skill Tree từ Content Service qua gRPC `IContentGrpcClient` để ánh xạ `SkillId -> DomainCode`.
+      4. Tổng hợp vector lỗ hổng 4 miền $[\text{DOM\_LANG}, \text{DOM\_MATH}, \text{DOM\_NAT\_SCI}, \text{DOM\_SOC\_SCI}]$ cho $N$ học sinh.
+      5. Thực thi phân cụm K-Means Elbow Method thông qua `IStudentKMeansClusterer`.
+      6. Khởi tạo các lớp chuyên đề `Class` (`ClassType = 1`, `DomainId`, `DomainCode`, `ClusterIndex`) kèm phân chia sĩ số phù hợp `MaxCohortCapacity`.
+      7. Tự động ghi danh học sinh vào lớp chuyên đề trong `ClassEnrollments`.
+  - Bổ sung endpoint `[HttpPost("auto-cluster")]` vào [`ClassesController.cs`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs).
+  - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
+- **Nâng Cấp Core Flow 2 (Bước 5): Liên Kết Buổi Học LiveSession Cho Từng Chặng Lộ Trình Theo Đúng Miền Chuyên Đề (Thematic Cohort Binding)**:
+  - Mở rộng Repository [`ILearningRoadmapRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILearningRoadmapRepository.cs) và [`LearningRoadmapRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LearningRoadmapRepository.cs) với phương thức `GetUpcomingThematicLiveSessionsAsync(Guid studentId, Guid? administrativeClassId, CancellationToken ct)`.
+  - Cơ chế truy vấn 3 tầng tối ưu:
+    1. **Tầng 1 (Cá nhân hóa chuyên đề)**: Quét danh sách lớp chuyên đề (`ClassType = 1`) mà học sinh đã ghi danh (`ClassEnrollments`), nạp các buổi LiveSession sắp diễn ra (`SCHEDULED`) map theo `DomainCode` (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`).
+    2. **Tầng 2 (Bổ khuyết theo Campus)**: Nếu học sinh chưa ghi danh đủ 4 miền, tự động tìm kiếm buổi LiveSession chuyên đề tương ứng tại cùng `CampusId`.
+    3. **Tầng 3 (Fallback hành chính)**: Nếu miền kiến thức chưa có lớp chuyên đề nào mở Live, fallback về buổi LiveSession chung của lớp hành chính (`submission.EnrolledClassId`).
+  - Cập nhật [`GenerateRoadmapCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Commands/GenerateRoadmap/GenerateRoadmapCommandHandler.cs) tại Bước 6:
+    - Di chuyển từ điển kỹ năng `skillMap` lên trước Bước 6 để xác định chính xác `DomainCode` cho từng chặng học.
+    - Ánh xạ `LiveSessionId` cho từng `SkillResourceBinding`: Chặng Toán gắn Live của lớp Chuyên đề Toán, Chặng Văn gắn Live lớp Chuyên đề Ngôn ngữ... thay vì gắn chung 1 buổi Live cho toàn bộ lộ trình.
+  - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
+- **Nâng Cấp Core Flow 2 (Bước 6): Hỗ Trợ Đa Ghi Danh (Multi-Class Enrollment) Trong API Thời Khóa Biểu (GET /api/practice/live-sessions/my-schedule)**:
+  - Cập nhật [`LiveSessionRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LiveSessionRepository.cs) tại phương thức `GetUpcomingSessionsForStudentAsync`:
+    - Thay vì chỉ lấy 1 lớp học gần nhất (`FirstOrDefaultAsync`), chuyển sang lấy toàn bộ danh sách `classIds` mà học sinh đang ghi danh (`Status = "ENROLLED"`), bao gồm cả lớp hành chính và tất cả các lớp chuyên đề K-Means.
+    - Truy vấn toàn bộ các buổi LiveSession sắp diễn ra của tất cả các lớp mà học sinh theo học qua mệnh đề `classIds.Contains(s.ClassId)`.
+  - Mở rộng DTO [`GetMyLiveScheduleDtos.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/GetMyLiveScheduleDtos.cs) bổ sung các trường nhận diện lớp và môn học:
+    - `ClassId`: Định danh lớp học tổ chức buổi Live.
+    - `ClassName`: Tên lớp học (ví dụ: *"Chuyên đề: Trọng điểm Toán - Logic"*).
+    - `DomainCode`: Mã môn học/miền năng lực chuyên đề (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`).
+  - Cập nhật [`GetMyLiveScheduleQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/Queries/GetMyLiveSchedule/GetMyLiveScheduleQueryHandler.cs) map đầy đủ các trường thông tin lớp học và miền chuyên đề vào danh sách buổi học trả về.
+  - Kiểm thử trực tiếp qua API: Học sinh xem được trọn vẹn buổi học của lớp chuyên đề Toán kèm trạng thái điểm danh cá nhân.
+  - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+## [30/09/2026] - Triển Khai Hoàn Thiện APIs 12, 13, 14, 15: Điểm Danh Chuyên Cần, Thời Khóa Biểu Giảng Dạy, Video Ghi Hình & Hủy Buổi Học Trực Tuyến
+- **API 12: Giáo Viên Điểm Danh Chuyên Cần Cho Học Sinh (POST /api/v1/practice/live-sessions/{sessionId}/attendance)**:
+  - Khởi tạo DTOs [`TeacherAttendanceDtos.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/TeacherAttendanceDtos.cs): `StudentAttendanceItemDto`, `TeacherAttendanceRequestDto`, `TeacherAttendanceResponseDto`.
+  - Xây dựng FluentValidation `TeacherAttendanceCommandValidator` kiểm tra ràng buộc `SessionId`, danh sách học sinh và giá trị trạng thái (`ATTENDED` hoặc `ABSENT`).
+  - Triển khai `TeacherAttendanceCommand` và [`TeacherAttendanceCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/Commands/TeacherAttendance/TeacherAttendanceCommandHandler.cs):
+    1. Kiểm tra tồn tại buổi Live (`404 Not Found`).
+    2. Chặn thao tác điểm danh khi buổi học đã bị hủy `session.Status == "CANCELLED"` (`400 Bad Request`).
+    3. Duyệt từng học sinh, cập nhật hoặc tạo mới bản ghi `LiveSessionAttendance` với trạng thái `ATTENDED` hoặc `ABSENT`. Nếu học sinh chưa từng ấn vào phòng qua web, ghi nhận `JoinedAt = null`. Nếu đã vào phòng, bảo lưu nguyên vẹn thời gian `JoinedAt` thực tế.
+    4. Thống kê tổng số học sinh đã điểm danh, số tham gia, số vắng mặt.
+- **API 13: Lấy Thời Khóa Biểu Giảng Dạy Của Giáo Viên (GET /api/v1/practice/live-sessions/teacher-schedule)**:
+  - Bổ sung phương thức `GetSessionsForTeacherAsync`, `TeacherExistsAsync` và `GetEnrolledStudentCountByClassIdAsync` vào `ILiveSessionRepository` và `LiveSessionRepository`.
+  - Khởi tạo DTOs [`TeacherScheduleDtos.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/TeacherScheduleDtos.cs), `GetTeacherScheduleQuery.cs`, `GetTeacherScheduleQueryValidator.cs` và [`GetTeacherScheduleQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/Queries/GetTeacherSchedule/GetTeacherScheduleQueryHandler.cs).
+  - Nghiệp vụ & Ngoại lệ: Kiểm tra `TeacherId` rỗng (`400 Bad Request`), kiểm tra giáo viên tồn tại trong hệ thống đào tạo qua `TeacherExistsAsync` (`404 Not Found` `TeacherNotFound`). Truy vấn danh sách buổi Live được giao cho giáo viên (`TeacherId` trực tiếp hoặc giáo viên phụ trách lớp `Class.TeacherId`), thống kê sĩ số lớp, số tham gia (`ATTENDED`), số vắng mặt (`ABSENT`), link phòng họp và link video ghi hình.
+- **API 14: Cập Nhật Video Ghi Hình Buổi Live Q&A (PUT /api/v1/practice/live-sessions/{sessionId}/recording)**:
+  - Khởi tạo DTOs [`UpdateLiveSessionRecordingDtos.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/UpdateLiveSessionRecordingDtos.cs), `UpdateLiveSessionRecordingCommand.cs`, `UpdateLiveSessionRecordingCommandValidator.cs` và [`UpdateLiveSessionRecordingCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/Commands/UpdateRecording/UpdateLiveSessionRecordingCommandHandler.cs).
+  - Nghiệp vụ & Ngoại lệ: Kiểm tra tính hợp lệ của URL (`http`/`https`), chặn cập nhật khi buổi học đã bị hủy `session.Status == "CANCELLED"` (`400 Bad Request`), cập nhật `RecordingUrl`, đánh dấu `IsRecorded = true` và chuyển trạng thái buổi học sang `COMPLETED` để học sinh vắng mặt xem lại bài giảng.
+- **API 15: Giáo Viên / Giáo Vụ Hủy Buổi Học Trực Tuyến Khi Bận Đột Xuất (PUT /api/v1/practice/live-sessions/{sessionId}/cancel)**:
+  - Khởi tạo DTOs [`CancelLiveSessionDtos.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/DTOs/CancelLiveSessionDtos.cs): `CancelLiveSessionRequestDto`, `CancelLiveSessionResponseDto`.
+  - Xây dựng FluentValidation `CancelLiveSessionCommandValidator` kiểm tra ràng buộc `SessionId` và `Reason` (không quá 500 ký tự).
+  - Triển khai `CancelLiveSessionCommand` và [`CancelLiveSessionCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/LiveSessions/Commands/CancelLiveSession/CancelLiveSessionCommandHandler.cs):
+    1. Kiểm tra tồn tại buổi Live (`404 Not Found`).
+    2. Chặn hủy khi buổi học đã hoàn thành `session.Status == "COMPLETED"` (`400 Bad Request`).
+    3. Chặn hủy lặp lại khi buổi học đã ở trạng thái `CANCELLED` (`400 Bad Request`).
+    4. Không xóa vật lý bản ghi (do Academic Manager tạo, bảo lưu lịch sử đào tạo). Cập nhật `Status = "CANCELLED"` và đính kèm lý do hủy vào `Description`.
+- **Chuẩn Hóa Đồng Bộ Route API (`api/practice/...`) Khớp Với API Gateway**:
+  - Gỡ bỏ hoàn toàn tiền tố `v1` khỏi các Controller trong Practice Service ([`ClassesController.cs`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs), [`DiagnosticSubmissionsController.cs`](../V-Eval-Practice_Service.API/Controllers/DiagnosticSubmissionsController.cs), [`LiveSessionsController.cs`](../V-Eval-Practice_Service.API/Controllers/LiveSessionsController.cs), [`RoadmapsController.cs`](../V-Eval-Practice_Service.API/Controllers/RoadmapsController.cs)).
+  - Đồng bộ 100% với cấu hình định tuyến của YARP API Gateway (`/api/practice/{**catch-all}`).
+- **Tầng API Controller (`LiveSessionsController.cs`)**:
+  - Bổ sung 4 endpoint: `[HttpPost("{sessionId:guid}/attendance")]`, `[HttpGet("teacher-schedule")]`, `[HttpPut("{sessionId:guid}/recording")]`, `[HttpPut("{sessionId:guid}/cancel")]`.
+- **Kiểm Thử Vận Hành Trực Tiếp (Live End-to-End Test)**:
+  - Solution biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Kịch bản API 12: Giáo viên điểm danh 2 học sinh (`1111...` ATTENDED, `2222...` ABSENT) cho Session `2a196c82...` -> `200 OK`, `totalAttended: 1`, `totalAbsent: 1`. Chặn điểm danh session đã hủy -> `400 Bad Request`.
+  - Kịch bản API 13: Tra cứu lịch dạy của giáo viên `99999999-9999-9999-9999-999999999999` -> `200 OK`, trả về 5 buổi Live đầy đủ số liệu sĩ số lớp, số tham gia, số vắng mặt. Tra cứu giáo viên không tồn tại -> `404 Not Found` (`TeacherNotFound`).
+  - Kịch bản API 14: Cập nhật URL ghi hình -> `200 OK`, `isRecorded: true`, `status: "COMPLETED"`.
+  - Kịch bản API 15: Giáo viên hủy buổi học `8ebfe3ee...` vì bận công tác -> `200 OK`, trạng thái chuyển sang `CANCELLED`. Bấm hủy lại -> `400 Bad Request`. Học sinh gọi API 11 Join -> `400 Bad Request` ("Buổi học này đã bị hủy bỏ").
+  - Kịch bản xác thực chéo API 10: Học sinh `1111...` tra cứu lịch thấy ngay trạng thái `ATTENDED`, link video recording và trạng thái `COMPLETED`.
+
+---
+
 ## [29/09/2026] - Triển Khai Hoàn Thiện Giai Đoạn 3: Quản Lý Buổi Học Live Q&A, Phân Công Giáo Viên, Thời Khóa Biểu & Điểm Danh Trực Tuyến (APIs 8, 9, 10, 11)
 - **API 8: Tạo Lịch Buổi Học Live Q&A Cho Lớp Học Cơ Sở (POST /api/v1/practice/live-sessions)**:
   - Khởi tạo Repository [`ILiveSessionRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILiveSessionRepository.cs) và [`LiveSessionRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LiveSessionRepository.cs) quản lý thực thể `LiveSessions` và `LiveSessionAttendance`. Đăng ký Scoped trong `DependencyInjection.cs`.

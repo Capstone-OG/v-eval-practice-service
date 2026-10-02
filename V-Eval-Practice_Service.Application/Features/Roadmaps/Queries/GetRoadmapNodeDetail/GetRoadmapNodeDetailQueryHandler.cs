@@ -55,6 +55,7 @@ public class GetRoadmapNodeDetailQueryHandler : IRequestHandler<GetRoadmapNodeDe
         string skillName = "Kỹ năng chuyên đề";
         Guid domainId = Guid.Empty;
         string domainName = "Lĩnh vực chung";
+        string domainCode = "";
 
         try
         {
@@ -65,6 +66,7 @@ public class GetRoadmapNodeDetailQueryHandler : IRequestHandler<GetRoadmapNodeDe
                 skillName = skillInfo.Name;
                 domainId = skillInfo.DomainId;
                 domainName = !string.IsNullOrWhiteSpace(skillInfo.DomainName) ? skillInfo.DomainName : "Lĩnh vực chung";
+                domainCode = skillInfo.DomainCode ?? "";
             }
         }
         catch (Exception ex)
@@ -114,7 +116,8 @@ public class GetRoadmapNodeDetailQueryHandler : IRequestHandler<GetRoadmapNodeDe
             IsVideoCompleted: node.IsVideoCompleted,
             IsQuizEligible: isQuizEligible,
             QuizExamId: node.QuizExamId,
-            LiveSession: liveSessionDto
+            LiveSession: liveSessionDto,
+            DomainCode: domainCode
         );
 
         return Result<RoadmapNodeDetailDto>.Success(detailDto);

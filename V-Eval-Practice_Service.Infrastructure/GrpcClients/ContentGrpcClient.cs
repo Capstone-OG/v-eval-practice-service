@@ -99,7 +99,8 @@ public class ContentGrpcClient : IContentGrpcClient
                         prereqIds,
                         node.Description,
                         domainId,
-                        node.DomainName
+                        node.DomainName,
+                        node.DomainCode
                     ));
                 }
             }

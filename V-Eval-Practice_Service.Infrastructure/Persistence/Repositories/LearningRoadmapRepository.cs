@@ -68,6 +68,86 @@ public class LearningRoadmapRepository : ILearningRoadmapRepository
             .FirstOrDefaultAsync(ct);
     }
 
+    public async Task<Dictionary<string, LiveSession>> GetUpcomingThematicLiveSessionsAsync(
+        Guid studentId,
+        Guid? administrativeClassId,
+        CancellationToken ct = default)
+    {
+        var result = new Dictionary<string, LiveSession>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Lấy danh sách lớp chuyên đề (ClassType = 1) mà học sinh đã ghi danh
+        var studentThematicClasses = await _context.ClassEnrollments
+            .Where(e => e.StudentId == studentId && e.Status == "ENROLLED")
+            .Select(e => e.Class)
+            .Where(c => c != null && c.ClassType == 1 && !string.IsNullOrEmpty(c.DomainCode))
+            .ToListAsync(ct);
+
+        if (studentThematicClasses.Count > 0)
+        {
+            var classIds = studentThematicClasses.Select(c => c!.ClassId).ToList();
+            var sessions = await _context.LiveSessions
+                .Include(ls => ls.Class)
+                .Where(ls => classIds.Contains(ls.ClassId) && ls.Status == "SCHEDULED")
+                .OrderBy(ls => ls.ScheduledAt)
+                .ToListAsync(ct);
+
+            foreach (var session in sessions)
+            {
+                var domainCode = session.Class?.DomainCode;
+                if (!string.IsNullOrEmpty(domainCode) && !result.ContainsKey(domainCode))
+                {
+                    result[domainCode] = session;
+                }
+            }
+        }
+
+        // 2. Tìm campusId để tìm thêm lớp chuyên đề tại cơ sở (fallback nếu học sinh chưa ghi danh đủ các miền)
+        Guid? campusId = null;
+        if (administrativeClassId.HasValue)
+        {
+            var adminClass = await _context.Classes.FirstOrDefaultAsync(c => c.ClassId == administrativeClassId.Value, ct);
+            campusId = adminClass?.CampusId;
+        }
+        else if (studentThematicClasses.Count > 0)
+        {
+            campusId = studentThematicClasses.First()?.CampusId;
+        }
+
+        if (campusId.HasValue)
+        {
+            var campusThematicSessions = await _context.LiveSessions
+                .Include(ls => ls.Class)
+                .Where(ls => ls.Class.CampusId == campusId.Value && ls.Class.ClassType == 1 && ls.Status == "SCHEDULED")
+                .OrderBy(ls => ls.ScheduledAt)
+                .ToListAsync(ct);
+
+            foreach (var session in campusThematicSessions)
+            {
+                var domainCode = session.Class?.DomainCode;
+                if (!string.IsNullOrEmpty(domainCode) && !result.ContainsKey(domainCode))
+                {
+                    result[domainCode] = session;
+                }
+            }
+        }
+
+        // 3. Fallback: Lớp hành chính chung (nếu có domain nào chưa có LiveSession chuyên đề)
+        if (administrativeClassId.HasValue)
+        {
+            var adminSession = await _context.LiveSessions
+                .Where(ls => ls.ClassId == administrativeClassId.Value && ls.Status == "SCHEDULED")
+                .OrderBy(ls => ls.ScheduledAt)
+                .FirstOrDefaultAsync(ct);
+
+            if (adminSession != null)
+            {
+                result["DEFAULT"] = adminSession;
+            }
+        }
+
+        return result;
+    }
+
     public async Task<RoadmapNode?> GetNodeByIdAsync(Guid nodeId, CancellationToken ct = default)
     {
         return await _context.RoadmapNodes

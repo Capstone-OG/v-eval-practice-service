@@ -18,4 +18,17 @@ public interface IClassEnrollmentRepository
     Task<ClassEnrollment?> GetEnrollmentByStudentIdAsync(
         Guid studentId,
         CancellationToken ct = default);
+
+    Task<IReadOnlyList<Guid>> GetEnrolledStudentIdsByCampusIdAsync(
+        Guid campusId,
+        CancellationToken ct = default);
+
+    Task<Class> CreateThematicClassWithEnrollmentsAsync(
+        Guid campusId,
+        string name,
+        Guid? domainId,
+        string? domainCode,
+        int clusterIndex,
+        IEnumerable<Guid> studentIds,
+        CancellationToken ct = default);
 }
