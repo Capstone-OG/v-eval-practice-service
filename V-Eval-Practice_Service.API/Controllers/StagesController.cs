@@ -78,5 +78,24 @@ public class StagesController : ApiControllerBase
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }
+
+    /// <summary>
+    /// Core Flow 3 - API 4: Lấy câu hỏi thích ứng tiếp theo trong vùng ZPD (Bước APPLY)
+    /// Áp dụng mô hình IRT 2PL lọc câu hỏi có xác suất trả lời đúng trong dải [0.60, 0.75]
+    /// Ẩn hoàn toàn đáp án đúng để đảm bảo an toàn bảo mật
+    /// </summary>
+    /// <param name="stageProgressId">Mã định danh tiến trình chặng học</param>
+    /// <returns>Câu hỏi thích ứng tiếp theo kèm thông số độ khó và độ thành thạo hiện tại</returns>
+    [HttpGet("{stageProgressId:guid}/next-question")]
+    [ProducesResponseType(typeof(Result<NextQuestionResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<NextQuestionResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<NextQuestionResponseDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetNextQuestion([FromRoute] Guid stageProgressId)
+    {
+        var query = new V_Eval_Practice_Service.Application.Features.Stages.Queries.GetNextQuestion.GetNextQuestionQuery(stageProgressId);
+        var result = await Mediator.Send(query);
+        return HandleResult(result);
+    }
 }
+
 

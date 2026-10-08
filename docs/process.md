@@ -81,6 +81,8 @@
 | 47 | **Core Flow 3 (P-L-A-R - Bước 1): Khởi Tạo Chặng Học Thích Ứng (StartStage)** | `StagesController.cs` & `StartStageCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{roadmapNodeId}/start` khởi tạo tiến trình `StageProgress` ở bước `PREVIEW`, cấp 3 câu Quick Check nền tảng |
 | 48 | **Core Flow 3 (P-L-A-R - Bước 2): Nộp Bài Khởi Động Preview (SubmitPreview)** | `StagesController.cs` & `SubmitPreviewCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/preview-submit` nộp 3 câu khởi động, chuyển State Machine sang `LEARN`, cấp video bài giảng |
 | 49 | **Core Flow 3 (P-L-A-R - Bước 3): Ghi Nhận Xem Video Bài Giảng (TrackVideo)** | `StagesController.cs` & `TrackVideoCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/track-video` tính % thời lượng xem, tự động chuyển State Machine sang `APPLY` khi đạt >= 80% |
+| 50 | **Core Flow 3 (P-L-A-R - Bước 4): Lấy Câu Hỏi Thích Ứng ZPD (NextQuestion)** | `StagesController.cs` & `GetNextQuestionQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/stages/{stageProgressId}/next-question` áp dụng mô hình IRT 2PL lọc câu hỏi ZPD trong dải [0.60, 0.75], ẩn đáp án bảo mật |
+
 
 
 

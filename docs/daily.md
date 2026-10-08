@@ -34,9 +34,20 @@
     4. Tự động đồng bộ trạng thái sang `RoadmapNode` (`IsVideoCompleted = true`, `VideoWatchedSeconds`, `VideoTotalSeconds`).
     5. Trả về thông điệp và cờ điều hướng `nextAction = "START_ADAPTIVE_PRACTICE"`.
   - Bổ sung endpoint `[HttpPost("{stageProgressId:guid}/track-video")]` vào [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs).
+- **Hiện Thực Core Flow 3 - API 4: Lấy Câu Hỏi Thích Ứng Tiếp Theo Trong Vùng ZPD (GET /api/practice/stages/{stageProgressId}/next-question)**:
+  - Xây dựng động cơ thích ứng IRT 2PL [`ZpdQuestionSelector.cs`](../V-Eval-Practice_Service.Application/Common/Adaptive/ZpdQuestionSelector.cs):
+    1. Quy đổi xác suất thành thạo BKT $P(L_t) \in [0.05, 0.95]$ sang thang logit năng lực $\theta \in [-2.5, +2.5]$.
+    2. Tính xác suất làm đúng theo mô hình IRT 2PL $P(\theta, a, b) = 1 / (1 + e^{-1.7 \cdot a \cdot (\theta - b)})$.
+    3. Bộ lọc ZPD 3 tầng: Tầng 1 (vùng ZPD lý tưởng $P \in [0.60, 0.75]$), Tầng 2 (vùng ZPD nới lỏng $P \in [0.50, 0.85]$), Tầng 3 (câu có xác suất tiệm cận tâm ZPD 0.675 nhất).
+    4. Tự động loại trừ các câu hỏi đã trả lời trong phiên `AdaptiveAttempts`.
+  - Khởi tạo DTOs [`NextQuestionDtos.cs`](../V-Eval-Practice_Service.Application/Features/Stages/DTOs/NextQuestionDtos.cs) ẩn toàn bộ đáp án đúng để bảo mật.
+  - Khởi tạo Query `GetNextQuestionQuery.cs` và Handler `GetNextQuestionQueryHandler.cs`.
+  - Kiểm tra trạng thái máy: Chặn nếu chưa mở khóa `APPLY`, tự động thông báo dừng nếu đã hoàn thành chặng hoặc bị phong tỏa bởi quy tắc phụ đạo BR-03 (`REMEDIAL_REQUIRED`).
+  - Bổ sung endpoint `[HttpGet("{stageProgressId:guid}/next-question")]` vào [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs).
 - **Kiểm Thử Vận Hành**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
-  - Kiểm thử trực tiếp API 1, API 2, API 3 trên Swagger và PowerShell script thành công 200 OK.
+  - Kiểm thử trực tiếp API 1, API 2, API 3, API 4 trên Swagger và PowerShell script thành công 200 OK.
+
 
 
 ## [01/10/2026] - Nâng Cấp Core Flow 2 (Bước 1): Mở Rộng Mô Hình Thực Thể Class & Di Trú CSDL Phục Vụ Lớp Học Chuyên Đề (Thematic Cohort)

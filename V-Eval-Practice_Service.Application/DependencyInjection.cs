@@ -26,6 +26,9 @@ public static class DependencyInjection
         services.AddTransient<Common.Graph.MilestoneBinder>();
         services.AddTransient<Common.Graph.IStudentKMeansClusterer, Common.Graph.StudentKMeansClusterer>();
 
+        // Động cơ Luyện tập thích ứng Adaptive Engine (Core Flow 3)
+        services.AddTransient<Common.Adaptive.IZpdQuestionSelector, Common.Adaptive.ZpdQuestionSelector>();
+
         return services;
     }
 }

@@ -274,5 +274,19 @@
   4. Cross-aggregate synchronization: Automatically updates `RoadmapNode` navigation entity (`IsVideoCompleted = true`, `VideoWatchedSeconds`, `VideoTotalSeconds`), ensuring consistent roadmap timeline progression.
   5. Returns guidance metadata (`NextAction = "START_ADAPTIVE_PRACTICE"`).
 
+### 7.5 Adaptive ZPD Question Selection Engine API Specification (API 4)
+- **Endpoint**: `GET /api/practice/stages/{stageProgressId}/next-question`
+  - Route: Clean REST path without `v1` version prefix (`[HttpGet("{stageProgressId:guid}/next-question")]`).
+  - Response: `NextQuestionResponseDto` (`StageProgressId`, `CurrentStep`, `Status`, `CurrentMasteryPlt`, `AttemptOrder`, `IsFinished`, `Message`, `QuestionId`, `Content`, `Options`, `DifficultyLevel`, `ItemDifficultyB`, `ItemDiscriminationA`, `SkillId`, `SkillName`).
+- **Adaptive Engine Architecture (`ZpdQuestionSelector.cs`)**:
+  1. **Logit Transformation**: Maps BKT mastery prior `` `P(L_t) \in [0.05, 0.95]` `` to psychometric latent trait `` `\theta = \ln(\frac{P(L_t)}{1 - P(L_t)}) \in [-2.5, +2.5]` ``.
+  2. **IRT 2PL Probability Function**: Computes `` `P(X=1 \mid \theta, a, b) = \frac{1}{1 + e^{-1.7 \cdot a \cdot (\theta - b)}}` `` for every unattempted item.
+  3. **3-Tier Pedagogical ZPD Filter**:
+     - *Tier 1 (Ideal ZPD)*: Filters items within target zone `` `P \in [0.60, 0.75]` ``, sorting by proximity to zone center `` `0.675` ``.
+     - *Tier 2 (Relaxed ZPD Fallback)*: Expands selection band to `` `P \in [0.50, 0.85]` `` when item bank is sparse.
+     - *Tier 3 (Nearest Neighbor Fallback)*: Selects candidate item with minimum absolute delta `` `|P - 0.675|` ``.
+  4. **Security & State Validation**: Completely suppresses correct answer flags in client payloads; gracefully yields `IsFinished = true` if student already achieved mastery or has triggered the 3-consecutive-failure remedial gate (`Status == "REMEDIAL_REQUIRED"`).
+
+
 
 
