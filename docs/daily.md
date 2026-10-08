@@ -1,5 +1,75 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [08/10/2026] - Khởi Động Core Flow 3 (Bước 0 & API 1): Mô Hình Thực Thể P-L-A-R & API Khởi Tạo Chặng Học (StartStage)
+- **Mở Rộng Domain Entities Core Flow 3**:
+  - Tạo thực thể [`StageProgress.cs`](../V-Eval-Practice_Service.Domain/Entities/StageProgress.cs): Quản lý tiến trình 4 bước P-L-A-R (`CurrentStep`: `PREVIEW`, `LEARN`, `APPLY`, `REFLECT`), `VideoWatchPercentage`, xác suất thành thạo BKT `BktMasteryPlt` (mặc định 0.1000), đếm câu đúng liên tiếp $b \ge 0.50$ `ConsecutiveAdvancedCorrect`, đếm câu sai liên tiếp `ConsecutiveIncorrect`, trạng thái chặng `Status` (`IN_PROGRESS`, `REMEDIAL_REQUIRED`, `COMPLETED`).
+  - Tạo thực thể [`AdaptiveQuizAttempt.cs`](../V-Eval-Practice_Service.Domain/Entities/AdaptiveQuizAttempt.cs): Lưu vết từng câu trả lời thích ứng ở bước Apply (`QuestionId`, `PatternId`, `SelectedOption`, `IsCorrect`, `TimeSpentSeconds`, `ItemDifficultyB`, `ItemDiscriminationA`, `IsLuckyGuess`, `PriorPlt`, `PosteriorPlt`).
+- **Cấu Hình Persistence & Repositories**:
+  - Cập nhật [`PracticeDbContext.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs): Đăng ký `DbSet<StageProgress>` và `DbSet<AdaptiveQuizAttempt>`, cấu hình Fluent API, quan hệ Cascade với `RoadmapNode` và `AdaptiveAttempts`.
+  - Tạo Interface [`IStageProgressRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IStageProgressRepository.cs) và Repository [`StageProgressRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/StageProgressRepository.cs). Đăng ký vào DI container `DependencyInjection.cs`.
+- **Hiện Thực Core Flow 3 - API 1: Khởi Tạo Chặng Học Thích Ứng (POST /api/practice/stages/{roadmapNodeId}/start)**:
+  - Khởi tạo chuỗi DTOs [`StartStageDtos.cs`](../V-Eval-Practice_Service.Application/Features/Stages/DTOs/StartStageDtos.cs) (`StartStageRequestDto`, `PreviewQuestionDto`, `StartStageResponseDto`).
+  - Khởi tạo Command `StartStageCommand.cs` và Validator `StartStageCommandValidator.cs`.
+  - Xây dựng Handler [`StartStageCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/StartStage/StartStageCommandHandler.cs):
+    1. Kiểm tra tồn tại của chặng học `RoadmapNode` từ repository.
+    2. Tìm hoặc khởi tạo mới bản ghi `StageProgress` ở bước `PREVIEW` (`BktMasteryPlt = 0.1000`, `Status = IN_PROGRESS`).
+    3. Nạp 3 câu hỏi Quick Check khởi động từ Content Service qua gRPC (`GetMilestoneQuizAsync` với `questionCount = 3`) hoặc fallback 3 câu mẫu kiểm thử an toàn.
+  - Xây dựng Controller mới [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs) với route chuẩn không có `v1`: `[Route("api/practice/stages")]` và endpoint `[HttpPost("{roadmapNodeId:guid}/start")]`.
+- **Hiện Thực Core Flow 3 - API 2: Nộp Bài Khởi Động Preview & Chuyển Sang Bước Learn (POST /api/practice/stages/{stageProgressId}/preview-submit)**:
+  - Khởi tạo DTOs [`SubmitPreviewDtos.cs`](../V-Eval-Practice_Service.Application/Features/Stages/DTOs/SubmitPreviewDtos.cs) (`PreviewAnswerSubmissionDto`, `SubmitPreviewRequestDto`, `SubmitPreviewResponseDto`).
+  - Khởi tạo Command `SubmitPreviewCommand.cs` và Validator `SubmitPreviewCommandValidator.cs`.
+  - Xây dựng Handler [`SubmitPreviewCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/SubmitPreview/SubmitPreviewCommandHandler.cs):
+    1. Tra cứu tiến trình `StageProgress` theo ID.
+    2. Ghi nhận và chấm điểm sơ bộ 3 câu khởi động (không tính vào BKT theo đúng thiết kế sư phạm).
+    3. Cập nhật State Machine chuyển `CurrentStep` từ `PREVIEW` sang `LEARN`.
+    4. Trả về thông điệp hướng dẫn học sinh xem video phương pháp cùng đường dẫn video bài giảng.
+  - Bổ sung endpoint `[HttpPost("{stageProgressId:guid}/preview-submit")]` vào [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs).
+- **Hiện Thực Core Flow 3 - API 3: Ghi Nhận Tiến Độ Xem Video & Chuyển Sang Bước Apply (POST /api/practice/stages/{stageProgressId}/track-video)**:
+  - Khởi tạo DTOs [`TrackVideoDtos.cs`](../V-Eval-Practice_Service.Application/Features/Stages/DTOs/TrackVideoDtos.cs) (`TrackVideoRequestDto`, `TrackVideoResponseDto`).
+  - Khởi tạo Command `TrackVideoCommand.cs` và Validator `TrackVideoCommandValidator.cs`.
+  - Xây dựng Handler [`TrackVideoCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/TrackVideo/TrackVideoCommandHandler.cs):
+    1. Tra cứu tiến trình `StageProgress` theo ID và kiểm tra quyền sở hữu `StudentId`.
+    2. Tính phần trăm thời lượng đã xem lũy tiến (`VideoWatchPercentage`), không giảm khi tua lại.
+    3. Kiểm tra điều kiện mở khóa bước APPLY: Nếu `VideoWatchPercentage >= 80%` và đang ở `LEARN` -> Chuyển `CurrentStep = "APPLY"`.
+    4. Tự động đồng bộ trạng thái sang `RoadmapNode` (`IsVideoCompleted = true`, `VideoWatchedSeconds`, `VideoTotalSeconds`).
+    5. Trả về thông điệp và cờ điều hướng `nextAction = "START_ADAPTIVE_PRACTICE"`.
+  - Bổ sung endpoint `[HttpPost("{stageProgressId:guid}/track-video")]` vào [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs).
+- **Hiện Thực Core Flow 3 - API 4: Lấy Câu Hỏi Thích Ứng Tiếp Theo Trong Vùng ZPD (GET /api/practice/stages/{stageProgressId}/next-question)**:
+  - Xây dựng động cơ thích ứng IRT 2PL [`ZpdQuestionSelector.cs`](../V-Eval-Practice_Service.Application/Common/Adaptive/ZpdQuestionSelector.cs):
+    1. Quy đổi xác suất thành thạo BKT $P(L_t) \in [0.05, 0.95]$ sang thang logit năng lực $\theta \in [-2.5, +2.5]$.
+    2. Tính xác suất làm đúng theo mô hình IRT 2PL $P(\theta, a, b) = 1 / (1 + e^{-1.7 \cdot a \cdot (\theta - b)})$.
+    3. Bộ lọc ZPD 3 tầng: Tầng 1 (vùng ZPD lý tưởng $P \in [0.60, 0.75]$), Tầng 2 (vùng ZPD nới lỏng $P \in [0.50, 0.85]$), Tầng 3 (câu có xác suất tiệm cận tâm ZPD 0.675 nhất).
+    4. Tự động loại trừ các câu hỏi đã trả lời trong phiên `AdaptiveAttempts`.
+  - Khởi tạo DTOs [`NextQuestionDtos.cs`](../V-Eval-Practice_Service.Application/Features/Stages/DTOs/NextQuestionDtos.cs) ẩn toàn bộ đáp án đúng để bảo mật.
+  - Khởi tạo Query `GetNextQuestionQuery.cs` và Handler `GetNextQuestionQueryHandler.cs`.
+  - Kiểm tra trạng thái máy: Chặn nếu chưa mở khóa `APPLY`, tự động thông báo dừng nếu đã hoàn thành chặng hoặc bị phong tỏa bởi quy tắc phụ đạo BR-03 (`REMEDIAL_REQUIRED`).
+  - Bổ sung endpoint `[HttpGet("{stageProgressId:guid}/next-question")]` vào [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs).
+- **Hiện Thực Core Flow 3 - API 5: Nộp Câu Trả Lời Thích Ứng & Động Cơ BKT (POST /api/practice/stages/{stageProgressId}/submit-answer)**:
+  - Xây dựng động cơ Bayesian Knowledge Tracing [`BktEngine.cs`](../V-Eval-Practice_Service.Application/Common/Adaptive/BktEngine.cs):
+    1. Cơ chế phạt đoán mò (Lucky Guess Penalty): Khi học sinh trả lời đúng nhưng thời gian làm $t < 5$s đối với câu hỏi vận dụng $b \ge 0.50$, tăng $P(G) = 0.60$ và gắn cờ `IsLuckyGuess = true`.
+    2. Cập nhật Bayesian Posterior $P(L_t \mid obs)$ và bước chuyển dịch tri thức $P(L_t) = P(L_t \mid obs) + (1 - P(L_t \mid obs)) \cdot P(T)$.
+    3. Quy tắc sư phạm BR-01: Khi $P(L_t) \ge 0.85$ và đúng liên tiếp 2 câu nâng cao ($b \ge 0.50$) $\implies$ Đạt độ thành thạo mục tiêu, tự động chuyển `CurrentStep = "REFLECT"`.
+    4. Quy tắc sư phạm BR-03: Khi sai liên tiếp 3 câu $\implies$ Phong tỏa trạng thái `Status = "REMEDIAL_REQUIRED"`, yêu cầu xem clip phụ đạo trước khi tiếp tục.
+    5. Lưu toàn bộ micro-telemetry vào bảng `AdaptiveQuizAttempts`.
+  - Khởi tạo DTOs [`SubmitAnswerDtos.cs`](../V-Eval-Practice_Service.Application/Features/Stages/DTOs/SubmitAnswerDtos.cs), Command và Handler.
+  - Bổ sung endpoint `[HttpPost("{stageProgressId:guid}/submit-answer")]` vào [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs).
+- **Hiện Thực Core Flow 3 - API 6: Phản Tư Cá Nhân & Hoàn Thành Chặng Học (POST /api/practice/stages/{stageProgressId}/reflect-complete)**:
+  - Khởi tạo DTOs [`ReflectCompleteDtos.cs`](../V-Eval-Practice_Service.Application/Features/Stages/DTOs/ReflectCompleteDtos.cs), Command, Validator và Handler.
+  - Xử lý hoàn tất chặng học:
+    1. Ghi nhận đánh giá độ tự tin (Confidence Rating từ 1 đến 5 sao) và ghi chú bài học rút ra.
+    2. Đánh dấu `StageProgress.Status = "COMPLETED"`.
+    3. Đồng bộ trạng thái sang `RoadmapNode` (`Status = "COMPLETED"`, `IsQuizPassed = true`, `QuizScore = P(Lt) * 10.0`, `CompletedAt = UtcNow`).
+    4. Tự động tìm và mở khóa chặng học kế tiếp trên lộ trình (`RoadmapNode` tiếp theo chuyển từ `LOCKED` sang `IN_PROGRESS`).
+  - Bổ sung endpoint `[HttpPost("{stageProgressId:guid}/reflect-complete")]` vào [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs).
+- **Tinh Gọn & Chuẩn Hóa Giao Diện Swagger UI & Phân Định Ranh Giới Kiến Trúc**:
+  - Tinh gọn XML `<summary>` của toàn bộ các API trong [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs): Mỗi API chỉ có 1 dòng tiêu đề ngắn gọn theo từng bước (Bước 1 đến Bước 6), chuyển toàn bộ nội dung diễn giải dài dòng vào `<remarks>` (ẩn trong dropdown) giúp giao diện Swagger cực kỳ thoáng mắt, đẹp và không bị tràn viền.
+  - Tái cấu trúc [`RoadmapsController.cs`](../V-Eval-Practice_Service.API/Controllers/RoadmapsController.cs): Loại bỏ các endpoint làm bài tĩnh trùng lặp (`track-video`, `quiz`, `submit-quiz`, `submit-makeup-quiz`). Định vị rõ vai trò của Roadmap là **Quản lý lộ trình vĩ mô cá nhân hóa** (`generate`, `my-roadmap`, `nodes/{nodeId}`), còn toàn bộ việc học tập vi mô, video, luyện tập thích ứng được quy hoạch tập trung 100% tại `StagesController` (P-L-A-R).
+- **Kiểm Thử Vận Hành**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Kiểm thử chuỗi toàn diện Module 1 từ API 1 đến API 6 thành công 100% (200 OK).
+
+---
+
 ## [07/10/2026] - Chuẩn Hóa Cấu Hình gRPC Settings, AI Subsystem & Kết Nối CSDL Tập Trung
 - **Chuẩn Hóa File Cấu Hình Mẫu (`appsettings.example.json`)**:
   - Bổ sung khối cấu hình `GrpcSettings` (IdentityServiceUrl: `http://localhost:5156`, ContentServiceUrl: `http://localhost:5250`).

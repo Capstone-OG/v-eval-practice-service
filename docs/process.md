@@ -23,6 +23,8 @@
 - `practice.RoadmapNodes`: Chặng học 3 thành phần (`node_id`, `roadmap_id`, `skill_id`, `step_order`, `material_id`, `quiz_exam_id`, `live_session_id`, `status`).
 - `practice.LiveSessions`: Buổi học trực tuyến Live Q&A của lớp (`session_id`, `class_id`, `scheduled_at`, `meeting_url`, `recording_url`, `is_recorded`, `status`).
 - `practice.LiveSessionAttendance`: Điểm danh và bài Quiz bù (`attendance_id`, `session_id`, `student_id`, `attendance_status`, `makeup_quiz_id`, `is_makeup_quiz_passed`).
+- `practice.StageProgress`: Tiến trình chặng học P-L-A-R (`id`, `student_id`, `roadmap_node_id`, `current_step`, `video_watch_percentage`, `bkt_mastery_plt`, `consecutive_advanced_correct`, `consecutive_incorrect`, `status`).
+- `practice.AdaptiveQuizAttempts`: Log trả lời thích ứng từng câu (`id`, `stage_progress_id`, `student_id`, `question_id`, `pattern_id`, `selected_option`, `is_correct`, `time_spent_seconds`, `item_difficulty_b`, `item_discrimination_a`, `is_lucky_guess`, `prior_plt`, `posterior_plt`).
 
 ---
 
@@ -56,10 +58,11 @@
 | 24 | **Core Flow 2 - API 1: Khởi Tạo Lộ Trình Học Tập** | `RoadmapsController.cs` & `GenerateRoadmapCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/roadmaps/generate` quy trình 7 bước, phân nhóm Stage theo miền năng lực |
 | 25 | **Core Flow 2 - API 2: Tra Cứu Lộ Trình Cá Nhân Hóa** | `RoadmapsController.cs` & `GetMyRoadmapQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/roadmaps/my-roadmap` tiến độ phần trăm, gom nhóm Stages theo miền |
 | 26 | **Core Flow 2 - API 3: Chi Tiết Chặng Học 3 Thành Phần** | `RoadmapsController.cs` & `GetRoadmapNodeDetailQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/roadmaps/nodes/{nodeId}` chi tiết Video, Quiz củng cố, Buổi học Live Q&A |
-| 27 | **Core Flow 2 - API 4: Ghi Nhận Xem Video Lý Thuyết** | `RoadmapsController.cs` & `TrackVideoCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/roadmaps/nodes/{nodeId}/track-video` tính % xem, mở khóa Quiz khi đạt >= 80% |
-| 28 | **Core Flow 2 - API 5: Lấy Đề Thi Quiz Củng Cố Chặng** | `RoadmapsController.cs` & `GetMilestoneQuizQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/roadmaps/nodes/{nodeId}/quiz` kiểm tra điều kiện xem video >= 80%, ẩn đáp án đúng bảo mật |
-| 29 | **Core Flow 2 - API 6: Nộp Bài Quiz & Mở Khóa FSM** | `RoadmapsController.cs` & `SubmitMilestoneQuizCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/roadmaps/nodes/{nodeId}/submit-quiz` chấm điểm bảo mật gRPC, kích hoạt State Machine mở khóa chặng kế tiếp khi đạt >= 60% |
-| 30 | **Core Flow 2 - API 7: Nộp Quiz Bù Khi Vắng Mặt Live** | `RoadmapsController.cs` & `SubmitMakeupQuizCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/roadmaps/nodes/{nodeId}/submit-makeup-quiz` giải phóng phong tỏa chặng học cho học sinh ABSENT khi đạt >= 60% |
+| 27 | **Core Flow 2 - API 4: Ghi Nhận Xem Video Lý Thuyết** | `RoadmapsController.cs` & `TrackVideoCommandHandler.cs` | 🔄 Tinh gọn | - | Chuyển giao sang `StagesController.cs` (Bước 3: TrackVideo P-L-A-R) |
+| 28 | **Core Flow 2 - API 5: Lấy Đề Thi Quiz Củng Cố Chặng** | `RoadmapsController.cs` & `GetMilestoneQuizQueryHandler.cs` | 🔄 Tinh gọn | - | Chuyển giao sang `StagesController.cs` (Bước 4: NextQuestion ZPD IRT 2PL) |
+| 29 | **Core Flow 2 - API 6: Nộp Bài Quiz & Mở Khóa FSM** | `RoadmapsController.cs` & `SubmitMilestoneQuizCommandHandler.cs` | 🔄 Tinh gọn | - | Chuyển giao sang `StagesController.cs` (Bước 5 & 6: SubmitAnswer BKT & ReflectComplete) |
+| 30 | **Core Flow 2 - API 7: Nộp Quiz Bù Khi Vắng Mặt Live** | `RoadmapsController.cs` & `SubmitMakeupQuizCommandHandler.cs` | 🔄 Tinh gọn | - | Tích hợp vào quy trình hoàn tất chặng học thích ứng |
+
 | 31 | **Core Flow 2 - API 8: Tạo Lịch Buổi Học Live Q&A** | `LiveSessionsController.cs` & `CreateLiveSessionCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/live-sessions` quản trị viên tạo lịch Live Q&A, tự động gắn giáo viên |
 | 32 | **Core Flow 2 - API 9: Phân Công Giáo Viên Cho Lớp** | `ClassesController.cs` & `AssignTeacherCommandHandler.cs` | 🟢 Hoàn thành | 100% | `PUT /api/practice/classes/{classId}/assign-teacher` quản trị cơ sở phân công/điều chuyển giáo viên |
 | 33 | **Core Flow 2 - API 10: Thời Khóa Biểu Buổi Học Live** | `LiveSessionsController.cs` & `GetMyLiveScheduleQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/live-sessions/my-schedule` tra cứu lịch Live Q&A của lớp cơ sở kèm trạng thái điểm danh |
@@ -76,6 +79,15 @@
 | 44 | **Core Flow 2 (Thematic Cohort - Bước 4): API Tự Động Phân Cụm Lớp Chuyên Đề** | `ClassesController.cs` & `AutoClusterThematicClassesCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/classes/auto-cluster` tự động gom cụm N học sinh theo lỗ hổng 4 miền, sinh lớp chuyên đề và ghi danh tự động |
 | 45 | **Core Flow 2 (Thematic Cohort - Bước 5): Gắn LiveSession Theo Miền Chuyên Đề** | `LearningRoadmapRepository.cs` & `GenerateRoadmapCommandHandler.cs` | 🟢 Hoàn thành | 100% | Tự động ánh xạ LiveSession theo đúng DomainCode của chặng lộ trình học tập thay vì gán 1 buổi Live chung |
 | 46 | **Core Flow 2 (Thematic Cohort - Bước 6): API 10 Hỗ Trợ Đa Ghi Danh Lớp Học** | `LiveSessionRepository.cs` & `GetMyLiveScheduleQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/live-sessions/my-schedule` truy vấn lịch Live của TẤT CẢ lớp (hành chính + chuyên đề K-Means) kèm `ClassName` và `DomainCode` |
+| 47 | **Core Flow 3 (P-L-A-R - Bước 1): Khởi Tạo Chặng Học Thích Ứng (StartStage)** | `StagesController.cs` & `StartStageCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{roadmapNodeId}/start` khởi tạo tiến trình `StageProgress` ở bước `PREVIEW`, cấp 3 câu Quick Check nền tảng |
+| 48 | **Core Flow 3 (P-L-A-R - Bước 2): Nộp Bài Khởi Động Preview (SubmitPreview)** | `StagesController.cs` & `SubmitPreviewCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/preview-submit` nộp 3 câu khởi động, chuyển State Machine sang `LEARN`, cấp video bài giảng |
+| 49 | **Core Flow 3 (P-L-A-R - Bước 3): Ghi Nhận Xem Video Bài Giảng (TrackVideo)** | `StagesController.cs` & `TrackVideoCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/track-video` tính % thời lượng xem, tự động chuyển State Machine sang `APPLY` khi đạt >= 80% |
+| 50 | **Core Flow 3 (P-L-A-R - Bước 4): Lấy Câu Hỏi Thích Ứng ZPD (NextQuestion)** | `StagesController.cs` & `GetNextQuestionQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/stages/{stageProgressId}/next-question` áp dụng mô hình IRT 2PL lọc câu hỏi ZPD trong dải [0.60, 0.75], ẩn đáp án bảo mật |
+| 51 | **Core Flow 3 (P-L-A-R - Bước 5): Nộp Câu Trả Lời & Động Cơ BKT (SubmitAnswer)** | `StagesController.cs` & `SubmitAnswerCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/submit-answer` BKT tính P(Lt), phạt đoán mò, kiểm tra BR-01 (Mastery) và BR-03 (Remedial) |
+| 52 | **Core Flow 3 (P-L-A-R - Bước 6): Phản Tư & Hoàn Thành Chặng (ReflectComplete)** | `StagesController.cs` & `ReflectCompleteCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/reflect-complete` ghi nhận đánh giá độ tự tin, đồng bộ RoadmapNode sang COMPLETED, tự động mở khóa chặng kế tiếp |
+
+
+
 
 
 

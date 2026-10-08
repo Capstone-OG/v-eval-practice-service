@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using V_Eval_Practice_Service.API.Middlewares;
 using V_Eval_Practice_Service.Application;
+using V_Eval_Practice_Service.Domain.Entities;
 using V_Eval_Practice_Service.Infrastructure;
 using V_Eval_Practice_Service.Infrastructure.Persistence;
 
@@ -26,6 +27,8 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1",
         Description = "Microservice tiếp nhận bài thi, chấm điểm tự động và lưu trữ kết quả kiểm tra năng lực (V-Eval Core Flow 1 - Bước 3)."
     });
+
+    c.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
 
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
@@ -143,8 +146,79 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS is_video_completed BOOLEAN DEFAULT FALSE;
             ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS quiz_score DOUBLE PRECISION DEFAULT 0.0;
             ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS is_quiz_passed BOOLEAN DEFAULT FALSE;
+
+            -- Core Flow 3: Khởi tạo bảng StageProgress và AdaptiveQuizAttempts
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""StageProgress"" (
+                id UUID PRIMARY KEY,
+                student_id UUID NOT NULL,
+                roadmap_node_id UUID NOT NULL,
+                current_step VARCHAR(20) NOT NULL DEFAULT 'PREVIEW',
+                video_watch_percentage NUMERIC(5,2) DEFAULT 0.00,
+                bkt_mastery_plt DOUBLE PRECISION DEFAULT 0.1000,
+                consecutive_advanced_correct INT DEFAULT 0,
+                consecutive_incorrect INT DEFAULT 0,
+                status VARCHAR(20) NOT NULL DEFAULT 'IN_PROGRESS',
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
+            );
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""AdaptiveQuizAttempts"" (
+                id UUID PRIMARY KEY,
+                stage_progress_id UUID NOT NULL,
+                student_id UUID NOT NULL,
+                question_id UUID NOT NULL,
+                pattern_id VARCHAR(100),
+                selected_option VARCHAR(10),
+                is_correct BOOLEAN NOT NULL,
+                time_spent_seconds INT NOT NULL,
+                item_difficulty_b DOUBLE PRECISION NOT NULL,
+                item_discrimination_a DOUBLE PRECISION NOT NULL,
+                is_lucky_guess BOOLEAN DEFAULT FALSE,
+                prior_plt DOUBLE PRECISION NOT NULL,
+                posterior_plt DOUBLE PRECISION NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
+            );
         ");
         logger.LogInformation("Đã xác thực và khởi tạo thành công CSDL schema practice trên Supabase.");
+
+        // Đảm bảo có dữ liệu mẫu RoadmapNode phục vụ kiểm thử Core Flow 3
+        var sampleNodeId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        var sampleRoadmapId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        var sampleStudentId = Guid.Parse("99999999-9999-9999-9999-999999999999");
+        var sampleSkillId = Guid.Parse("6f3765db-943e-4810-bf74-d6a8bdc215da"); // DOM_MATH
+
+        var nodeExists = await dbContext.RoadmapNodes.AnyAsync(n => n.NodeId == sampleNodeId);
+        if (!nodeExists)
+        {
+            var roadmapExists = await dbContext.LearningRoadmaps.AnyAsync(r => r.RoadmapId == sampleRoadmapId);
+            if (!roadmapExists)
+            {
+                await dbContext.LearningRoadmaps.AddAsync(new LearningRoadmap
+                {
+                    RoadmapId = sampleRoadmapId,
+                    StudentId = sampleStudentId,
+                    TargetScore = 800,
+                    TotalMilestones = 1,
+                    CompletedMilestones = 0,
+                    Status = "ACTIVE",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            await dbContext.RoadmapNodes.AddAsync(new RoadmapNode
+            {
+                NodeId = sampleNodeId,
+                RoadmapId = sampleRoadmapId,
+                SkillId = sampleSkillId,
+                StepOrder = 1,
+                Status = "IN_PROGRESS",
+                UnlockedAt = DateTime.UtcNow
+            });
+
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Đã khởi tạo chặng học mẫu RoadmapNode {NodeId} phục vụ kiểm thử Core Flow 3.", sampleNodeId);
+        }
     }
     catch (Exception ex)
     {

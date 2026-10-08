@@ -225,3 +225,91 @@
   - Dispatches an aggregated query across all classes via `classIds.Contains(s.ClassId)` ordered chronologically.
 - **DTO Model Enhancements (`LiveSessionScheduleItemDto`)**:
   - Exposed `ClassId`, `ClassName`, and `DomainCode` (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`) for each scheduled session, empowering students to readily distinguish domain live lectures from general cohort meetings.
+
+---
+
+## 7. CORE FLOW 3 ARCHITECTURE: ADAPTIVE PRACTICE (P-L-A-R) & STAGE INITIALIZATION
+
+### 7.1 P-L-A-R State Machine & Domain Entities
+- **Aggregate Entity (`StageProgress`)**:
+  - Models the execution life cycle of an individual milestone via 4 deterministic phases: `PREVIEW`, `LEARN`, `APPLY`, and `REFLECT`.
+  - Persists real-time pedagogical tracking telemetry: `VideoWatchPercentage`, BKT state variable `BktMasteryPlt` (default `0.1000`), consecutive hard successes `ConsecutiveAdvancedCorrect`, consecutive failures `ConsecutiveIncorrect`, and milestone status `Status` (`IN_PROGRESS`, `REMEDIAL_REQUIRED`, `COMPLETED`).
+- **Child Entity (`AdaptiveQuizAttempt`)**:
+  - Micro-telemetry audit trail of every item answered during the `APPLY` phase.
+  - Captures IRT 2PL item characteristics (`ItemDifficultyB`, `ItemDiscriminationA`), `TimeSpentSeconds`, rapid guess penalty flag `IsLuckyGuess`, and Bayesian updates (`PriorPlt`, `PosteriorPlt`).
+- **Persistence Abstraction**:
+  - Registered `IStageProgressRepository` and `StageProgressRepository` with EF Core cascading navigation properties to `RoadmapNodes` and `AdaptiveAttempts`.
+
+### 7.2 Stage Initialization API Specification (API 1)
+- **Endpoint**: `POST /api/practice/stages/{roadmapNodeId}/start`
+  - Route: Clean REST path without `v1` version prefix (`[Route("api/practice/stages")]`).
+  - Request: `StartStageRequestDto` (`StudentId`).
+  - Response: `StartStageResponseDto` (`StageProgressId`, `RoadmapNodeId`, `SkillId`, `CurrentStep`, `Status`, `BktMasteryPlt`, `PreviewQuestions`).
+- **Orchestration Pipeline (`StartStageCommandHandler`)**:
+  1. Validates milestone existence in `RoadmapNodes` via `ILearningRoadmapRepository.GetNodeByIdAsync`.
+  2. Idempotently locates existing `StageProgress` or provisions a new record initialized at `PREVIEW` phase with `BktMasteryPlt = 0.1000`.
+  3. Preloads 3 prerequisite Quick Check items from Content Service via gRPC `GetMilestoneQuizAsync` (`questionCount = 3`) with resilient local fallback for zero-downtime offline execution.
+
+### 7.3 Preview Quick Check Evaluation & Phase Transition API Specification (API 2)
+- **Endpoint**: `POST /api/practice/stages/{stageProgressId}/preview-submit`
+  - Route: Clean REST path without `v1` version prefix (`[HttpPost("{stageProgressId:guid}/preview-submit")]`).
+  - Request: `SubmitPreviewRequestDto` (`StudentId`, `Answers` list containing `QuestionId`, `SelectedOption`, `TimeSpentSeconds`).
+  - Response: `SubmitPreviewResponseDto` (`StageProgressId`, `CurrentStep`, `TotalCorrect`, `TotalQuestions`, `FeedbackMessage`).
+- **Orchestration Pipeline (`SubmitPreviewCommandHandler`)**:
+  1. Verifies existing `StageProgress` via `IStageProgressRepository.GetByIdAsync` and validates ownership (`StudentId`).
+  2. Enforces state machine invariant: `CurrentStep == "PREVIEW"` (rejects invalid transitions if already in `LEARN`, `APPLY`, or `REFLECT`).
+  3. Fetches official answer keys from Content Service via gRPC `GetExamAnswerKey` or verifies against preloaded keys.
+  4. Automatically transitions stage state machine to phase 2: `CurrentStep = "LEARN"`, unlocking theoretical materials and lecture videos.
+  5. Dynamically generates pedagogical feedback based on score (e.g. 3/3: Excellent baseline readiness; < 3: Recommended careful video review in LEARN phase).
+
+### 7.4 Lecture Video Telemetry & Adaptive Practice Unlock API Specification (API 3)
+- **Endpoint**: `POST /api/practice/stages/{stageProgressId}/track-video`
+  - Route: Clean REST path without `v1` version prefix (`[HttpPost("{stageProgressId:guid}/track-video")]`).
+  - Request: `TrackVideoRequestDto` (`StudentId`, `WatchedSeconds`, `TotalSeconds`).
+  - Response: `TrackVideoResponseDto` (`StageProgressId`, `CurrentStep`, `VideoWatchPercentage`, `IsCompletedLearn`, `NextAction`, `Message`).
+- **Orchestration Pipeline (`TrackVideoCommandHandler`)**:
+  1. Locates `StageProgress` record and verifies student ownership (`progress.StudentId == request.StudentId`).
+  2. Computes progressive watch percentage `` `\text{percentage} = \min(100.0, \frac{\text{WatchedSeconds}}{\text{TotalSeconds}} \times 100)` `` monotonically (`Math.Max(progress.VideoWatchPercentage, percentage)`).
+  3. State Machine transition: When `` `\text{VideoWatchPercentage} \ge 80.0\%` `` and current state is `LEARN`, transitions `CurrentStep` to `APPLY`.
+  4. Cross-aggregate synchronization: Automatically updates `RoadmapNode` navigation entity (`IsVideoCompleted = true`, `VideoWatchedSeconds`, `VideoTotalSeconds`), ensuring consistent roadmap timeline progression.
+  5. Returns guidance metadata (`NextAction = "START_ADAPTIVE_PRACTICE"`).
+
+### 7.5 Adaptive ZPD Question Selection Engine API Specification (API 4)
+- **Endpoint**: `GET /api/practice/stages/{stageProgressId}/next-question`
+  - Route: Clean REST path without `v1` version prefix (`[HttpGet("{stageProgressId:guid}/next-question")]`).
+  - Response: `NextQuestionResponseDto` (`StageProgressId`, `CurrentStep`, `Status`, `CurrentMasteryPlt`, `AttemptOrder`, `IsFinished`, `Message`, `QuestionId`, `Content`, `Options`, `DifficultyLevel`, `ItemDifficultyB`, `ItemDiscriminationA`, `SkillId`, `SkillName`).
+- **Adaptive Engine Architecture (`ZpdQuestionSelector.cs`)**:
+  1. **Logit Transformation**: Maps BKT mastery prior `` `P(L_t) \in [0.05, 0.95]` `` to psychometric latent trait `` `\theta = \ln(\frac{P(L_t)}{1 - P(L_t)}) \in [-2.5, +2.5]` ``.
+  2. **IRT 2PL Probability Function**: Computes `` `P(X=1 \mid \theta, a, b) = \frac{1}{1 + e^{-1.7 \cdot a \cdot (\theta - b)}}` `` for every unattempted item.
+  3. **3-Tier Pedagogical ZPD Filter**:
+     - *Tier 1 (Ideal ZPD)*: Filters items within target zone `` `P \in [0.60, 0.75]` ``, sorting by proximity to zone center `` `0.675` ``.
+     - *Tier 2 (Relaxed ZPD Fallback)*: Expands selection band to `` `P \in [0.50, 0.85]` `` when item bank is sparse.
+     - *Tier 3 (Nearest Neighbor Fallback)*: Selects candidate item with minimum absolute delta `` `|P - 0.675|` ``.
+  4. **Security & State Validation**: Completely suppresses correct answer flags in client payloads; gracefully yields `IsFinished = true` if student already achieved mastery or has triggered the 3-consecutive-failure remedial gate (`Status == "REMEDIAL_REQUIRED"`).
+
+### 7.6 Bayesian Knowledge Tracing & Adaptive Item Submission API Specification (API 5)
+- **Endpoint**: `POST /api/practice/stages/{stageProgressId}/submit-answer`
+  - Route: Clean REST path without `v1` version prefix (`[HttpPost("{stageProgressId:guid}/submit-answer")]`).
+  - Request: `SubmitAnswerRequestDto` (`StudentId`, `QuestionId`, `SelectedOption`, `TimeSpentSeconds`, `PatternId`).
+  - Response: `SubmitAnswerResponseDto` (`StageProgressId`, `QuestionId`, `IsCorrect`, `CorrectOption`, `PriorPlt`, `PosteriorPlt`, `IsLuckyGuess`, `CurrentStep`, `Status`, `ConsecutiveAdvancedCorrect`, `ConsecutiveIncorrect`, `IsMasteryAchieved`, `IsRemedialTriggered`, `FeedbackMessage`, `NextAction`).
+- **Pedagogical Engine Architecture (`BktEngine.cs`)**:
+  1. **Lucky Guess Penalty**: If answer is correct but response time `` `t < 5\text{s}` `` on higher-order item (`` `b \ge 0.50` ``), parameter `` `P(G)` `` spikes from 0.25 to 0.60, preventing inflated mastery scores.
+  2. **Bayesian Posterior Update**: Computes `` `P(L_t \mid obs)` `` via standard conditional probability and updates knowledge transition `` `P(L_{t+1}) = P(L_t \mid obs) + (1 - P(L_t \mid obs)) \cdot P(T)` `` with `` `P(T) = 0.15` `` and `` `P(S) = 0.10` ``.
+  3. **Rule BR-01 (Mastery Gate)**: When `` `P(L_t) \ge 0.85` `` and student demonstrates mastery over 2 consecutive advanced items (`` `ConsecutiveAdvancedCorrect \ge 2` ``), transitions state machine to `REFLECT`.
+  4. **Rule BR-03 (Remedial Gate)**: When student incurs 3 consecutive errors (`` `ConsecutiveIncorrect \ge 3` ``), halts adaptive item delivery and locks stage into `Status = "REMEDIAL_REQUIRED"`.
+
+### 7.7 Metacognitive Reflection & Milestone Completion API Specification (API 6)
+- **Endpoint**: `POST /api/practice/stages/{stageProgressId}/reflect-complete`
+  - Route: Clean REST path without `v1` version prefix (`[HttpPost("{stageProgressId:guid}/reflect-complete")]`).
+  - Request: `ReflectCompleteRequestDto` (`StudentId`, `ConfidenceRating`, `LearnedSummary`, `MistakeNotes`).
+  - Response: `ReflectCompleteResponseDto` (`StageProgressId`, `RoadmapNodeId`, `Status`, `ConfidenceRating`, `FinalMasteryPlt`, `NextUnlockedNodeId`, `Message`).
+- **Cross-Aggregate Orchestration Pipeline (`ReflectCompleteCommandHandler`)**:
+  1. Verifies stage progress eligibility (must be in `REFLECT` phase or `` `P(L_t) \ge 0.80` ``).
+  2. Finalizes aggregate milestone: marks `StageProgress.Status = "COMPLETED"`.
+  3. Synchronizes Roadmap aggregate: updates `RoadmapNode.Status = "COMPLETED"`, sets `QuizScore = P(L_t) * 10.0`, `IsQuizPassed = true`, `CompletedAt = UtcNow`.
+  4. Automatic Milestone Unlocking: Locates immediate successor milestone in graph order via `ILearningRoadmapRepository.GetNextLockedNodeAsync` and unlocks it (`Status = "IN_PROGRESS"`).
+
+
+
+
+
