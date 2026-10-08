@@ -262,4 +262,17 @@
   4. Automatically transitions stage state machine to phase 2: `CurrentStep = "LEARN"`, unlocking theoretical materials and lecture videos.
   5. Dynamically generates pedagogical feedback based on score (e.g. 3/3: Excellent baseline readiness; < 3: Recommended careful video review in LEARN phase).
 
+### 7.4 Lecture Video Telemetry & Adaptive Practice Unlock API Specification (API 3)
+- **Endpoint**: `POST /api/practice/stages/{stageProgressId}/track-video`
+  - Route: Clean REST path without `v1` version prefix (`[HttpPost("{stageProgressId:guid}/track-video")]`).
+  - Request: `TrackVideoRequestDto` (`StudentId`, `WatchedSeconds`, `TotalSeconds`).
+  - Response: `TrackVideoResponseDto` (`StageProgressId`, `CurrentStep`, `VideoWatchPercentage`, `IsCompletedLearn`, `NextAction`, `Message`).
+- **Orchestration Pipeline (`TrackVideoCommandHandler`)**:
+  1. Locates `StageProgress` record and verifies student ownership (`progress.StudentId == request.StudentId`).
+  2. Computes progressive watch percentage `` `\text{percentage} = \min(100.0, \frac{\text{WatchedSeconds}}{\text{TotalSeconds}} \times 100)` `` monotonically (`Math.Max(progress.VideoWatchPercentage, percentage)`).
+  3. State Machine transition: When `` `\text{VideoWatchPercentage} \ge 80.0\%` `` and current state is `LEARN`, transitions `CurrentStep` to `APPLY`.
+  4. Cross-aggregate synchronization: Automatically updates `RoadmapNode` navigation entity (`IsVideoCompleted = true`, `VideoWatchedSeconds`, `VideoTotalSeconds`), ensuring consistent roadmap timeline progression.
+  5. Returns guidance metadata (`NextAction = "START_ADAPTIVE_PRACTICE"`).
+
+
 

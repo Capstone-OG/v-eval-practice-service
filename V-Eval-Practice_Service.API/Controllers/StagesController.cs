@@ -56,4 +56,27 @@ public class StagesController : ApiControllerBase
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }
+
+    /// <summary>
+    /// Core Flow 3 - API 3: Ghi nhận tiến độ xem video bài giảng lý thuyết (Bước LEARN)
+    /// Khi học sinh xem >= 80% thời lượng, tự động chuyển bước sang APPLY (Luyện tập thích ứng IRT/BKT)
+    /// </summary>
+    /// <param name="stageProgressId">Mã định danh tiến trình chặng học</param>
+    /// <param name="request">Thời lượng đã xem và tổng thời lượng video</param>
+    /// <returns>Tiến độ xem cập nhật và trạng thái chuyển bước APPLY</returns>
+    [HttpPost("{stageProgressId:guid}/track-video")]
+    [ProducesResponseType(typeof(Result<TrackVideoResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<TrackVideoResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<TrackVideoResponseDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> TrackVideo(
+        [FromRoute] Guid stageProgressId,
+        [FromBody] TrackVideoRequestDto request)
+    {
+        var command = new V_Eval_Practice_Service.Application.Features.Stages.Commands.TrackVideo.TrackVideoCommand(
+            stageProgressId,
+            request);
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
 }
+

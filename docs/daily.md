@@ -24,9 +24,20 @@
     3. Cập nhật State Machine chuyển `CurrentStep` từ `PREVIEW` sang `LEARN`.
     4. Trả về thông điệp hướng dẫn học sinh xem video phương pháp cùng đường dẫn video bài giảng.
   - Bổ sung endpoint `[HttpPost("{stageProgressId:guid}/preview-submit")]` vào [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs).
+- **Hiện Thực Core Flow 3 - API 3: Ghi Nhận Tiến Độ Xem Video & Chuyển Sang Bước Apply (POST /api/practice/stages/{stageProgressId}/track-video)**:
+  - Khởi tạo DTOs [`TrackVideoDtos.cs`](../V-Eval-Practice_Service.Application/Features/Stages/DTOs/TrackVideoDtos.cs) (`TrackVideoRequestDto`, `TrackVideoResponseDto`).
+  - Khởi tạo Command `TrackVideoCommand.cs` và Validator `TrackVideoCommandValidator.cs`.
+  - Xây dựng Handler [`TrackVideoCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/TrackVideo/TrackVideoCommandHandler.cs):
+    1. Tra cứu tiến trình `StageProgress` theo ID và kiểm tra quyền sở hữu `StudentId`.
+    2. Tính phần trăm thời lượng đã xem lũy tiến (`VideoWatchPercentage`), không giảm khi tua lại.
+    3. Kiểm tra điều kiện mở khóa bước APPLY: Nếu `VideoWatchPercentage >= 80%` và đang ở `LEARN` -> Chuyển `CurrentStep = "APPLY"`.
+    4. Tự động đồng bộ trạng thái sang `RoadmapNode` (`IsVideoCompleted = true`, `VideoWatchedSeconds`, `VideoTotalSeconds`).
+    5. Trả về thông điệp và cờ điều hướng `nextAction = "START_ADAPTIVE_PRACTICE"`.
+  - Bổ sung endpoint `[HttpPost("{stageProgressId:guid}/track-video")]` vào [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs).
 - **Kiểm Thử Vận Hành**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
-  - Kiểm thử trực tiếp API 1 và API 2 trên Swagger và PowerShell script thành công 200 OK.
+  - Kiểm thử trực tiếp API 1, API 2, API 3 trên Swagger và PowerShell script thành công 200 OK.
+
 
 ## [01/10/2026] - Nâng Cấp Core Flow 2 (Bước 1): Mở Rộng Mô Hình Thực Thể Class & Di Trú CSDL Phục Vụ Lớp Học Chuyên Đề (Thematic Cohort)
 - **Mở Rộng Mô Hình Thực Thể [`Class.cs`](../V-Eval-Practice_Service.Domain/Entities/Class.cs)**:
