@@ -61,9 +61,13 @@
     3. Đồng bộ trạng thái sang `RoadmapNode` (`Status = "COMPLETED"`, `IsQuizPassed = true`, `QuizScore = P(Lt) * 10.0`, `CompletedAt = UtcNow`).
     4. Tự động tìm và mở khóa chặng học kế tiếp trên lộ trình (`RoadmapNode` tiếp theo chuyển từ `LOCKED` sang `IN_PROGRESS`).
   - Bổ sung endpoint `[HttpPost("{stageProgressId:guid}/reflect-complete")]` vào [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs).
+- **Tinh Gọn & Chuẩn Hóa Giao Diện Swagger UI & Phân Định Ranh Giới Kiến Trúc**:
+  - Tinh gọn XML `<summary>` của toàn bộ các API trong [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs): Mỗi API chỉ có 1 dòng tiêu đề ngắn gọn theo từng bước (Bước 1 đến Bước 6), chuyển toàn bộ nội dung diễn giải dài dòng vào `<remarks>` (ẩn trong dropdown) giúp giao diện Swagger cực kỳ thoáng mắt, đẹp và không bị tràn viền.
+  - Tái cấu trúc [`RoadmapsController.cs`](../V-Eval-Practice_Service.API/Controllers/RoadmapsController.cs): Loại bỏ các endpoint làm bài tĩnh trùng lặp (`track-video`, `quiz`, `submit-quiz`, `submit-makeup-quiz`). Định vị rõ vai trò của Roadmap là **Quản lý lộ trình vĩ mô cá nhân hóa** (`generate`, `my-roadmap`, `nodes/{nodeId}`), còn toàn bộ việc học tập vi mô, video, luyện tập thích ứng được quy hoạch tập trung 100% tại `StagesController` (P-L-A-R).
 - **Kiểm Thử Vận Hành**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
   - Kiểm thử chuỗi toàn diện Module 1 từ API 1 đến API 6 thành công 100% (200 OK).
+
 
 
 
