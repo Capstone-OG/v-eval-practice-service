@@ -1,24 +1,16 @@
 # Nhật Ký Cập Nhật (Update Log) - Practice Service
 
-## [08/10/2026] - Hoàn Tất Toàn Diện Module 1 (P-L-A-R) & Dọn Sạch Toàn Bộ Dead Code Cũ Tại Tầng Application
+## [08/10/2026] - Chuyển Đổi Mô Hình Giảng Dạy Offline: Gỡ Bỏ Toàn Bộ 7/7 APIs Phân Hệ Live Streaming (LiveSessions)
 
-- **Hoàn Tất Chu Trình Học Thích Ứng P-L-A-R (Module 1 - Core Flow 3)**:
-  - Triển khai trọn vẹn 6/6 APIs quản lý chặng học:
-    1. `POST /api/practice/stages/{roadmapNodeId}/start`: Khởi tạo chặng học thích ứng (P - Preview).
-    2. `POST /api/practice/stages/{stageProgressId}/preview-submit`: Nộp bài khởi động & Mở khóa lý thuyết (P sang L).
-    3. `POST /api/practice/stages/{stageProgressId}/track-video`: Ghi nhận thời lượng xem video bài giảng (L - Learn).
-    4. `GET /api/practice/stages/{stageProgressId}/next-question`: Lấy câu hỏi thích ứng ZPD IRT 2PL (A - Apply).
-    5. `POST /api/practice/stages/{stageProgressId}/submit-answer`: Nộp đáp án thích ứng & Cập nhật BKT, BR-01, BR-03 (A - Apply).
-    6. `POST /api/practice/stages/{stageProgressId}/reflect-complete`: Phản tư cá nhân & Hoàn thành chặng học, tự động mở khóa chặng kế tiếp (R - Reflect).
-- **Dọn Dẹp Triệt Để Toàn Bộ Tầng Xử Lý Dead Code Cũ Tại Application Layer**:
-  - Xóa bỏ 100% các Command, Handler, Validator, Query và DTOs cũ của lộ trình tĩnh trong [`V-Eval-Practice_Service.Application/Features/Roadmaps`](./V-Eval-Practice_Service.Application/Features/Roadmaps):
-    - `Commands/TrackVideo/`
-    - `Commands/SubmitMilestoneQuiz/`
-    - `Commands/SubmitMakeupQuiz/`
-    - `Queries/GetMilestoneQuiz/`
-    - `DTOs/` (`MilestoneQuizDto.cs`, `SubmitMilestoneQuizDtos.cs`, `SubmitMakeupQuizDtos.cs`, `TrackVideoRequestDto.cs`, `TrackVideoResponseDto.cs`).
-  - Định vị rõ vai trò của Roadmap là **Quản lý lộ trình vĩ mô cá nhân hóa** (`generate`, `my-roadmap`, `nodes/{nodeId}`), toàn bộ việc học tập vi mô, video, luyện tập thích ứng được quy hoạch tập trung 100% tại `StagesController` (P-L-A-R).
+- **Gỡ Bỏ Hoàn Toàn Tầng API Controller (`LiveSessionsController.cs`)**:
+  - Xóa bỏ `LiveSessionsController.cs` và 7/7 endpoints phục vụ giảng dạy trực tuyến (`POST /live-sessions`, `GET /my-schedule`, `POST /{sessionId}/join`, `POST /{sessionId}/attendance`, `GET /teacher-schedule`, `PUT /{sessionId}/recording`, `PUT /{sessionId}/cancel`).
+  - Hệ thống chuyển đổi trọng tâm sang hình thức giảng dạy trực tiếp tại cơ sở (offline), không còn duy trì phân hệ live stream trực tuyến.
+- **Dọn Sạch Triệt Để Tầng Application (CQRS LiveSessions)**:
+  - Xóa sạch 100% thư mục `Features/LiveSessions` bao gồm toàn bộ Commands, Queries, Handlers, Validators và DTOs liên quan đến LiveSession.
+- **Tái Cấu Trúc Repository Phân Công Giáo Viên (`AssignTeacher`)**:
+  - Bổ sung `GetClassByIdAsync` và `SaveChangesAsync` vào `IClassEnrollmentRepository` và triển khai tại `ClassEnrollmentRepository`.
+  - Cập nhật `AssignTeacherCommandHandler` sang inject `IClassEnrollmentRepository`, giải phóng hoàn toàn sự phụ thuộc vào `ILiveSessionRepository`.
+  - Gỡ bỏ hoàn toàn `ILiveSessionRepository.cs`, `LiveSessionRepository.cs` và đăng ký Scoped trong `DependencyInjection.cs`.
 - **Đồng Bộ Kiến Trúc & Kiểm Thử Vận Hành**:
-  - Cập nhật nhật ký tiến độ [`docs/daily.md`](./docs/daily.md) và bảng theo dõi [`docs/process.md`](./docs/process.md).
-  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
-
+  - Cập nhật nhật ký tiến độ [`docs/daily.md`](./docs/daily.md), bảng theo dõi [`docs/process.md`](./docs/process.md) và báo cáo nghiệm thu [`docs/architecture_acceptance.md`](./docs/architecture_acceptance.md).
+  - Toàn bộ Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).

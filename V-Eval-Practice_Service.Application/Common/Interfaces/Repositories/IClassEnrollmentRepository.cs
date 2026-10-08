@@ -31,4 +31,11 @@ public interface IClassEnrollmentRepository
         int clusterIndex,
         IEnumerable<Guid> studentIds,
         CancellationToken ct = default);
+
+    Task<Class?> GetClassByIdAsync(
+        Guid classId,
+        CancellationToken ct = default);
+
+    Task<int> SaveChangesAsync(
+        CancellationToken ct = default);
 }

@@ -309,6 +309,20 @@
   3. Synchronizes Roadmap aggregate: updates `RoadmapNode.Status = "COMPLETED"`, sets `QuizScore = P(L_t) * 10.0`, `IsQuizPassed = true`, `CompletedAt = UtcNow`.
   4. Automatic Milestone Unlocking: Locates immediate successor milestone in graph order via `ILearningRoadmapRepository.GetNextLockedNodeAsync` and unlocks it (`Status = "IN_PROGRESS"`).
 
+---
+
+## 8. STRATEGIC MIGRATION: TRANSITION TO OFFLINE DELIVERY & RETIREMENT OF LIVESTREAM APIS
+
+### 8.1 Strategic Rationale
+- The educational delivery model transitions from real-time online video streaming to dedicated offline campus lectures and in-person mentorship.
+- Real-time online streaming endpoints (`/api/practice/live-sessions`) are formally decommissioned to eliminate dead code and prevent operational overhead.
+
+### 8.2 Decommissioned Components
+1. **API Layer**: `LiveSessionsController.cs` and all 7 associated endpoints (`POST /live-sessions`, `GET /my-schedule`, `POST /{sessionId}/join`, `POST /{sessionId}/attendance`, `GET /teacher-schedule`, `PUT /{sessionId}/recording`, `PUT /{sessionId}/cancel`) have been completely removed.
+2. **Application Layer**: Cleaned all CQRS commands, queries, and DTOs within `Features/LiveSessions`.
+3. **Repository Decoupling**: Refactored `AssignTeacherCommandHandler` to depend on `IClassEnrollmentRepository` rather than `ILiveSessionRepository`. Fully removed `ILiveSessionRepository` and `LiveSessionRepository`.
+
+
 
 
 

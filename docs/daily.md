@@ -1,5 +1,28 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [08/10/2026] - Chuyển Đổi Mô Hình Giảng Dạy Offline: Gỡ Bỏ Toàn Bộ 7/7 APIs Phân Hệ Live Streaming (LiveSessions)
+
+- **Gỡ Bỏ Tầng API Controller (`LiveSessionsController.cs`)**:
+  - Xóa bỏ Controller [`LiveSessionsController.cs`](../V-Eval-Practice_Service.API/Controllers/LiveSessionsController.cs) và toàn bộ 7 endpoints:
+    1. `POST /api/practice/live-sessions` (API 8: Tạo lịch buổi học Live Q&A).
+    2. `GET /api/practice/live-sessions/my-schedule` (API 10: Thời khóa biểu buổi học Live).
+    3. `POST /api/practice/live-sessions/{sessionId}/join` (API 11: Tham gia & lưu vết vào lớp).
+    4. `POST /api/practice/live-sessions/{sessionId}/attendance` (API 12: Điểm danh buổi học Live).
+    5. `GET /api/practice/live-sessions/teacher-schedule` (API 13: Lịch giảng dạy của giáo viên).
+    6. `PUT /api/practice/live-sessions/{sessionId}/recording` (API 14: Cập nhật video ghi hình buổi Live).
+    7. `PUT /api/practice/live-sessions/{sessionId}/cancel` (API 15: Hủy buổi học Live trực tuyến).
+- **Dọn Sạch Toàn Bộ Tầng Application (CQRS LiveSessions)**:
+  - Xóa sạch 100% thư mục [`Features/LiveSessions`](../V-Eval-Practice_Service.Application/Features/LiveSessions) bao gồm:
+    - Commands: `CreateLiveSession`, `JoinLiveSession`, `TeacherAttendance`, `UpdateRecording`, `CancelLiveSession` (bao gồm toàn bộ Command, Handler, Validator).
+    - Queries: `GetMyLiveSchedule`, `GetTeacherSchedule` (bao gồm Query, Handler, Validator).
+    - DTOs: `CreateLiveSessionDtos.cs`, `JoinLiveSessionDtos.cs`, `TeacherAttendanceDtos.cs`, `TeacherScheduleDtos.cs`, `GetMyLiveScheduleDtos.cs`, `CancelLiveSessionDtos.cs`, `UpdateLiveSessionRecordingDtos.cs`.
+- **Tái Cấu Trúc Repository Phân Công Giáo Viên (`AssignTeacher`)**:
+  - Bổ sung `GetClassByIdAsync` và `SaveChangesAsync` vào [`IClassEnrollmentRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassEnrollmentRepository.cs) và triển khai tại [`ClassEnrollmentRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs).
+  - Chuyển đổi [`AssignTeacherCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/AssignTeacher/AssignTeacherCommandHandler.cs) sang sử dụng `IClassEnrollmentRepository`, giải phóng hoàn toàn sự phụ thuộc vào `ILiveSessionRepository`.
+  - Xóa bỏ `ILiveSessionRepository.cs` và `LiveSessionRepository.cs`, gỡ đăng ký DI khỏi [`DependencyInjection.cs`](../V-Eval-Practice_Service.Infrastructure/DependencyInjection.cs).
+- **Kiểm Thử Vận Hành & Biên Dịch**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
 ## [08/10/2026] - Khởi Động Core Flow 3 (Bước 0 & API 1): Mô Hình Thực Thể P-L-A-R & API Khởi Tạo Chặng Học (StartStage)
 - **Mở Rộng Domain Entities Core Flow 3**:
   - Tạo thực thể [`StageProgress.cs`](../V-Eval-Practice_Service.Domain/Entities/StageProgress.cs): Quản lý tiến trình 4 bước P-L-A-R (`CurrentStep`: `PREVIEW`, `LEARN`, `APPLY`, `REFLECT`), `VideoWatchPercentage`, xác suất thành thạo BKT `BktMasteryPlt` (mặc định 0.1000), đếm câu đúng liên tiếp $b \ge 0.50$ `ConsecutiveAdvancedCorrect`, đếm câu sai liên tiếp `ConsecutiveIncorrect`, trạng thái chặng `Status` (`IN_PROGRESS`, `REMEDIAL_REQUIRED`, `COMPLETED`).

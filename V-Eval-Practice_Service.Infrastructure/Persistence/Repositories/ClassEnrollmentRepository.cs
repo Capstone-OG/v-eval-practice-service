@@ -173,4 +173,17 @@ public class ClassEnrollmentRepository : IClassEnrollmentRepository
 
         return thematicClass;
     }
+
+    public async Task<Class?> GetClassByIdAsync(
+        Guid classId,
+        CancellationToken ct = default)
+    {
+        return await _context.Classes.FirstOrDefaultAsync(c => c.ClassId == classId, ct);
+    }
+
+    public async Task<int> SaveChangesAsync(
+        CancellationToken ct = default)
+    {
+        return await _context.SaveChangesAsync(ct);
+    }
 }

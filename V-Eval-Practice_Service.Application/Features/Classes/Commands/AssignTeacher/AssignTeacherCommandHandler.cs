@@ -11,14 +11,14 @@ namespace V_Eval_Practice_Service.Application.Features.Classes.Commands.AssignTe
 
 public class AssignTeacherCommandHandler : IRequestHandler<AssignTeacherCommand, Result<AssignTeacherResponseDto>>
 {
-    private readonly ILiveSessionRepository _liveSessionRepository;
+    private readonly IClassEnrollmentRepository _classEnrollmentRepository;
     private readonly ILogger<AssignTeacherCommandHandler> _logger;
 
     public AssignTeacherCommandHandler(
-        ILiveSessionRepository liveSessionRepository,
+        IClassEnrollmentRepository classEnrollmentRepository,
         ILogger<AssignTeacherCommandHandler> logger)
     {
-        _liveSessionRepository = liveSessionRepository;
+        _classEnrollmentRepository = classEnrollmentRepository;
         _logger = logger;
     }
 
@@ -26,7 +26,7 @@ public class AssignTeacherCommandHandler : IRequestHandler<AssignTeacherCommand,
         AssignTeacherCommand request,
         CancellationToken cancellationToken)
     {
-        var targetClass = await _liveSessionRepository.GetClassByIdAsync(request.ClassId, cancellationToken);
+        var targetClass = await _classEnrollmentRepository.GetClassByIdAsync(request.ClassId, cancellationToken);
         if (targetClass == null)
         {
             return Result<AssignTeacherResponseDto>.Failure(
@@ -37,7 +37,7 @@ public class AssignTeacherCommandHandler : IRequestHandler<AssignTeacherCommand,
         targetClass.AssignedBy = request.AssignedBy;
         targetClass.AssignedAt = DateTime.UtcNow;
 
-        await _liveSessionRepository.SaveChangesAsync(cancellationToken);
+        await _classEnrollmentRepository.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Teacher {TeacherId} assigned to Class {ClassId} ('{ClassName}') by {AssignedBy}",
             request.TeacherId, targetClass.ClassId, targetClass.Name, request.AssignedBy);
