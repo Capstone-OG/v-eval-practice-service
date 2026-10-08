@@ -68,9 +68,19 @@
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
   - Kiểm thử chuỗi toàn diện Module 1 từ API 1 đến API 6 thành công 100% (200 OK).
 
+---
 
+## [07/10/2026] - Chuẩn Hóa Cấu Hình gRPC Settings, AI Subsystem & Kết Nối CSDL Tập Trung
+- **Chuẩn Hóa File Cấu Hình Mẫu (`appsettings.example.json`)**:
+  - Bổ sung khối cấu hình `GrpcSettings` (IdentityServiceUrl: `http://localhost:5156`, ContentServiceUrl: `http://localhost:5250`).
+  - Bổ sung cấu hình `AiSettings` (ServiceUrl: `http://localhost:8000`).
+  - Loại bỏ các trường cấu hình không sử dụng (`JwtSettings`), đồng bộ khớp 100% với `appsettings.json`.
+- **Hỗ Trợ Cơ Chế Đồng Bộ Cấu Hình Tập Trung**:
+  - Tương thích công cụ `sync_config.bat` của System-Repo để tự động cấp phát cho dev mới.
+- **Kiểm Thử Biên Dịch**:
+  - `dotnet build` đạt 100% thành công (0 warning, 0 error).
 
-
+---
 
 ## [01/10/2026] - Nâng Cấp Core Flow 2 (Bước 1): Mở Rộng Mô Hình Thực Thể Class & Di Trú CSDL Phục Vụ Lớp Học Chuyên Đề (Thematic Cohort)
 - **Mở Rộng Mô Hình Thực Thể [`Class.cs`](../V-Eval-Practice_Service.Domain/Entities/Class.cs)**:
