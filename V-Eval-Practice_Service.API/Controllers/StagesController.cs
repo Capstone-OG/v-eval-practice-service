@@ -34,4 +34,26 @@ public class StagesController : ApiControllerBase
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }
+
+    /// <summary>
+    /// Core Flow 3 - API 2: Nộp bài khởi động Preview
+    /// Ghi nhận kết quả 3 câu khởi động (không tính BKT) và chuyển bước sang LEARN
+    /// </summary>
+    /// <param name="stageProgressId">Mã định danh tiến trình chặng học</param>
+    /// <param name="request">Danh sách đáp án 3 câu khởi động</param>
+    /// <returns>Thông tin tiến trình cập nhật sang bước LEARN và thông tin video bài giảng</returns>
+    [HttpPost("{stageProgressId:guid}/preview-submit")]
+    [ProducesResponseType(typeof(Result<SubmitPreviewResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<SubmitPreviewResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<SubmitPreviewResponseDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SubmitPreview(
+        [FromRoute] Guid stageProgressId,
+        [FromBody] SubmitPreviewRequestDto request)
+    {
+        var command = new V_Eval_Practice_Service.Application.Features.Stages.Commands.SubmitPreview.SubmitPreviewCommand(
+            stageProgressId,
+            request.Answers);
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
 }

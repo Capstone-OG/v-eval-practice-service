@@ -79,6 +79,7 @@
 | 45 | **Core Flow 2 (Thematic Cohort - Bước 5): Gắn LiveSession Theo Miền Chuyên Đề** | `LearningRoadmapRepository.cs` & `GenerateRoadmapCommandHandler.cs` | 🟢 Hoàn thành | 100% | Tự động ánh xạ LiveSession theo đúng DomainCode của chặng lộ trình học tập thay vì gán 1 buổi Live chung |
 | 46 | **Core Flow 2 (Thematic Cohort - Bước 6): API 10 Hỗ Trợ Đa Ghi Danh Lớp Học** | `LiveSessionRepository.cs` & `GetMyLiveScheduleQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/live-sessions/my-schedule` truy vấn lịch Live của TẤT CẢ lớp (hành chính + chuyên đề K-Means) kèm `ClassName` và `DomainCode` |
 | 47 | **Core Flow 3 (P-L-A-R - Bước 1): Khởi Tạo Chặng Học Thích Ứng (StartStage)** | `StagesController.cs` & `StartStageCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{roadmapNodeId}/start` khởi tạo tiến trình `StageProgress` ở bước `PREVIEW`, cấp 3 câu Quick Check nền tảng |
+| 48 | **Core Flow 3 (P-L-A-R - Bước 2): Nộp Bài Khởi Động Preview (SubmitPreview)** | `StagesController.cs` & `SubmitPreviewCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/preview-submit` nộp 3 câu khởi động, chuyển State Machine sang `LEARN`, cấp video bài giảng |
 
 
 

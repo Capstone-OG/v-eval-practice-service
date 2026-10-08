@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using V_Eval_Practice_Service.API.Middlewares;
 using V_Eval_Practice_Service.Application;
+using V_Eval_Practice_Service.Domain.Entities;
 using V_Eval_Practice_Service.Infrastructure;
 using V_Eval_Practice_Service.Infrastructure.Persistence;
 
@@ -177,6 +178,45 @@ using (var scope = app.Services.CreateScope())
             );
         ");
         logger.LogInformation("Đã xác thực và khởi tạo thành công CSDL schema practice trên Supabase.");
+
+        // Đảm bảo có dữ liệu mẫu RoadmapNode phục vụ kiểm thử Core Flow 3
+        var sampleNodeId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        var sampleRoadmapId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        var sampleStudentId = Guid.Parse("99999999-9999-9999-9999-999999999999");
+        var sampleSkillId = Guid.Parse("6f3765db-943e-4810-bf74-d6a8bdc215da"); // DOM_MATH
+
+        var nodeExists = await dbContext.RoadmapNodes.AnyAsync(n => n.NodeId == sampleNodeId);
+        if (!nodeExists)
+        {
+            var roadmapExists = await dbContext.LearningRoadmaps.AnyAsync(r => r.RoadmapId == sampleRoadmapId);
+            if (!roadmapExists)
+            {
+                await dbContext.LearningRoadmaps.AddAsync(new LearningRoadmap
+                {
+                    RoadmapId = sampleRoadmapId,
+                    StudentId = sampleStudentId,
+                    TargetScore = 800,
+                    TotalMilestones = 1,
+                    CompletedMilestones = 0,
+                    Status = "ACTIVE",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            await dbContext.RoadmapNodes.AddAsync(new RoadmapNode
+            {
+                NodeId = sampleNodeId,
+                RoadmapId = sampleRoadmapId,
+                SkillId = sampleSkillId,
+                StepOrder = 1,
+                Status = "IN_PROGRESS",
+                UnlockedAt = DateTime.UtcNow
+            });
+
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Đã khởi tạo chặng học mẫu RoadmapNode {NodeId} phục vụ kiểm thử Core Flow 3.", sampleNodeId);
+        }
     }
     catch (Exception ex)
     {

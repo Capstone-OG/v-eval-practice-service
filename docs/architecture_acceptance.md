@@ -250,3 +250,16 @@
   2. Idempotently locates existing `StageProgress` or provisions a new record initialized at `PREVIEW` phase with `BktMasteryPlt = 0.1000`.
   3. Preloads 3 prerequisite Quick Check items from Content Service via gRPC `GetMilestoneQuizAsync` (`questionCount = 3`) with resilient local fallback for zero-downtime offline execution.
 
+### 7.3 Preview Quick Check Evaluation & Phase Transition API Specification (API 2)
+- **Endpoint**: `POST /api/practice/stages/{stageProgressId}/preview-submit`
+  - Route: Clean REST path without `v1` version prefix (`[HttpPost("{stageProgressId:guid}/preview-submit")]`).
+  - Request: `SubmitPreviewRequestDto` (`StudentId`, `Answers` list containing `QuestionId`, `SelectedOption`, `TimeSpentSeconds`).
+  - Response: `SubmitPreviewResponseDto` (`StageProgressId`, `CurrentStep`, `TotalCorrect`, `TotalQuestions`, `FeedbackMessage`).
+- **Orchestration Pipeline (`SubmitPreviewCommandHandler`)**:
+  1. Verifies existing `StageProgress` via `IStageProgressRepository.GetByIdAsync` and validates ownership (`StudentId`).
+  2. Enforces state machine invariant: `CurrentStep == "PREVIEW"` (rejects invalid transitions if already in `LEARN`, `APPLY`, or `REFLECT`).
+  3. Fetches official answer keys from Content Service via gRPC `GetExamAnswerKey` or verifies against preloaded keys.
+  4. Automatically transitions stage state machine to phase 2: `CurrentStep = "LEARN"`, unlocking theoretical materials and lecture videos.
+  5. Dynamically generates pedagogical feedback based on score (e.g. 3/3: Excellent baseline readiness; < 3: Recommended careful video review in LEARN phase).
+
+
