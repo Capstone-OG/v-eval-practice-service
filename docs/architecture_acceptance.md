@@ -287,6 +287,29 @@
      - *Tier 3 (Nearest Neighbor Fallback)*: Selects candidate item with minimum absolute delta `` `|P - 0.675|` ``.
   4. **Security & State Validation**: Completely suppresses correct answer flags in client payloads; gracefully yields `IsFinished = true` if student already achieved mastery or has triggered the 3-consecutive-failure remedial gate (`Status == "REMEDIAL_REQUIRED"`).
 
+### 7.6 Bayesian Knowledge Tracing & Adaptive Item Submission API Specification (API 5)
+- **Endpoint**: `POST /api/practice/stages/{stageProgressId}/submit-answer`
+  - Route: Clean REST path without `v1` version prefix (`[HttpPost("{stageProgressId:guid}/submit-answer")]`).
+  - Request: `SubmitAnswerRequestDto` (`StudentId`, `QuestionId`, `SelectedOption`, `TimeSpentSeconds`, `PatternId`).
+  - Response: `SubmitAnswerResponseDto` (`StageProgressId`, `QuestionId`, `IsCorrect`, `CorrectOption`, `PriorPlt`, `PosteriorPlt`, `IsLuckyGuess`, `CurrentStep`, `Status`, `ConsecutiveAdvancedCorrect`, `ConsecutiveIncorrect`, `IsMasteryAchieved`, `IsRemedialTriggered`, `FeedbackMessage`, `NextAction`).
+- **Pedagogical Engine Architecture (`BktEngine.cs`)**:
+  1. **Lucky Guess Penalty**: If answer is correct but response time `` `t < 5\text{s}` `` on higher-order item (`` `b \ge 0.50` ``), parameter `` `P(G)` `` spikes from 0.25 to 0.60, preventing inflated mastery scores.
+  2. **Bayesian Posterior Update**: Computes `` `P(L_t \mid obs)` `` via standard conditional probability and updates knowledge transition `` `P(L_{t+1}) = P(L_t \mid obs) + (1 - P(L_t \mid obs)) \cdot P(T)` `` with `` `P(T) = 0.15` `` and `` `P(S) = 0.10` ``.
+  3. **Rule BR-01 (Mastery Gate)**: When `` `P(L_t) \ge 0.85` `` and student demonstrates mastery over 2 consecutive advanced items (`` `ConsecutiveAdvancedCorrect \ge 2` ``), transitions state machine to `REFLECT`.
+  4. **Rule BR-03 (Remedial Gate)**: When student incurs 3 consecutive errors (`` `ConsecutiveIncorrect \ge 3` ``), halts adaptive item delivery and locks stage into `Status = "REMEDIAL_REQUIRED"`.
+
+### 7.7 Metacognitive Reflection & Milestone Completion API Specification (API 6)
+- **Endpoint**: `POST /api/practice/stages/{stageProgressId}/reflect-complete`
+  - Route: Clean REST path without `v1` version prefix (`[HttpPost("{stageProgressId:guid}/reflect-complete")]`).
+  - Request: `ReflectCompleteRequestDto` (`StudentId`, `ConfidenceRating`, `LearnedSummary`, `MistakeNotes`).
+  - Response: `ReflectCompleteResponseDto` (`StageProgressId`, `RoadmapNodeId`, `Status`, `ConfidenceRating`, `FinalMasteryPlt`, `NextUnlockedNodeId`, `Message`).
+- **Cross-Aggregate Orchestration Pipeline (`ReflectCompleteCommandHandler`)**:
+  1. Verifies stage progress eligibility (must be in `REFLECT` phase or `` `P(L_t) \ge 0.80` ``).
+  2. Finalizes aggregate milestone: marks `StageProgress.Status = "COMPLETED"`.
+  3. Synchronizes Roadmap aggregate: updates `RoadmapNode.Status = "COMPLETED"`, sets `QuizScore = P(L_t) * 10.0`, `IsQuizPassed = true`, `CompletedAt = UtcNow`.
+  4. Automatic Milestone Unlocking: Locates immediate successor milestone in graph order via `ILearningRoadmapRepository.GetNextLockedNodeAsync` and unlocks it (`Status = "IN_PROGRESS"`).
+
+
 
 
 

@@ -28,6 +28,7 @@ public static class DependencyInjection
 
         // Động cơ Luyện tập thích ứng Adaptive Engine (Core Flow 3)
         services.AddTransient<Common.Adaptive.IZpdQuestionSelector, Common.Adaptive.ZpdQuestionSelector>();
+        services.AddTransient<Common.Adaptive.IBktEngine, Common.Adaptive.BktEngine>();
 
         return services;
     }

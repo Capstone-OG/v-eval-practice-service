@@ -44,9 +44,27 @@
   - Khởi tạo Query `GetNextQuestionQuery.cs` và Handler `GetNextQuestionQueryHandler.cs`.
   - Kiểm tra trạng thái máy: Chặn nếu chưa mở khóa `APPLY`, tự động thông báo dừng nếu đã hoàn thành chặng hoặc bị phong tỏa bởi quy tắc phụ đạo BR-03 (`REMEDIAL_REQUIRED`).
   - Bổ sung endpoint `[HttpGet("{stageProgressId:guid}/next-question")]` vào [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs).
+- **Hiện Thực Core Flow 3 - API 5: Nộp Câu Trả Lời Thích Ứng & Động Cơ BKT (POST /api/practice/stages/{stageProgressId}/submit-answer)**:
+  - Xây dựng động cơ Bayesian Knowledge Tracing [`BktEngine.cs`](../V-Eval-Practice_Service.Application/Common/Adaptive/BktEngine.cs):
+    1. Cơ chế phạt đoán mò (Lucky Guess Penalty): Khi học sinh trả lời đúng nhưng thời gian làm $t < 5$s đối với câu hỏi vận dụng $b \ge 0.50$, tăng $P(G) = 0.60$ và gắn cờ `IsLuckyGuess = true`.
+    2. Cập nhật Bayesian Posterior $P(L_t \mid obs)$ và bước chuyển dịch tri thức $P(L_t) = P(L_t \mid obs) + (1 - P(L_t \mid obs)) \cdot P(T)$.
+    3. Quy tắc sư phạm BR-01: Khi $P(L_t) \ge 0.85$ và đúng liên tiếp 2 câu nâng cao ($b \ge 0.50$) $\implies$ Đạt độ thành thạo mục tiêu, tự động chuyển `CurrentStep = "REFLECT"`.
+    4. Quy tắc sư phạm BR-03: Khi sai liên tiếp 3 câu $\implies$ Phong tỏa trạng thái `Status = "REMEDIAL_REQUIRED"`, yêu cầu xem clip phụ đạo trước khi tiếp tục.
+    5. Lưu toàn bộ micro-telemetry vào bảng `AdaptiveQuizAttempts`.
+  - Khởi tạo DTOs [`SubmitAnswerDtos.cs`](../V-Eval-Practice_Service.Application/Features/Stages/DTOs/SubmitAnswerDtos.cs), Command và Handler.
+  - Bổ sung endpoint `[HttpPost("{stageProgressId:guid}/submit-answer")]` vào [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs).
+- **Hiện Thực Core Flow 3 - API 6: Phản Tư Cá Nhân & Hoàn Thành Chặng Học (POST /api/practice/stages/{stageProgressId}/reflect-complete)**:
+  - Khởi tạo DTOs [`ReflectCompleteDtos.cs`](../V-Eval-Practice_Service.Application/Features/Stages/DTOs/ReflectCompleteDtos.cs), Command, Validator và Handler.
+  - Xử lý hoàn tất chặng học:
+    1. Ghi nhận đánh giá độ tự tin (Confidence Rating từ 1 đến 5 sao) và ghi chú bài học rút ra.
+    2. Đánh dấu `StageProgress.Status = "COMPLETED"`.
+    3. Đồng bộ trạng thái sang `RoadmapNode` (`Status = "COMPLETED"`, `IsQuizPassed = true`, `QuizScore = P(Lt) * 10.0`, `CompletedAt = UtcNow`).
+    4. Tự động tìm và mở khóa chặng học kế tiếp trên lộ trình (`RoadmapNode` tiếp theo chuyển từ `LOCKED` sang `IN_PROGRESS`).
+  - Bổ sung endpoint `[HttpPost("{stageProgressId:guid}/reflect-complete")]` vào [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs).
 - **Kiểm Thử Vận Hành**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
-  - Kiểm thử trực tiếp API 1, API 2, API 3, API 4 trên Swagger và PowerShell script thành công 200 OK.
+  - Kiểm thử chuỗi toàn diện Module 1 từ API 1 đến API 6 thành công 100% (200 OK).
+
 
 
 

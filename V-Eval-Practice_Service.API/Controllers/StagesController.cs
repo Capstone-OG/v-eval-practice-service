@@ -96,6 +96,52 @@ public class StagesController : ApiControllerBase
         var result = await Mediator.Send(query);
         return HandleResult(result);
     }
+
+    /// <summary>
+    /// Core Flow 3 - API 5: Nộp câu trả lời thích ứng và Cập nhật BKT (Bước APPLY)
+    /// Đánh giá đúng/sai, phạt đoán mò thời gian nhanh (t &lt; 5s và b &gt;= 0.50), cập nhật P(Lt)
+    /// Kiểm tra quy tắc đạt độ thành thạo BR-01 và rẽ nhánh phụ đạo BR-03
+    /// </summary>
+    /// <param name="stageProgressId">Mã định danh tiến trình chặng học</param>
+    /// <param name="request">Thông tin câu trả lời và thời gian làm bài</param>
+    /// <returns>Kết quả câu trả lời, xác suất P(Lt) mới và chỉ dẫn hành động tiếp theo</returns>
+    [HttpPost("{stageProgressId:guid}/submit-answer")]
+    [ProducesResponseType(typeof(Result<SubmitAnswerResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<SubmitAnswerResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<SubmitAnswerResponseDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SubmitAnswer(
+        [FromRoute] Guid stageProgressId,
+        [FromBody] SubmitAnswerRequestDto request)
+    {
+        var command = new V_Eval_Practice_Service.Application.Features.Stages.Commands.SubmitAnswer.SubmitAnswerCommand(
+            stageProgressId,
+            request);
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 3 - API 6: Phản tư cá nhân và Hoàn thành chặng học (Bước REFLECT)
+    /// Ghi nhận đánh giá độ tự tin (1-5 sao), đánh dấu chặng COMPLETED và tự động mở khóa chặng tiếp theo
+    /// </summary>
+    /// <param name="stageProgressId">Mã định danh tiến trình chặng học</param>
+    /// <param name="request">Đánh giá độ tự tin và bài học rút ra</param>
+    /// <returns>Thông tin chặng học đã hoàn thành và mã chặng tiếp theo được mở khóa</returns>
+    [HttpPost("{stageProgressId:guid}/reflect-complete")]
+    [ProducesResponseType(typeof(Result<ReflectCompleteResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<ReflectCompleteResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<ReflectCompleteResponseDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ReflectComplete(
+        [FromRoute] Guid stageProgressId,
+        [FromBody] ReflectCompleteRequestDto request)
+    {
+        var command = new V_Eval_Practice_Service.Application.Features.Stages.Commands.ReflectComplete.ReflectCompleteCommand(
+            stageProgressId,
+            request);
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
 }
+
 
 

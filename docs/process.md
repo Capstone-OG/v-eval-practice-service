@@ -82,6 +82,9 @@
 | 48 | **Core Flow 3 (P-L-A-R - Bước 2): Nộp Bài Khởi Động Preview (SubmitPreview)** | `StagesController.cs` & `SubmitPreviewCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/preview-submit` nộp 3 câu khởi động, chuyển State Machine sang `LEARN`, cấp video bài giảng |
 | 49 | **Core Flow 3 (P-L-A-R - Bước 3): Ghi Nhận Xem Video Bài Giảng (TrackVideo)** | `StagesController.cs` & `TrackVideoCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/track-video` tính % thời lượng xem, tự động chuyển State Machine sang `APPLY` khi đạt >= 80% |
 | 50 | **Core Flow 3 (P-L-A-R - Bước 4): Lấy Câu Hỏi Thích Ứng ZPD (NextQuestion)** | `StagesController.cs` & `GetNextQuestionQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/stages/{stageProgressId}/next-question` áp dụng mô hình IRT 2PL lọc câu hỏi ZPD trong dải [0.60, 0.75], ẩn đáp án bảo mật |
+| 51 | **Core Flow 3 (P-L-A-R - Bước 5): Nộp Câu Trả Lời & Động Cơ BKT (SubmitAnswer)** | `StagesController.cs` & `SubmitAnswerCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/submit-answer` BKT tính P(Lt), phạt đoán mò, kiểm tra BR-01 (Mastery) và BR-03 (Remedial) |
+| 52 | **Core Flow 3 (P-L-A-R - Bước 6): Phản Tư & Hoàn Thành Chặng (ReflectComplete)** | `StagesController.cs` & `ReflectCompleteCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/reflect-complete` ghi nhận đánh giá độ tự tin, đồng bộ RoadmapNode sang COMPLETED, tự động mở khóa chặng kế tiếp |
+
 
 
 
