@@ -225,3 +225,28 @@
   - Dispatches an aggregated query across all classes via `classIds.Contains(s.ClassId)` ordered chronologically.
 - **DTO Model Enhancements (`LiveSessionScheduleItemDto`)**:
   - Exposed `ClassId`, `ClassName`, and `DomainCode` (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`) for each scheduled session, empowering students to readily distinguish domain live lectures from general cohort meetings.
+
+---
+
+## 7. CORE FLOW 3 ARCHITECTURE: ADAPTIVE PRACTICE (P-L-A-R) & STAGE INITIALIZATION
+
+### 7.1 P-L-A-R State Machine & Domain Entities
+- **Aggregate Entity (`StageProgress`)**:
+  - Models the execution life cycle of an individual milestone via 4 deterministic phases: `PREVIEW`, `LEARN`, `APPLY`, and `REFLECT`.
+  - Persists real-time pedagogical tracking telemetry: `VideoWatchPercentage`, BKT state variable `BktMasteryPlt` (default `0.1000`), consecutive hard successes `ConsecutiveAdvancedCorrect`, consecutive failures `ConsecutiveIncorrect`, and milestone status `Status` (`IN_PROGRESS`, `REMEDIAL_REQUIRED`, `COMPLETED`).
+- **Child Entity (`AdaptiveQuizAttempt`)**:
+  - Micro-telemetry audit trail of every item answered during the `APPLY` phase.
+  - Captures IRT 2PL item characteristics (`ItemDifficultyB`, `ItemDiscriminationA`), `TimeSpentSeconds`, rapid guess penalty flag `IsLuckyGuess`, and Bayesian updates (`PriorPlt`, `PosteriorPlt`).
+- **Persistence Abstraction**:
+  - Registered `IStageProgressRepository` and `StageProgressRepository` with EF Core cascading navigation properties to `RoadmapNodes` and `AdaptiveAttempts`.
+
+### 7.2 Stage Initialization API Specification (API 1)
+- **Endpoint**: `POST /api/practice/stages/{roadmapNodeId}/start`
+  - Route: Clean REST path without `v1` version prefix (`[Route("api/practice/stages")]`).
+  - Request: `StartStageRequestDto` (`StudentId`).
+  - Response: `StartStageResponseDto` (`StageProgressId`, `RoadmapNodeId`, `SkillId`, `CurrentStep`, `Status`, `BktMasteryPlt`, `PreviewQuestions`).
+- **Orchestration Pipeline (`StartStageCommandHandler`)**:
+  1. Validates milestone existence in `RoadmapNodes` via `ILearningRoadmapRepository.GetNodeByIdAsync`.
+  2. Idempotently locates existing `StageProgress` or provisions a new record initialized at `PREVIEW` phase with `BktMasteryPlt = 0.1000`.
+  3. Preloads 3 prerequisite Quick Check items from Content Service via gRPC `GetMilestoneQuizAsync` (`questionCount = 3`) with resilient local fallback for zero-downtime offline execution.
+

@@ -23,6 +23,8 @@
 - `practice.RoadmapNodes`: Chặng học 3 thành phần (`node_id`, `roadmap_id`, `skill_id`, `step_order`, `material_id`, `quiz_exam_id`, `live_session_id`, `status`).
 - `practice.LiveSessions`: Buổi học trực tuyến Live Q&A của lớp (`session_id`, `class_id`, `scheduled_at`, `meeting_url`, `recording_url`, `is_recorded`, `status`).
 - `practice.LiveSessionAttendance`: Điểm danh và bài Quiz bù (`attendance_id`, `session_id`, `student_id`, `attendance_status`, `makeup_quiz_id`, `is_makeup_quiz_passed`).
+- `practice.StageProgress`: Tiến trình chặng học P-L-A-R (`id`, `student_id`, `roadmap_node_id`, `current_step`, `video_watch_percentage`, `bkt_mastery_plt`, `consecutive_advanced_correct`, `consecutive_incorrect`, `status`).
+- `practice.AdaptiveQuizAttempts`: Log trả lời thích ứng từng câu (`id`, `stage_progress_id`, `student_id`, `question_id`, `pattern_id`, `selected_option`, `is_correct`, `time_spent_seconds`, `item_difficulty_b`, `item_discrimination_a`, `is_lucky_guess`, `prior_plt`, `posterior_plt`).
 
 ---
 
@@ -76,6 +78,7 @@
 | 44 | **Core Flow 2 (Thematic Cohort - Bước 4): API Tự Động Phân Cụm Lớp Chuyên Đề** | `ClassesController.cs` & `AutoClusterThematicClassesCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/classes/auto-cluster` tự động gom cụm N học sinh theo lỗ hổng 4 miền, sinh lớp chuyên đề và ghi danh tự động |
 | 45 | **Core Flow 2 (Thematic Cohort - Bước 5): Gắn LiveSession Theo Miền Chuyên Đề** | `LearningRoadmapRepository.cs` & `GenerateRoadmapCommandHandler.cs` | 🟢 Hoàn thành | 100% | Tự động ánh xạ LiveSession theo đúng DomainCode của chặng lộ trình học tập thay vì gán 1 buổi Live chung |
 | 46 | **Core Flow 2 (Thematic Cohort - Bước 6): API 10 Hỗ Trợ Đa Ghi Danh Lớp Học** | `LiveSessionRepository.cs` & `GetMyLiveScheduleQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/live-sessions/my-schedule` truy vấn lịch Live của TẤT CẢ lớp (hành chính + chuyên đề K-Means) kèm `ClassName` và `DomainCode` |
+| 47 | **Core Flow 3 (P-L-A-R - Bước 1): Khởi Tạo Chặng Học Thích Ứng (StartStage)** | `StagesController.cs` & `StartStageCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{roadmapNodeId}/start` khởi tạo tiến trình `StageProgress` ở bước `PREVIEW`, cấp 3 câu Quick Check nền tảng |
 
 
 
