@@ -28,6 +28,8 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Microservice tiếp nhận bài thi, chấm điểm tự động và lưu trữ kết quả kiểm tra năng lực (V-Eval Core Flow 1 - Bước 3)."
     });
 
+    c.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
+
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     if (File.Exists(xmlPath))
