@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<ILearningRoadmapRepository, LearningRoadmapRepository>();
         services.AddScoped<ILiveSessionRepository, LiveSessionRepository>();
         services.AddScoped<IStageProgressRepository, StageProgressRepository>();
+        services.AddScoped<IMistakeNotebookRepository, MistakeNotebookRepository>();
         services.AddScoped<IIdentityGrpcClient, IdentityGrpcClient>();
         services.AddScoped<IContentGrpcClient, ContentGrpcClient>();
         services.AddScoped<IAiDiagnosticClient, HttpClients.AiDiagnosticClient>();

@@ -25,6 +25,7 @@
 - `practice.LiveSessionAttendance`: Điểm danh và bài Quiz bù (`attendance_id`, `session_id`, `student_id`, `attendance_status`, `makeup_quiz_id`, `is_makeup_quiz_passed`).
 - `practice.StageProgress`: Tiến trình chặng học P-L-A-R (`id`, `student_id`, `roadmap_node_id`, `current_step`, `video_watch_percentage`, `bkt_mastery_plt`, `consecutive_advanced_correct`, `consecutive_incorrect`, `status`).
 - `practice.AdaptiveQuizAttempts`: Log trả lời thích ứng từng câu (`id`, `stage_progress_id`, `student_id`, `question_id`, `pattern_id`, `selected_option`, `is_correct`, `time_spent_seconds`, `item_difficulty_b`, `item_discrimination_a`, `is_lucky_guess`, `prior_plt`, `posterior_plt`).
+- `practice.MistakeNotebooks`: Sổ tay lỗi sai & Lặp lại ngắt quãng SM-2 (`id`, `student_id`, `question_id`, `skill_id`, `pattern_id`, `cognitive_error_tag`, `student_notes`, `next_review_date`, `review_count`, `consecutive_correct_reviews`, `interval_days`, `ease_factor`, `is_mastered`, `last_reviewed_at`).
 
 ---
 
@@ -85,6 +86,13 @@
 | 50 | **Core Flow 3 (P-L-A-R - Bước 4): Lấy Câu Hỏi Thích Ứng ZPD (NextQuestion)** | `StagesController.cs` & `GetNextQuestionQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/stages/{stageProgressId}/next-question` áp dụng mô hình IRT 2PL lọc câu hỏi ZPD trong dải [0.60, 0.75], ẩn đáp án bảo mật |
 | 51 | **Core Flow 3 (P-L-A-R - Bước 5): Nộp Câu Trả Lời & Động Cơ BKT (SubmitAnswer)** | `StagesController.cs` & `SubmitAnswerCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/submit-answer` BKT tính P(Lt), phạt đoán mò, kiểm tra BR-01 (Mastery) và BR-03 (Remedial) |
 | 52 | **Core Flow 3 (P-L-A-R - Bước 6): Phản Tư & Hoàn Thành Chặng (ReflectComplete)** | `StagesController.cs` & `ReflectCompleteCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/reflect-complete` ghi nhận đánh giá độ tự tin, đồng bộ RoadmapNode sang COMPLETED, tự động mở khóa chặng kế tiếp |
+| 53 | **Core Flow 3 (BR-03 Remedial Node): Lấy Gói Cứu Trợ Phụ Đạo Động** | `StagesController.cs` & `GetRemedialPackageQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/stages/{stageProgressId}/remedial` video tóm tắt, công thức cốt lõi và 3 câu hỏi cơ bản ($b < 0.0$) bốc trực tiếp từ Content Service |
+| 54 | **Core Flow 3 (BR-03 Remedial Node): Nộp Bài Cứu Trợ & Giải Cứu Tiến Trình** | `StagesController.cs` & `SubmitRemedialCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/remedial-submit` chấm điểm, reset `consecutive_incorrect = 0`, giải cứu trạng thái về `IN_PROGRESS` tiếp tục bước APPLY |
+| 55 | **Core Flow 3 (Module 2 - BR-15): Tự Động Lưu Câu Sai Vào Sổ Tay** | `SubmitAnswerCommandHandler.cs` & `MistakeNotebookRepository.cs` | 🟢 Hoàn thành | 100% | Tự động thêm bản ghi vào `MistakeNotebooks` khi làm sai ở bước APPLY với `next_review_date = Tomorrow` |
+| 56 | **Core Flow 3 (Module 2 - API 1): Tra Cứu Sổ Tay Lỗi Sai Cá Nhân** | `MistakesController.cs` & `GetMistakeNotebookQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/mistakes` phân trang, lọc theo kỹ năng/trạng thái thành thạo, thống kê tổng số lỗi đã làm chủ và chưa làm chủ |
+| 57 | **Core Flow 3 (Module 2 - API 2): Lấy Nhiệm Vụ Ôn Tập Biến Thể Hôm Nay** | `MistakesController.cs` & `GetDailyReviewQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/mistakes/daily-review` lấy các câu hỏi đến hạn, tự động bốc câu hỏi biến thể Isomorphic cùng dạng bài qua Content gRPC |
+| 58 | **Core Flow 3 (Module 2 - API 3): Gắn Nhãn Nhận Thức Nguyên Nhân Sai** | `MistakesController.cs` & `TagCognitiveErrorCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/mistakes/{id}/tag-error` học sinh tự phản tư gắn nhãn `CARELESS`, `MISREAD_QUESTION`, `MISSING_CONCEPT` kèm ghi chú kinh nghiệm |
+| 59 | **Core Flow 3 (Module 2 - API 4): Nộp Bài Ôn Tập & Cập Nhật Lịch SM-2** | `MistakesController.cs` & `SubmitDailyReviewCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/mistakes/{id}/review-submit` chấm điểm, thuật toán SM-2 tính khoảng cách ngày kế tiếp, gắn `is_mastered = true` khi đúng liên tiếp 3 lần |
 
 
 

@@ -1,5 +1,36 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [09/10/2026] - Hiện Thực Trọn Vẹn Module 2: Sổ Tay Lỗi Sai & Thuật Toán Lặp Lại Ngắt Quãng SM-2 (Mistake Notebook & Spaced Repetition)
+- **Kiến Trúc Dữ Liệu Sổ Tay Lỗi Sai & Lặp Lại Ngắt Quãng (Module 2 - Core Flow 3)**:
+  - Tạo thực thể [`MistakeNotebook.cs`](../V-Eval-Practice_Service.Domain/Entities/MistakeNotebook.cs):
+    - Các trường nhận thức & định danh: `Id`, `StudentId`, `QuestionId`, `SkillId`, `PatternId`, `CognitiveErrorTag`, `StudentNotes`.
+    - Các trường thuật toán SM-2: `NextReviewDate` (`date`), `ReviewCount`, `ConsecutiveCorrectReviews`, `IntervalDays`, `EaseFactor` (mặc định 2.50), `IsMastered` (đạt khi đúng liên tiếp `` `\ge 3` `` lần), `LastReviewedAt`.
+  - Cấu hình Fluent API trong [`PracticeDbContext.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs) với `.HasColumnType("date")` cho `NextReviewDate` để tránh xung đột `timestamp with time zone` của PostgreSQL Npgsql.
+  - Tự động sinh DDL bảng `MistakeNotebooks` và chỉ mục tìm kiếm tối ưu `idx_mistake_notebook_daily_review (student_id, next_review_date, is_mastered)` trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs).
+- **Tự Động Lưu Vết Câu Sai Từ Chu Trình P-L-A-R (BR-15)**:
+  - Cập nhật [`SubmitAnswerCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/SubmitAnswer/SubmitAnswerCommandHandler.cs): Khi học sinh làm sai ở bước `APPLY` (`isCorrect == false`), tự động ghi nhận câu sai vào `MistakeNotebook` với ngày hẹn ôn tập khởi điểm là ngày hôm sau (`NextReviewDate = Tomorrow`).
+- **Thuật Toán Lặp Lại Ngắt Quãng SuperMemo-2 (SM-2)**:
+  - Xây dựng động cơ [`SpacedRepetitionCalculator.cs`](../V-Eval-Practice_Service.Application/Common/Adaptive/SpacedRepetitionCalculator.cs):
+    - Lần 1 đúng: `` `Interval = 1` `` ngày.
+    - Lần 2 đúng: `` `Interval = 3` `` ngày.
+    - Lần `` `n \ge 3` `` đúng: `` `Interval = \text{round}(Interval_{n-1} \times EaseFactor)` `` ngày.
+    - Khi làm đúng liên tiếp `` `Consecutive \ge 3` ``: Gắn cờ xóa sổ lỗ hổng tri thức `` `IsMastered = true` ``.
+    - Khi làm sai: Reset `` `Consecutive = 0` ``, đưa khoảng cách về `` `Interval = 1` `` ngày và giảm nhẹ hệ số dễ `EaseFactor = Math.Max(1.30, EaseFactor - 0.20)`.
+- **Hiện Thực 4 API Endpoints Chuẩn RESTful Trong [`MistakesController.cs`](../V-Eval-Practice_Service.API/Controllers/MistakesController.cs)**:
+  1. `GET /api/practice/mistakes`: Tra cứu Sổ tay lỗi sai cá nhân, hỗ trợ phân trang, lọc theo `skillId` / `isMastered`, trả về tổng số lượng `masteredCount` và `unmasteredCount` (`GetMistakeNotebookQueryHandler.cs`).
+  2. `GET /api/practice/mistakes/daily-review`: Lấy danh sách nhiệm vụ ôn tập đến hạn hôm nay (`NextReviewDate <= TargetDate`), tự động bốc câu hỏi biến thể (*Isomorphic Question*) cùng dạng bài từ Content Service qua gRPC (`GetDailyReviewQueryHandler.cs`).
+  3. `POST /api/practice/mistakes/{id}/tag-error`: Phản tư nhận thức (*Metacognition*), gắn nhãn nguyên nhân sai (`CARELESS`, `MISREAD_QUESTION`, `MISSING_CONCEPT`) kèm ghi chú bài học kinh nghiệm (`TagCognitiveErrorCommandHandler.cs`).
+  4. `POST /api/practice/mistakes/{id}/review-submit`: Nộp bài câu hỏi ôn tập biến thể, chấm điểm, tự động tính toán khoảng cách ngày tiếp theo theo thuật toán SM-2 (`SubmitDailyReviewCommandHandler.cs`).
+- **Kiểm Thử Tự Động Toàn Trình**:
+  - Kịch bản kiểm thử tích hợp tự động qua PowerShell [`scratch/test_module_2.ps1`](./scratch/test_module_2.ps1) đã chạy thành công 100%:
+    - Tạo tiến trình -> làm sai bước APPLY -> tự động lưu vào Sổ tay.
+    - Gắn nhãn nhận thức `CARELESS` -> phản hồi hướng dẫn sư phạm chuẩn xác.
+    - Lấy câu hỏi biến thể ôn tập -> nộp đúng 3 lần liên tiếp -> SM-2 nâng khoảng cách 1 ngày -> 3 ngày -> 7 ngày -> đạt `IsMastered = true`.
+- **Kiểm Thử Biên Dịch**:
+  - Toàn bộ Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
 ## [09/10/2026] - Hiện Thực Nhánh Cứu Trợ Phụ Đạo Động (Remedial Node - BR-03) & Tích Hợp Ngân Hàng Đề Content Service
 - **Hiện Thực Trọn Vẹn Chu Trình Cứu Trợ Phụ Đạo (Remedial Node - Core Flow 3)**:
   - Bổ sung thực thể DTOs [`RemedialDtos.cs`](../V-Eval-Practice_Service.Application/Features/Stages/DTOs/RemedialDtos.cs) phục vụ phân phối gói cứu trợ và tiếp nhận bài làm của học sinh.

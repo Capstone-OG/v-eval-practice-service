@@ -309,6 +309,58 @@
   3. Synchronizes Roadmap aggregate: updates `RoadmapNode.Status = "COMPLETED"`, sets `QuizScore = P(L_t) * 10.0`, `IsQuizPassed = true`, `CompletedAt = UtcNow`.
   4. Automatic Milestone Unlocking: Locates immediate successor milestone in graph order via `ILearningRoadmapRepository.GetNextLockedNodeAsync` and unlocks it (`Status = "IN_PROGRESS"`).
 
+---
+
+## 8. CORE FLOW 3 - MODULE 2: MISTAKE NOTEBOOK & SPACED REPETITION ENGINE (SM-2)
+
+### 8.1 Domain Aggregate & Schema Design (`practice.MistakeNotebooks`)
+- **Table Definition**: `v_eval_practice."MistakeNotebooks"`
+  - `id`: UUID Primary Key.
+  - `student_id`: UUID, foreign ownership key.
+  - `question_id`: UUID, original mistaken question.
+  - `skill_id`: UUID, competency domain identifier.
+  - `pattern_id`: VARCHAR(100), pedagogical problem pattern (e.g. `PATTERN_DERIVATIVE_01`).
+  - `cognitive_error_tag`: VARCHAR(50), pedagogical error categorization (`CARELESS`, `MISREAD_QUESTION`, `MISSING_CONCEPT`).
+  - `student_notes`: TEXT, metacognitive self-reflection notes.
+  - `next_review_date`: DATE NOT NULL, next scheduled review timestamp (UTC).
+  - `review_count`: INT, total review attempts.
+  - `consecutive_correct_reviews`: INT, consecutive streak of correct reviews.
+  - `interval_days`: INT, current interval spacing (1, 3, 7+ days).
+  - `ease_factor`: DOUBLE PRECISION, SuperMemo-2 ease factor (default 2.50).
+  - `is_mastered`: BOOLEAN, mastery flag set upon 3 consecutive successful reviews.
+  - `last_reviewed_at`: TIMESTAMP WITH TIME ZONE.
+  - `created_at`, `updated_at`: Standard temporal audit columns.
+- **Index**: `idx_mistake_notebook_daily_review` on `(student_id, next_review_date, is_mastered)` for $O(\log N)$ review queries.
+
+### 8.2 Pedagogical Rule BR-15: Automated Error Capture
+- Implemented in `SubmitAnswerCommandHandler.cs`:
+  - When an adaptive question attempt at the `APPLY` step produces `isCorrect == false`, the engine automatically intercepts the event.
+  - Verifies whether an entry for `(StudentId, QuestionId)` already exists. If absent, an entry is persisted with `NextReviewDate = Tomorrow` (UTC), `ConsecutiveCorrectReviews = 0`, and `IntervalDays = 1`.
+
+### 8.3 SuperMemo-2 (SM-2) Spaced Repetition Mathematical Model
+- Implemented in `SpacedRepetitionCalculator.cs`:
+  - **Repetition 1 (Correct)**: `` `Interval_1 = 1` `` day, `` `Consecutive = 1` ``.
+  - **Repetition 2 (Correct)**: `` `Interval_2 = 3` `` days, `` `Consecutive = 2` ``.
+  - **Repetition `` `n \ge 3` `` (Correct)**:
+    - `` `Interval_n = \text{round}(Interval_{n-1} \times EaseFactor)` `` days.
+    - If `` `Consecutive \ge 3` ``: sets `` `IsMastered = true` ``, permanently retiring the knowledge gap.
+  - **Incorrect Review**:
+    - Resets `` `Consecutive = 0` ``, resets `` `Interval = 1` `` day.
+    - Adjusts ease factor downwards: `` `EaseFactor = \max(1.30, EaseFactor - 0.20)` ``.
+
+### 8.4 Module 2 RESTful Endpoints (`MistakesController`)
+1. **`GET /api/practice/mistakes`**:
+   - Paginated mistake list with filters (`skillId`, `isMastered`).
+   - Computes statistical summary: `totalCount`, `masteredCount`, and `unmasteredCount`.
+2. **`GET /api/practice/mistakes/daily-review`**:
+   - Queries due review items: `` `next_review_date \le \text{TargetDate} \land \neg is\_mastered` ``.
+   - Enriches candidates with Isomorphic Variant questions fetched dynamically from Content Service via gRPC.
+3. **`POST /api/practice/mistakes/{id}/tag-error`**:
+   - Enables metacognitive self-diagnosis (`CARELESS`, `MISREAD_QUESTION`, `MISSING_CONCEPT`).
+   - Validates input with FluentValidation and records personal student notes.
+4. **`POST /api/practice/mistakes/{id}/review-submit`**:
+   - Validates student answer against variant key, updates SM-2 repetition schedule, and yields next review date.
+
 
 
 

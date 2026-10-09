@@ -15,17 +15,20 @@ namespace V_Eval_Practice_Service.Application.Features.Stages.Commands.SubmitAns
 public class SubmitAnswerCommandHandler : IRequestHandler<SubmitAnswerCommand, Result<SubmitAnswerResponseDto>>
 {
     private readonly IStageProgressRepository _stageProgressRepository;
+    private readonly IMistakeNotebookRepository _mistakeNotebookRepository;
     private readonly IBktEngine _bktEngine;
     private readonly IContentGrpcClient _contentGrpcClient;
     private readonly ILogger<SubmitAnswerCommandHandler> _logger;
 
     public SubmitAnswerCommandHandler(
         IStageProgressRepository stageProgressRepository,
+        IMistakeNotebookRepository mistakeNotebookRepository,
         IBktEngine bktEngine,
         IContentGrpcClient contentGrpcClient,
         ILogger<SubmitAnswerCommandHandler> logger)
     {
         _stageProgressRepository = stageProgressRepository;
+        _mistakeNotebookRepository = mistakeNotebookRepository;
         _bktEngine = bktEngine;
         _contentGrpcClient = contentGrpcClient;
         _logger = logger;
@@ -158,6 +161,49 @@ public class SubmitAnswerCommandHandler : IRequestHandler<SubmitAnswerCommand, R
 
         await _stageProgressRepository.AddAttemptAsync(attempt, ct);
         await _stageProgressRepository.UpdateAsync(progress, ct);
+
+        // 9. Tự động lưu câu sai vào Sổ tay lỗi sai & Lên lịch ôn tập hôm sau (+24h) theo quy tắc BR-15
+        if (!isCorrect)
+        {
+            try
+            {
+                Guid skillId = progress.RoadmapNode?.SkillId ?? Guid.Empty;
+                var existingMistake = await _mistakeNotebookRepository.GetByStudentAndQuestionAsync(progress.StudentId, request.Request.QuestionId, ct);
+                if (existingMistake == null)
+                {
+                    var newMistake = new MistakeNotebook
+                    {
+                        Id = Guid.NewGuid(),
+                        StudentId = progress.StudentId,
+                        QuestionId = request.Request.QuestionId,
+                        SkillId = skillId,
+                        PatternId = request.Request.PatternId ?? "STANDARD",
+                        NextReviewDate = DateTime.SpecifyKind(DateTime.UtcNow.Date.AddDays(1), DateTimeKind.Utc),
+                        ReviewCount = 0,
+                        ConsecutiveCorrectReviews = 0,
+                        IntervalDays = 1,
+                        EaseFactor = 2.50,
+                        IsMastered = false,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await _mistakeNotebookRepository.AddAsync(newMistake, ct);
+                    _logger.LogInformation("Đã tự động lưu câu sai {QuestionId} vào Sổ tay lỗi sai của học sinh {StudentId}",
+                        request.Request.QuestionId, progress.StudentId);
+                }
+                else
+                {
+                    existingMistake.NextReviewDate = DateTime.SpecifyKind(DateTime.UtcNow.Date.AddDays(1), DateTimeKind.Utc);
+                    existingMistake.IsMastered = false;
+                    existingMistake.ConsecutiveCorrectReviews = 0;
+                    await _mistakeNotebookRepository.UpdateAsync(existingMistake, ct);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Lỗi khi tự động ghi nhận câu sai vào Sổ tay lỗi sai.");
+            }
+        }
 
         _logger.LogInformation(
             "Học sinh {StudentId} nộp câu {QuestionId}: Correct={IsCorrect}, BKT={Prior:F4}->{Post:F4}, AdvancedCorrect={Adv}, ConsecutiveWrong={Wrong}",
