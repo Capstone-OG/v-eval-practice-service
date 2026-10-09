@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddTransient<Common.Graph.TopologicalSorter>();
         services.AddTransient<Common.Graph.MilestoneBinder>();
         services.AddTransient<Common.Graph.IStudentKMeansClusterer, Common.Graph.StudentKMeansClusterer>();
+        services.AddTransient<Common.Graph.IClassMicroClusterer, Common.Graph.ClassMicroClusterer>();
 
         // Động cơ Luyện tập thích ứng Adaptive Engine (Core Flow 3)
         services.AddTransient<Common.Adaptive.IZpdQuestionSelector, Common.Adaptive.ZpdQuestionSelector>();

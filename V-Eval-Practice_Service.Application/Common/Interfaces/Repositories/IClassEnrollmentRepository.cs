@@ -36,6 +36,10 @@ public interface IClassEnrollmentRepository
         Guid classId,
         CancellationToken ct = default);
 
+    Task<IReadOnlyList<ClassEnrollment>> GetEnrollmentsByClassIdAsync(
+        Guid classId,
+        CancellationToken ct = default);
+
     Task<int> SaveChangesAsync(
         CancellationToken ct = default);
 }

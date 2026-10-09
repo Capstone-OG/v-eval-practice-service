@@ -52,32 +52,66 @@ public class ClassEnrollmentRepository : IClassEnrollmentRepository
             ? campusName
             : $"Cơ sở {campusId}";
 
-        // 1. Find or create matching class at this campus
-        var targetClass = await _context.Classes
-            .FirstOrDefaultAsync(c => c.CampusId == campusGuid &&
-                                      c.Status == "ACTIVE" &&
-                                      c.Name.Contains(tierKeyword), ct);
+        const int MaxClassCapacity = 20;
 
+        // 1. Kiểm tra xem học sinh đã có enrollment nào trước đó chưa
+        var existingEnrollment = await _context.ClassEnrollments
+            .Include(e => e.Class)
+            .FirstOrDefaultAsync(e => e.StudentId == studentId, ct);
+
+        // Lấy tất cả các lớp đang ACTIVE của cơ sở này tương ứng với cấp độ (tierKeyword)
+        var matchingClasses = await _context.Classes
+            .Where(c => c.CampusId == campusGuid &&
+                        c.Status == "ACTIVE" &&
+                        c.ClassType == 0 &&
+                        c.Name.Contains(tierKeyword))
+            .OrderBy(c => c.CreatedAt)
+            .ToListAsync(ct);
+
+        // Lấy sĩ số thực tế (học sinh đang ENROLLED) của từng lớp
+        var classIds = matchingClasses.Select(c => c.ClassId).ToList();
+        var enrollmentCounts = await _context.ClassEnrollments
+            .Where(e => classIds.Contains(e.ClassId) && e.Status == "ENROLLED")
+            .GroupBy(e => e.ClassId)
+            .Select(g => new { ClassId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ClassId, x => x.Count, ct);
+
+        Class? targetClass = null;
+
+        // Nếu học sinh đã có enrollment và đang ở một lớp hợp lệ cùng tier này thì ưu tiên giữ nguyên
+        if (existingEnrollment?.Class != null &&
+            matchingClasses.Any(c => c.ClassId == existingEnrollment.ClassId))
+        {
+            targetClass = matchingClasses.First(c => c.ClassId == existingEnrollment.ClassId);
+        }
+        else
+        {
+            // Tìm lớp đầu tiên chưa đầy sĩ số (< 20 học sinh)
+            targetClass = matchingClasses.FirstOrDefault(c => enrollmentCounts.GetValueOrDefault(c.ClassId, 0) < MaxClassCapacity);
+        }
+
+        // Nếu tất cả các lớp đã đầy (>= 20) hoặc chưa có lớp nào tồn tại
         if (targetClass == null)
         {
+            int nextClassNumber = matchingClasses.Count + 1;
+            string className = $"{fullTierName} {nextClassNumber:D2} - {campusDisplay}";
+
             targetClass = new Class
             {
                 ClassId = Guid.NewGuid(),
                 CampusId = campusGuid,
-                Name = $"{fullTierName} - {campusDisplay}",
+                Name = className,
                 Status = "ACTIVE",
+                ClassType = 0,
                 CreatedAt = DateTime.UtcNow
             };
             await _context.Classes.AddAsync(targetClass, ct);
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("Created new placement class {ClassName} ({ClassId}) for Campus {CampusId}",
-                targetClass.Name, targetClass.ClassId, campusId);
+            _logger.LogInformation("Created new cohort class '{ClassName}' ({ClassId}) for Campus {CampusId} with max capacity {Capacity}",
+                targetClass.Name, targetClass.ClassId, campusId, MaxClassCapacity);
         }
 
-        // 2. Check if student already has an enrollment
-        var existingEnrollment = await _context.ClassEnrollments
-            .FirstOrDefaultAsync(e => e.StudentId == studentId, ct);
-
+        // 2. Ghi danh hoặc cập nhật ghi danh
         Guid enrollmentId;
         if (existingEnrollment != null)
         {
@@ -86,8 +120,8 @@ public class ClassEnrollmentRepository : IClassEnrollmentRepository
             existingEnrollment.Status = "ENROLLED";
             existingEnrollment.EnrolledAt = DateTime.UtcNow;
             enrollmentId = existingEnrollment.EnrollmentId;
-            _logger.LogInformation("Updated enrollment for student {StudentId} to class {ClassId}",
-                studentId, targetClass.ClassId);
+            _logger.LogInformation("Updated enrollment for student {StudentId} to class {ClassId} ('{ClassName}')",
+                studentId, targetClass.ClassId, targetClass.Name);
         }
         else
         {
@@ -102,8 +136,8 @@ public class ClassEnrollmentRepository : IClassEnrollmentRepository
             };
             await _context.ClassEnrollments.AddAsync(newEnrollment, ct);
             enrollmentId = newEnrollment.EnrollmentId;
-            _logger.LogInformation("Created new enrollment {EnrollmentId} for student {StudentId} in class {ClassId}",
-                enrollmentId, studentId, targetClass.ClassId);
+            _logger.LogInformation("Created new enrollment {EnrollmentId} for student {StudentId} in class {ClassId} ('{ClassName}')",
+                enrollmentId, studentId, targetClass.ClassId, targetClass.Name);
         }
 
         await _context.SaveChangesAsync(ct);
@@ -179,6 +213,15 @@ public class ClassEnrollmentRepository : IClassEnrollmentRepository
         CancellationToken ct = default)
     {
         return await _context.Classes.FirstOrDefaultAsync(c => c.ClassId == classId, ct);
+    }
+
+    public async Task<IReadOnlyList<ClassEnrollment>> GetEnrollmentsByClassIdAsync(
+        Guid classId,
+        CancellationToken ct = default)
+    {
+        return await _context.ClassEnrollments
+            .Where(e => e.ClassId == classId && e.Status == "ENROLLED")
+            .ToListAsync(ct);
     }
 
     public async Task<int> SaveChangesAsync(

@@ -85,6 +85,10 @@
 | 50 | **Core Flow 3 (P-L-A-R - Bước 4): Lấy Câu Hỏi Thích Ứng ZPD (NextQuestion)** | `StagesController.cs` & `GetNextQuestionQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/stages/{stageProgressId}/next-question` áp dụng mô hình IRT 2PL lọc câu hỏi ZPD trong dải [0.60, 0.75], ẩn đáp án bảo mật |
 | 51 | **Core Flow 3 (P-L-A-R - Bước 5): Nộp Câu Trả Lời & Động Cơ BKT (SubmitAnswer)** | `StagesController.cs` & `SubmitAnswerCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/submit-answer` BKT tính P(Lt), phạt đoán mò, kiểm tra BR-01 (Mastery) và BR-03 (Remedial) |
 | 52 | **Core Flow 3 (P-L-A-R - Bước 6): Phản Tư & Hoàn Thành Chặng (ReflectComplete)** | `StagesController.cs` & `ReflectCompleteCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/reflect-complete` ghi nhận đánh giá độ tự tin, đồng bộ RoadmapNode sang COMPLETED, tự động mở khóa chặng kế tiếp |
+| 53 | **Giới Hạn Lớp 20 Học Sinh & Đánh Số Lớp Tự Động** | `ClassEnrollmentRepository.cs` | 🟢 Hoàn thành | 100% | Ràng buộc sĩ số tối đa `MaxClassCapacity = 20`, tự động tạo lớp tiếp theo với số thứ tự tăng dần chuẩn hóa (`01, 02...`) |
+| 54 | **Thực Thể & Repository Nhóm Học Tập Vi Mô** | `Domain/Entities/` & `Repositories/ClassGroupRepository.cs` | 🟢 Hoàn thành | 100% | Thực thể `ClassGroup`, `ClassGroupMember`, Fluent API mappings, khởi tạo bảng SQL và repository `IClassGroupRepository` |
+| 55 | **Động Cơ Phân Nhóm Vi Mô Đồng Nhất (3 - 5 Bạn)** | `Application/Common/Graph/ClassMicroClusterer.cs` | 🟢 Hoàn thành | 100% | Thuật toán gom cụm đồng nhất (Homogeneous) theo điểm nghẽn kiến thức, ràng buộc chặt chẽ kích thước 3 - 5 học sinh/nhóm, sinh tên nhóm sư phạm |
+| 56 | **Bộ 3 APIs Nhóm Học Tập Vi Mô Trên Lớp** | `ClassesController.cs` & `Features/Classes/` | 🟢 Hoàn thành | 100% | `POST /micro-groups/auto-partition` (chia nhóm), `GET /micro-groups` (tra cứu sơ đồ bàn), `POST /{groupId}/assign-worksheet` (phát đề luyện tập thích ứng) |
 
 
 

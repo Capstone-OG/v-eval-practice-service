@@ -21,6 +21,8 @@ public class PracticeDbContext : DbContext
     public DbSet<LiveSessionAttendance> LiveSessionAttendances => Set<LiveSessionAttendance>();
     public DbSet<StageProgress> StageProgresses => Set<StageProgress>();
     public DbSet<AdaptiveQuizAttempt> AdaptiveQuizAttempts => Set<AdaptiveQuizAttempt>();
+    public DbSet<ClassGroup> ClassGroups => Set<ClassGroup>();
+    public DbSet<ClassGroupMember> ClassGroupMembers => Set<ClassGroupMember>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -122,6 +124,46 @@ public class PracticeDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.ClassId)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Cấu hình bảng ClassGroups (Nhóm học tập vi mô 3 - 5 học sinh)
+        modelBuilder.Entity<ClassGroup>(entity =>
+        {
+            entity.ToTable("ClassGroups");
+            entity.HasKey(e => e.GroupId);
+
+            entity.Property(e => e.GroupId).HasColumnName("group_id");
+            entity.Property(e => e.ClassId).HasColumnName("class_id").IsRequired();
+            entity.Property(e => e.GroupName).HasColumnName("group_name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.FocusArea).HasColumnName("focus_area").HasMaxLength(255);
+            entity.Property(e => e.CommonWeakSkillIds).HasColumnName("common_weak_skill_ids");
+            entity.Property(e => e.RecommendedWorksheetTitle).HasColumnName("recommended_worksheet_title").HasMaxLength(255);
+            entity.Property(e => e.AssignedWorksheetId).HasColumnName("assigned_worksheet_id").HasMaxLength(100);
+            entity.Property(e => e.AssignedWorksheetTitle).HasColumnName("assigned_worksheet_title").HasMaxLength(255);
+            entity.Property(e => e.WorksheetAssignedAt).HasColumnName("worksheet_assigned_at");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+
+            entity.HasOne(e => e.Class)
+                  .WithMany()
+                  .HasForeignKey(e => e.ClassId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.Members)
+                  .WithOne(m => m.Group)
+                  .HasForeignKey(m => m.GroupId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Cấu hình bảng ClassGroupMembers
+        modelBuilder.Entity<ClassGroupMember>(entity =>
+        {
+            entity.ToTable("ClassGroupMembers");
+            entity.HasKey(e => e.GroupMemberId);
+
+            entity.Property(e => e.GroupMemberId).HasColumnName("group_member_id");
+            entity.Property(e => e.GroupId).HasColumnName("group_id").IsRequired();
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.JoinedAt).HasColumnName("joined_at");
         });
 
         // Cấu hình bảng LearningRoadmaps (Core Flow 2)

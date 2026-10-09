@@ -1,5 +1,36 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [09/10/2026] - Nâng Cấp Mô Hình Giảng Dạy Offline: Giới Hạn Sĩ Số Lớp 20 Người, Đánh Số Thứ Tự Tăng Dần & Phân Nhóm Học Tập Vi Mô (3 - 5 Học Sinh)
+
+- **Giới Hạn Sĩ Số Lớp 20 Học Sinh & Tự Động Đánh Số Thứ Tự Lớp Tăng Dần**:
+  - Nâng cấp phương thức `EnrollStudentAsync` trong [`ClassEnrollmentRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs):
+    - Đặt hằng số trần sĩ số `MaxClassCapacity = 20`.
+    - Kiểm tra số lượng học sinh đang `ENROLLED` trong từng lớp cùng cấp độ (Foundation, Acceleration, Breakthrough) tại cơ sở.
+    - Nếu tất cả các lớp hiện tại đã đủ 20 học sinh (hoặc chưa có lớp nào), hệ thống tự động sinh lớp mới với số thứ tự tăng dần chuẩn hóa 2 chữ số (ví dụ: `Lớp Nền tảng (Foundation) 01 - Cơ sở Quận 9`, `Lớp Nền tảng (Foundation) 02 - Cơ sở Quận 9`...).
+  - Bổ sung phương thức `GetEnrollmentsByClassIdAsync` vào [`IClassEnrollmentRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassEnrollmentRepository.cs) và [`ClassEnrollmentRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs) phục vụ truy vấn danh sách học sinh theo lớp.
+- **Mô Hình Thực Thể Nhóm Học Tập Vi Mô (Micro Study Group)**:
+  - Tạo mới thực thể Domain [`ClassGroup.cs`](../V-Eval-Practice_Service.Domain/Entities/ClassGroup.cs): `GroupId`, `ClassId`, `GroupName`, `FocusArea`, `CommonWeakSkillIds`, `RecommendedWorksheetTitle`, `AssignedWorksheetId`, `AssignedWorksheetTitle`, `WorksheetAssignedAt`, `CreatedAt`.
+  - Tạo mới thực thể Domain [`ClassGroupMember.cs`](../V-Eval-Practice_Service.Domain/Entities/ClassGroupMember.cs): `GroupMemberId`, `GroupId`, `StudentId`, `JoinedAt`.
+  - Cấu hình quan hệ Fluent API và DbSets trong [`PracticeDbContext.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs), thiết lập Cascade Delete khi xóa lớp/nhóm.
+  - Cập nhật script khởi tạo bảng SQL tự động trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs) tạo bảng `"ClassGroups"` và `"ClassGroupMembers"` trên Supabase PostgreSQL.
+- **Repository Tầng Dữ Liệu Nhóm Học Tập Vi Mô**:
+  - Tạo giao diện [`IClassGroupRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassGroupRepository.cs) và hiện thực tại [`ClassGroupRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassGroupRepository.cs).
+  - Đăng ký DI Scoped trong [`DependencyInjection.cs`](../V-Eval-Practice_Service.Infrastructure/DependencyInjection.cs).
+- **Động Cơ Phân Cụm Vi Mô Có Ràng Buộc Kích Thước (`ClassMicroClusterer.cs`)**:
+  - Xây dựng [`IClassMicroClusterer`](../V-Eval-Practice_Service.Application/Common/Graph/ClassMicroClusterer.cs) và triển khai tại [`ClassMicroClusterer.cs`](../V-Eval-Practice_Service.Application/Common/Graph/ClassMicroClusterer.cs):
+    - Đảm bảo chặt chẽ điều kiện sĩ số mỗi nhóm nhỏ: `` `3 \le \text{Size} \le 5` ``.
+    - Tính toán số nhóm $M$ tối ưu theo kích thước mong muốn (`preferredGroupSize`, mặc định 4): `` `\lceil N / 5.0 \rceil \le M \le \lfloor N / 3.0 \rfloor` ``.
+    - Áp dụng thuật toán gom cụm đồng nhất (Homogeneous Capacitated Clustering): gom các học sinh có cùng năng lực và cùng vùng trũng kiến thức (dựa trên vector 4 miền và hồ sơ kỹ năng BKT `LearningProfiles`).
+    - Phân tích sư phạm nhóm: Tự động phát hiện các kỹ năng yếu chung (`MasteryScore < 0.60`), xác định `FocusArea`, sinh tên nhóm sư phạm (ví dụ: `"Nhóm 01 - Bàn trọng tâm: [Tên Kỹ Năng Yếu]"`) và gợi ý phiếu bài tập vi mô thích ứng (`RecommendedWorksheetTitle`).
+  - Đăng ký DI Transient trong [`DependencyInjection.cs`](../V-Eval-Practice_Service.Application/DependencyInjection.cs).
+- **Bộ 3 REST APIs Nhóm Học Tập Vi Mô Trên `ClassesController.cs`**:
+  - Bổ sung các DTOs [`ClassMicroGroupDtos.cs`](../V-Eval-Practice_Service.Application/Features/Classes/DTOs/ClassMicroGroupDtos.cs).
+  - 1. **`POST /api/practice/classes/{classId}/micro-groups/auto-partition`**: Tự động chia học sinh trong lớp thành các nhóm 3 - 5 bạn theo lỗ hổng kiến thức, lưu vào CSDL (`AutoPartitionMicroGroupsCommandHandler.cs`).
+  - 2. **`GET /api/practice/classes/{classId}/micro-groups`**: Lấy danh sách các nhóm học tập vi mô của lớp phục vụ Dashboard sơ đồ bàn học của Giảng viên (`GetClassMicroGroupsQueryHandler.cs`).
+  - 3. **`POST /api/practice/classes/{classId}/micro-groups/{groupId}/assign-worksheet`**: Phân phối đề luyện tập / phiếu bài tập vi mô thích ứng trực tiếp cho nhóm học tập (`AssignGroupWorksheetCommandHandler.cs`).
+- **Kiểm Thử Vận Hành & Biên Dịch**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
 ## [08/10/2026] - Chuyển Đổi Mô Hình Giảng Dạy Offline: Gỡ Bỏ Toàn Bộ 7/7 APIs Phân Hệ Live Streaming (LiveSessions)
 
 - **Gỡ Bỏ Tầng API Controller (`LiveSessionsController.cs`)**:

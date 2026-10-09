@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<IExamSubmissionRepository, ExamSubmissionRepository>();
         services.AddScoped<ILearningProfileRepository, LearningProfileRepository>();
         services.AddScoped<IClassEnrollmentRepository, ClassEnrollmentRepository>();
+        services.AddScoped<IClassGroupRepository, ClassGroupRepository>();
         services.AddScoped<ILearningRoadmapRepository, LearningRoadmapRepository>();
         services.AddScoped<IStageProgressRepository, StageProgressRepository>();
         services.AddScoped<IIdentityGrpcClient, IdentityGrpcClient>();

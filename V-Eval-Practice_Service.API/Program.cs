@@ -140,6 +140,26 @@ using (var scope = app.Services.CreateScope())
                 enrolled_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
             );
 
+            CREATE TABLE IF NOT EXISTS ""ClassGroups"" (
+                group_id UUID PRIMARY KEY,
+                class_id UUID NOT NULL REFERENCES ""Classes""(class_id) ON DELETE CASCADE,
+                group_name VARCHAR(255) NOT NULL,
+                focus_area VARCHAR(255),
+                common_weak_skill_ids TEXT,
+                recommended_worksheet_title VARCHAR(255),
+                assigned_worksheet_id VARCHAR(100),
+                assigned_worksheet_title VARCHAR(255),
+                worksheet_assigned_at TIMESTAMP WITH TIME ZONE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
+            );
+
+            CREATE TABLE IF NOT EXISTS ""ClassGroupMembers"" (
+                group_member_id UUID PRIMARY KEY,
+                group_id UUID NOT NULL REFERENCES ""ClassGroups""(group_id) ON DELETE CASCADE,
+                student_id UUID NOT NULL,
+                joined_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
+            );
+
             -- Bổ sung các cột mới cho Core Flow 2 nếu chưa tồn tại
             ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS video_watched_seconds INT DEFAULT 0;
             ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS video_total_seconds INT DEFAULT 0;
