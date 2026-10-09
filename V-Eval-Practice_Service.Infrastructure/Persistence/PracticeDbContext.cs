@@ -21,6 +21,7 @@ public class PracticeDbContext : DbContext
     public DbSet<LiveSessionAttendance> LiveSessionAttendances => Set<LiveSessionAttendance>();
     public DbSet<StageProgress> StageProgresses => Set<StageProgress>();
     public DbSet<AdaptiveQuizAttempt> AdaptiveQuizAttempts => Set<AdaptiveQuizAttempt>();
+    public DbSet<MistakeNotebook> MistakeNotebooks => Set<MistakeNotebook>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -277,6 +278,30 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.PriorPlt).HasColumnName("prior_plt");
             entity.Property(e => e.PosteriorPlt).HasColumnName("posterior_plt");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+        });
+
+        // Cấu hình bảng MistakeNotebooks (Core Flow 3 - Sổ tay lỗi sai & Lặp lại ngắt quãng SM-2)
+        modelBuilder.Entity<MistakeNotebook>(entity =>
+        {
+            entity.ToTable("MistakeNotebooks");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.QuestionId).HasColumnName("question_id").IsRequired();
+            entity.Property(e => e.SkillId).HasColumnName("skill_id").IsRequired();
+            entity.Property(e => e.PatternId).HasColumnName("pattern_id").HasMaxLength(100);
+            entity.Property(e => e.CognitiveErrorTag).HasColumnName("cognitive_error_tag").HasMaxLength(50);
+            entity.Property(e => e.StudentNotes).HasColumnName("student_notes");
+            entity.Property(e => e.NextReviewDate).HasColumnName("next_review_date").HasColumnType("date");
+            entity.Property(e => e.ReviewCount).HasColumnName("review_count");
+            entity.Property(e => e.ConsecutiveCorrectReviews).HasColumnName("consecutive_correct_reviews");
+            entity.Property(e => e.IntervalDays).HasColumnName("interval_days");
+            entity.Property(e => e.EaseFactor).HasColumnName("ease_factor");
+            entity.Property(e => e.IsMastered).HasColumnName("is_mastered");
+            entity.Property(e => e.LastReviewedAt).HasColumnName("last_reviewed_at");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
         });
     }
 }

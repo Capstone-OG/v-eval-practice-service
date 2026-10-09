@@ -178,6 +178,29 @@ using (var scope = app.Services.CreateScope())
                 posterior_plt DOUBLE PRECISION NOT NULL,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
             );
+
+            -- Core Flow 3: Khởi tạo bảng MistakeNotebooks phục vụ Sổ tay lỗi sai & Spaced Repetition (Module 2)
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""MistakeNotebooks"" (
+                id UUID PRIMARY KEY,
+                student_id UUID NOT NULL,
+                question_id UUID NOT NULL,
+                skill_id UUID NOT NULL,
+                pattern_id VARCHAR(100),
+                cognitive_error_tag VARCHAR(50),
+                student_notes TEXT,
+                next_review_date DATE NOT NULL,
+                review_count INT DEFAULT 0,
+                consecutive_correct_reviews INT DEFAULT 0,
+                interval_days INT DEFAULT 1,
+                ease_factor DOUBLE PRECISION DEFAULT 2.50,
+                is_mastered BOOLEAN DEFAULT FALSE,
+                last_reviewed_at TIMESTAMP WITH TIME ZONE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_mistake_notebook_daily_review 
+            ON v_eval_practice.""MistakeNotebooks"" (student_id, next_review_date, is_mastered);
         ");
         logger.LogInformation("Đã xác thực và khởi tạo thành công CSDL schema practice trên Supabase.");
 

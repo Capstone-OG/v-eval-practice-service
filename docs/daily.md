@@ -1,5 +1,75 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [09/10/2026] - Tích Hợp Động Trực Tiếp Content Service Cho Nhánh Cứu Trợ (Remedial Node) & Loại Bỏ Hoàn Toàn Hardcode
+- **Loại Bỏ Hoàn Toàn Hardcode Câu Hỏi & Đáp Án Cứu Trợ**:
+  - Tích hợp động 100% với `Content Service` qua gRPC:
+    - Trong [`GetRemedialPackageQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Queries/GetRemedialPackage/GetRemedialPackageQueryHandler.cs): Lấy danh sách câu hỏi cơ bản và biến thể thật sự từ Ngân hàng đề của Content Service (`GetMilestoneQuizAsync`), tự động loại trừ các câu hỏi học sinh đã từng làm ở các đợt cứu trợ trước (`attemptedQuestionIds`) nhằm triệt tiêu hiện tượng học vẹt / nhớ đáp án cũ.
+    - Trong [`SubmitRemedialCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/SubmitRemedial/SubmitRemedialCommandHandler.cs): Xóa bỏ hoàn toàn hàm hardcode Guid cố định (`ResolveFallbackAnswer`), chuyển sang gọi trực tiếp `GetQuestionDetailAsync` sang Content Service qua gRPC để lấy đúng phương án chính xác (`IsCorrect`) và lời giải chi tiết (`Explanation`) thật từ Ngân hàng câu hỏi.
+- **Khắc Phục Lỗi Concurrency Trong EF Core Repository**:
+  - Cập nhật [`StageProgressRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/StageProgressRepository.cs): Gán tường minh `_context.Entry(progress).State = EntityState.Modified` khi thực hiện `UpdateAsync`, tránh việc EF Core duyệt graph navigation `AdaptiveAttempts` và sinh lệnh `UPDATE` nhầm trên các attempt mới thay vì `INSERT`.
+  - Trong `SubmitRemedialCommandHandler`: Sử dụng `await _stageProgressRepository.AddAttemptAsync(...)` để ghi nhận từng attempt vào CSDL một cách an toàn và chuẩn xác.
+- **Kiểm Thử Thực Tế Hai Service Đang Chạy (Live Services Verification)**:
+  - Khởi chạy song song `Content Service` (Port 5249 REST, Port 5250 gRPC) và `Practice Service` (Port 5261 REST & Swagger).
+  - Kiểm thử toàn trình qua PowerShell:
+    - Gọi `GET /remedial` nhận thành công các câu hỏi thật từ Ngân hàng đề thuộc kỹ năng tương ứng.
+    - Gọi `POST /remedial-submit` chấm điểm dựa trên Content Service chính xác 100%.
+    - Khi làm sai (< 3/3 câu), gọi lại `GET /remedial` hệ thống tự động bốc đợt 2 với bộ 3 câu hỏi biến thể hoàn toàn mới từ Content Service.
+- **Kiểm Thử Biên Dịch**:
+  - Toàn bộ Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
+## [09/10/2026] - Hiện Thực Trọn Vẹn Module 2: Sổ Tay Lỗi Sai & Thuật Toán Lặp Lại Ngắt Quãng SM-2 (Mistake Notebook & Spaced Repetition)
+- **Kiến Trúc Dữ Liệu Sổ Tay Lỗi Sai & Lặp Lại Ngắt Quãng (Module 2 - Core Flow 3)**:
+  - Tạo thực thể [`MistakeNotebook.cs`](../V-Eval-Practice_Service.Domain/Entities/MistakeNotebook.cs):
+    - Các trường nhận thức & định danh: `Id`, `StudentId`, `QuestionId`, `SkillId`, `PatternId`, `CognitiveErrorTag`, `StudentNotes`.
+    - Các trường thuật toán SM-2: `NextReviewDate` (`date`), `ReviewCount`, `ConsecutiveCorrectReviews`, `IntervalDays`, `EaseFactor` (mặc định 2.50), `IsMastered` (đạt khi đúng liên tiếp `` `\ge 3` `` lần), `LastReviewedAt`.
+  - Cấu hình Fluent API trong [`PracticeDbContext.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs) với `.HasColumnType("date")` cho `NextReviewDate` để tránh xung đột `timestamp with time zone` của PostgreSQL Npgsql.
+  - Tự động sinh DDL bảng `MistakeNotebooks` và chỉ mục tìm kiếm tối ưu `idx_mistake_notebook_daily_review (student_id, next_review_date, is_mastered)` trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs).
+- **Tự Động Lưu Vết Câu Sai Từ Chu Trình P-L-A-R (BR-15)**:
+  - Cập nhật [`SubmitAnswerCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/SubmitAnswer/SubmitAnswerCommandHandler.cs): Khi học sinh làm sai ở bước `APPLY` (`isCorrect == false`), tự động ghi nhận câu sai vào `MistakeNotebook` với ngày hẹn ôn tập khởi điểm là ngày hôm sau (`NextReviewDate = Tomorrow`).
+- **Thuật Toán Lặp Lại Ngắt Quãng SuperMemo-2 (SM-2)**:
+  - Xây dựng động cơ [`SpacedRepetitionCalculator.cs`](../V-Eval-Practice_Service.Application/Common/Adaptive/SpacedRepetitionCalculator.cs):
+    - Lần 1 đúng: `` `Interval = 1` `` ngày.
+    - Lần 2 đúng: `` `Interval = 3` `` ngày.
+    - Lần `` `n \ge 3` `` đúng: `` `Interval = \text{round}(Interval_{n-1} \times EaseFactor)` `` ngày.
+    - Khi làm đúng liên tiếp `` `Consecutive \ge 3` ``: Gắn cờ xóa sổ lỗ hổng tri thức `` `IsMastered = true` ``.
+    - Khi làm sai: Reset `` `Consecutive = 0` ``, đưa khoảng cách về `` `Interval = 1` `` ngày và giảm nhẹ hệ số dễ `EaseFactor = Math.Max(1.30, EaseFactor - 0.20)`.
+- **Hiện Thực 4 API Endpoints Chuẩn RESTful Trong [`MistakesController.cs`](../V-Eval-Practice_Service.API/Controllers/MistakesController.cs)**:
+  1. `GET /api/practice/mistakes`: Tra cứu Sổ tay lỗi sai cá nhân, hỗ trợ phân trang, lọc theo `skillId` / `isMastered`, trả về tổng số lượng `masteredCount` và `unmasteredCount` (`GetMistakeNotebookQueryHandler.cs`).
+  2. `GET /api/practice/mistakes/daily-review`: Lấy danh sách nhiệm vụ ôn tập đến hạn hôm nay (`NextReviewDate <= TargetDate`), tự động bốc câu hỏi biến thể (*Isomorphic Question*) cùng dạng bài từ Content Service qua gRPC (`GetDailyReviewQueryHandler.cs`).
+  3. `POST /api/practice/mistakes/{id}/tag-error`: Phản tư nhận thức (*Metacognition*), gắn nhãn nguyên nhân sai (`CARELESS`, `MISREAD_QUESTION`, `MISSING_CONCEPT`) kèm ghi chú bài học kinh nghiệm (`TagCognitiveErrorCommandHandler.cs`).
+  4. `POST /api/practice/mistakes/{id}/review-submit`: Nộp bài câu hỏi ôn tập biến thể, chấm điểm, tự động tính toán khoảng cách ngày tiếp theo theo thuật toán SM-2 (`SubmitDailyReviewCommandHandler.cs`).
+- **Kiểm Thử Tự Động Toàn Trình**:
+  - Kịch bản kiểm thử tích hợp tự động qua PowerShell [`scratch/test_module_2.ps1`](./scratch/test_module_2.ps1) đã chạy thành công 100%:
+    - Tạo tiến trình -> làm sai bước APPLY -> tự động lưu vào Sổ tay.
+    - Gắn nhãn nhận thức `CARELESS` -> phản hồi hướng dẫn sư phạm chuẩn xác.
+    - Lấy câu hỏi biến thể ôn tập -> nộp đúng 3 lần liên tiếp -> SM-2 nâng khoảng cách 1 ngày -> 3 ngày -> 7 ngày -> đạt `IsMastered = true`.
+- **Kiểm Thử Biên Dịch**:
+  - Toàn bộ Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
+## [09/10/2026] - Hiện Thực Nhánh Cứu Trợ Phụ Đạo Động (Remedial Node - BR-03) & Tích Hợp Ngân Hàng Đề Content Service
+- **Hiện Thực Trọn Vẹn Chu Trình Cứu Trợ Phụ Đạo (Remedial Node - Core Flow 3)**:
+  - Bổ sung thực thể DTOs [`RemedialDtos.cs`](../V-Eval-Practice_Service.Application/Features/Stages/DTOs/RemedialDtos.cs) phục vụ phân phối gói cứu trợ và tiếp nhận bài làm của học sinh.
+  - Hiện thực Query [`GetRemedialPackageQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Queries/GetRemedialPackage/GetRemedialPackageQueryHandler.cs):
+    1. Tra cứu dạng bài `SkillId` và đề thi `QuizExamId` của chặng học.
+    2. Gọi `IContentGrpcClient.GetMilestoneQuizAsync` để bốc trực tiếp các câu hỏi cơ bản mức độ dễ ($b < 0.0$, Nhận biết / Thông hiểu) từ Ngân hàng đề của Content Service.
+    3. Tự động sinh tóm tắt lý thuyết, công thức cốt lõi và video ôn tập ngắn hạn phù hợp chính xác theo dạng bài đang hổng.
+    4. Cung cấp cơ chế dự phòng an toàn (Fallback Graceful Degradation) khi tạm mất kết nối gRPC.
+  - Hiện thực Command [`SubmitRemedialCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/SubmitRemedial/SubmitRemedialCommandHandler.cs):
+    1. Chấm điểm bài cứu trợ dựa trên AnswerKeys lấy từ Content Service (`GetExamAnswerKeysAsync`) hoặc bộ đối soát chuẩn.
+    2. Reset bộ đếm câu sai liên tiếp `progress.ConsecutiveIncorrect = 0`.
+    3. Giải cứu trạng thái chặng từ `REMEDIAL_REQUIRED` về `IN_PROGRESS` và đưa học sinh quay lại bước `APPLY` để tiếp tục làm bài thích ứng.
+  - Cập nhật [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs) với 2 endpoint chuẩn:
+    - `GET /api/practice/stages/{stageProgressId}/remedial`
+    - `POST /api/practice/stages/{stageProgressId}/remedial-submit`
+- **Kiểm Thử Biên Dịch**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
 ## [08/10/2026] - Khởi Động Core Flow 3 (Bước 0 & API 1): Mô Hình Thực Thể P-L-A-R & API Khởi Tạo Chặng Học (StartStage)
 - **Mở Rộng Domain Entities Core Flow 3**:
   - Tạo thực thể [`StageProgress.cs`](../V-Eval-Practice_Service.Domain/Entities/StageProgress.cs): Quản lý tiến trình 4 bước P-L-A-R (`CurrentStep`: `PREVIEW`, `LEARN`, `APPLY`, `REFLECT`), `VideoWatchPercentage`, xác suất thành thạo BKT `BktMasteryPlt` (mặc định 0.1000), đếm câu đúng liên tiếp $b \ge 0.50$ `ConsecutiveAdvancedCorrect`, đếm câu sai liên tiếp `ConsecutiveIncorrect`, trạng thái chặng `Status` (`IN_PROGRESS`, `REMEDIAL_REQUIRED`, `COMPLETED`).
