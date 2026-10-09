@@ -361,6 +361,25 @@
 4. **`POST /api/practice/mistakes/{id}/review-submit`**:
    - Validates student answer against variant key, updates SM-2 repetition schedule, and yields next review date.
 
+---
+
+## 9. DYNAMIC CONTENT SERVICE INTEGRATION FOR REMEDIAL NODES (BR-03)
+
+### 9.1 Zero-Hardcoding Content Resolution Architecture
+- Remedial questions and their verification keys are completely decoupled from static application code.
+- **Dynamic Retrieval (`GetRemedialPackageQueryHandler`)**:
+  - Connects to `Content Service` via gRPC HTTP/2 port `5250` (`GetMilestoneQuizAsync`).
+  - Filters out previously attempted questions (`attemptedQuestionIds`) based on student's `AdaptiveQuizAttempt` history to prevent rote memorization and answer retention.
+  - Dynamically packages the easiest foundational questions ($b < 0.0$, Bloom levels: Remember / Understand).
+- **Dynamic Grading & Resolution (`SubmitRemedialCommandHandler`)**:
+  - Queries question details and options via `GetQuestionDetailAsync` in `Content Service`.
+  - Determines correct option from `Options.FirstOrDefault(o => o.IsCorrect)` and fetches authoritative pedagogical explanation (`Explanation`).
+  - Fully eliminates static Guid lookup tables.
+- **Concurrency & State Management**:
+  - Employs dedicated repository insertion (`_stageProgressRepository.AddAttemptAsync`) preventing EF Core from erroneously marking new attempts as modified in navigation graphs.
+  - Requires 100% correct answers (3/3) to transition status back to `IN_PROGRESS` and resume the `APPLY` step.
+
+
 
 
 

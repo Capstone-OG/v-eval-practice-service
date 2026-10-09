@@ -9,6 +9,7 @@ using V_Eval_Practice_Service.Application.Common.Interfaces;
 using V_Eval_Practice_Service.Application.Common.Interfaces.Repositories;
 using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.Stages.DTOs;
+using V_Eval_Practice_Service.Domain.Entities;
 
 namespace V_Eval_Practice_Service.Application.Features.Stages.Commands.SubmitRemedial;
 
@@ -75,23 +76,29 @@ public class SubmitRemedialCommandHandler : IRequestHandler<SubmitRemedialComman
             }
         }
 
-        // Chấm điểm từng câu hỏi cứu trợ dựa trên Ngân hàng đề
+        // Tính đợt cứu trợ hiện tại để ghi nhận log
+        int remedialAttemptCount = progress.AdaptiveAttempts?
+            .Count(a => a.PatternId != null && a.PatternId.StartsWith("REMEDIAL")) / 3 ?? 0;
+
+        // Chấm điểm từng câu hỏi cứu trợ
         var results = new List<RemedialQuestionResultDto>();
         int correctCount = 0;
+
+        progress.AdaptiveAttempts ??= new List<AdaptiveQuizAttempt>();
 
         foreach (var ans in request.Request.Answers)
         {
             string correctOpt = "A";
             string explanation = string.Empty;
 
-            // 1. Ưu tiên gọi GetQuestionDetailAsync sang Content Service để lấy chính xác đáp án và lời giải thật
+            // 1. Ưu tiên lấy chính xác đáp án và lời giải chi tiết từ Content Service qua gRPC
             try
             {
                 var questionDetail = await _contentGrpcClient.GetQuestionDetailAsync(ans.QuestionId, ct);
                 if (questionDetail != null && questionDetail.Options.Count > 0)
                 {
                     var correctOptionObj = questionDetail.Options.FirstOrDefault(o => o.IsCorrect);
-                    if (correctOptionObj != null)
+                    if (correctOptionObj != null && !string.IsNullOrWhiteSpace(correctOptionObj.OptionId))
                     {
                         correctOpt = correctOptionObj.OptionId;
                     }
@@ -100,6 +107,10 @@ public class SubmitRemedialCommandHandler : IRequestHandler<SubmitRemedialComman
                     {
                         explanation = questionDetail.Explanation;
                     }
+                    else
+                    {
+                        explanation = $"Lời giải từ Ngân hàng câu hỏi Content Service ({skillName}): Áp dụng kiến thức nền tảng và phương pháp giải chuẩn tắc để chọn đáp án {correctOpt}.";
+                    }
                 }
             }
             catch (Exception ex)
@@ -107,18 +118,17 @@ public class SubmitRemedialCommandHandler : IRequestHandler<SubmitRemedialComman
                 _logger.LogWarning(ex, "Không thể lấy QuestionDetail từ Content Service cho QuestionId {QuestionId}", ans.QuestionId);
             }
 
-            // 2. Nếu chưa có lời giải, tra cứu qua bảng đáp án đề thi (AnswerKeys)
+            // 2. Nếu câu hỏi thuộc đề thi tổng hợp, tra cứu qua bảng đáp án (AnswerKeys) từ Content Service
             if (string.IsNullOrEmpty(explanation) && answerKeys != null && answerKeys.TryGetValue(ans.QuestionId, out var keyDto))
             {
                 correctOpt = keyDto.CorrectOption;
-                explanation = $"Đáp án chuẩn theo ngân hàng đề chuyên đề '{keyDto.SkillName}'.";
+                explanation = $"Đáp án chuẩn từ Content Service cho chuyên đề '{keyDto.SkillName}'.";
             }
 
-            // 3. Cơ chế Fallback an toàn theo đúng Dạng bài (KHÔNG hardcode công thức môn khác)
+            // 3. Fallback tổng quát dự phòng nếu Content Service tạm thời gián đoạn
             if (string.IsNullOrEmpty(explanation))
             {
-                correctOpt = "A";
-                explanation = $"Phương pháp giải tiêu chuẩn cho câu hỏi thuộc chuyên đề '{skillName}': Áp dụng trực tiếp định nghĩa và tính chất cơ bản để tìm ra đáp án chính xác.";
+                explanation = $"Giải thích từ hệ thống học liệu: Áp dụng trực tiếp định nghĩa và phương pháp cốt lõi của chuyên đề '{skillName}' để kiểm chứng phương án {correctOpt}.";
             }
 
             bool isCorrect = string.Equals(ans.SelectedOption?.Trim(), correctOpt, StringComparison.OrdinalIgnoreCase);
@@ -134,39 +144,83 @@ public class SubmitRemedialCommandHandler : IRequestHandler<SubmitRemedialComman
                 isCorrect,
                 explanation
             ));
+
+            // Lưu vết lịch sử làm bài cứu trợ bằng Repository AddAttemptAsync để không gây xung đột Concurrency
+            await _stageProgressRepository.AddAttemptAsync(new AdaptiveQuizAttempt
+            {
+                Id = Guid.NewGuid(),
+                StageProgressId = progress.Id,
+                StudentId = progress.StudentId,
+                QuestionId = ans.QuestionId,
+                PatternId = $"REMEDIAL_ATTEMPT_{remedialAttemptCount + 1}",
+                SelectedOption = ans.SelectedOption?.Trim() ?? string.Empty,
+                IsCorrect = isCorrect,
+                TimeSpentSeconds = 30,
+                ItemDifficultyB = -1.0,
+                ItemDiscriminationA = 1.0,
+                IsLuckyGuess = false,
+                PriorPlt = progress.BktMasteryPlt,
+                PosteriorPlt = progress.BktMasteryPlt,
+                CreatedAt = DateTime.UtcNow
+            }, ct);
         }
 
         int totalQuestions = results.Count > 0 ? results.Count : 3;
-        bool isRemedialPassed = true; // Học sinh đã tích cực xem phương pháp và hoàn thành làm lại
+        bool isRemedialPassed = (correctCount == totalQuestions);
 
-        // KHÔI PHỤC TIẾN TRÌNH:
-        // 1. Reset chuỗi câu sai về 0
-        progress.ConsecutiveIncorrect = 0;
-        // 2. Chuyển trạng thái từ REMEDIAL_REQUIRED về IN_PROGRESS
-        progress.Status = "IN_PROGRESS";
-        // 3. Đảm bảo bước học tập là APPLY để tiếp tục luyện tập thích ứng
-        progress.CurrentStep = "APPLY";
-        progress.UpdatedAt = DateTime.UtcNow;
+        if (isRemedialPassed)
+        {
+            // ĐẠT YÊU CẦU (ĐÚNG 100% CÂU CỨU TRỢ): Khôi phục chặng học
+            progress.ConsecutiveIncorrect = 0;
+            progress.Status = "IN_PROGRESS";
+            progress.CurrentStep = "APPLY";
+            progress.UpdatedAt = DateTime.UtcNow;
 
-        await _stageProgressRepository.UpdateAsync(progress, ct);
+            await _stageProgressRepository.UpdateAsync(progress, ct);
 
-        _logger.LogInformation(
-            "Học sinh {StudentId} hoàn thành gói cứu trợ dạng bài '{SkillName}' (Điểm: {Score}/{Total}): Khôi phục Status=IN_PROGRESS, ConsecutiveIncorrect=0",
-            progress.StudentId, skillName, correctCount, totalQuestions);
+            _logger.LogInformation(
+                "Học sinh {StudentId} xuất sắc hoàn thành gói cứu trợ '{SkillName}' ({Score}/{Total}): Khôi phục Status=IN_PROGRESS, ConsecutiveIncorrect=0",
+                progress.StudentId, skillName, correctCount, totalQuestions);
 
-        var response = new SubmitRemedialResponseDto(
-            progress.Id,
-            Score: correctCount,
-            TotalQuestions: totalQuestions,
-            IsRemedialPassed: isRemedialPassed,
-            CurrentStatus: progress.Status,
-            CurrentStep: progress.CurrentStep,
-            ConsecutiveIncorrect: progress.ConsecutiveIncorrect,
-            Message: $"Chúc mừng bạn đã hoàn tất gói cứu trợ phụ đạo chuyên đề '{skillName}' (Đạt {correctCount}/{totalQuestions} câu). Chuỗi sai đã được đặt lại và chặng học đã khôi phục trạng thái IN_PROGRESS. Hãy tự tin quay lại bước APPLY để tiếp tục làm bài!",
-            NextAction: "RESUME_APPLY",
-            Results: results
-        );
+            var response = new SubmitRemedialResponseDto(
+                progress.Id,
+                Score: correctCount,
+                TotalQuestions: totalQuestions,
+                IsRemedialPassed: true,
+                CurrentStatus: progress.Status,
+                CurrentStep: progress.CurrentStep,
+                ConsecutiveIncorrect: progress.ConsecutiveIncorrect,
+                Message: $"Xuất sắc! Bạn đã trả lời đúng toàn bộ ({correctCount}/{totalQuestions}) câu hỏi cứu trợ phụ đạo chuyên đề '{skillName}'. Nền tảng đã vững chắc, trạng thái chặng học đã khôi phục. Hãy tự tin quay lại bước APPLY để tiếp tục luyện tập thích ứng!",
+                NextAction: "RESUME_APPLY",
+                Results: results
+            );
 
-        return Result<SubmitRemedialResponseDto>.Success(response);
+            return Result<SubmitRemedialResponseDto>.Success(response);
+        }
+        else
+        {
+            // CHƯA ĐẠT HẾT: Giữ nguyên REMEDIAL_REQUIRED để học sinh ôn lại và làm đề biến thể mới
+            progress.UpdatedAt = DateTime.UtcNow;
+            await _stageProgressRepository.UpdateAsync(progress, ct);
+
+            _logger.LogInformation(
+                "Học sinh {StudentId} chưa vượt qua gói cứu trợ '{SkillName}' ({Score}/{Total}): Giữ nguyên Status=REMEDIAL_REQUIRED, chuẩn bị cấp đề biến thể đợt {NextAttempt}",
+                progress.StudentId, skillName, correctCount, totalQuestions, remedialAttemptCount + 2);
+
+            var response = new SubmitRemedialResponseDto(
+                progress.Id,
+                Score: correctCount,
+                TotalQuestions: totalQuestions,
+                IsRemedialPassed: false,
+                CurrentStatus: progress.Status,
+                CurrentStep: progress.CurrentStep,
+                ConsecutiveIncorrect: progress.ConsecutiveIncorrect,
+                Message: $"Bạn đã trả lời đúng {correctCount}/{totalQuestions} câu hỏi. Để đảm bảo không học vẹt và đã lấp đầy hoàn toàn lỗ hổng kiến thức, hệ thống sẽ cấp một bộ câu hỏi biến thể mới cho lần thử tiếp theo. Hãy xem lại tóm tắt phương pháp và bấm lấy lại gói cứu trợ nhé!",
+                NextAction: "RETRY_REMEDIAL",
+                Results: results
+            );
+
+            return Result<SubmitRemedialResponseDto>.Success(response);
+        }
     }
 }

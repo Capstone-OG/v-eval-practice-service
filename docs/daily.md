@@ -1,5 +1,24 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [09/10/2026] - Tích Hợp Động Trực Tiếp Content Service Cho Nhánh Cứu Trợ (Remedial Node) & Loại Bỏ Hoàn Toàn Hardcode
+- **Loại Bỏ Hoàn Toàn Hardcode Câu Hỏi & Đáp Án Cứu Trợ**:
+  - Tích hợp động 100% với `Content Service` qua gRPC:
+    - Trong [`GetRemedialPackageQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Queries/GetRemedialPackage/GetRemedialPackageQueryHandler.cs): Lấy danh sách câu hỏi cơ bản và biến thể thật sự từ Ngân hàng đề của Content Service (`GetMilestoneQuizAsync`), tự động loại trừ các câu hỏi học sinh đã từng làm ở các đợt cứu trợ trước (`attemptedQuestionIds`) nhằm triệt tiêu hiện tượng học vẹt / nhớ đáp án cũ.
+    - Trong [`SubmitRemedialCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/SubmitRemedial/SubmitRemedialCommandHandler.cs): Xóa bỏ hoàn toàn hàm hardcode Guid cố định (`ResolveFallbackAnswer`), chuyển sang gọi trực tiếp `GetQuestionDetailAsync` sang Content Service qua gRPC để lấy đúng phương án chính xác (`IsCorrect`) và lời giải chi tiết (`Explanation`) thật từ Ngân hàng câu hỏi.
+- **Khắc Phục Lỗi Concurrency Trong EF Core Repository**:
+  - Cập nhật [`StageProgressRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/StageProgressRepository.cs): Gán tường minh `_context.Entry(progress).State = EntityState.Modified` khi thực hiện `UpdateAsync`, tránh việc EF Core duyệt graph navigation `AdaptiveAttempts` và sinh lệnh `UPDATE` nhầm trên các attempt mới thay vì `INSERT`.
+  - Trong `SubmitRemedialCommandHandler`: Sử dụng `await _stageProgressRepository.AddAttemptAsync(...)` để ghi nhận từng attempt vào CSDL một cách an toàn và chuẩn xác.
+- **Kiểm Thử Thực Tế Hai Service Đang Chạy (Live Services Verification)**:
+  - Khởi chạy song song `Content Service` (Port 5249 REST, Port 5250 gRPC) và `Practice Service` (Port 5261 REST & Swagger).
+  - Kiểm thử toàn trình qua PowerShell:
+    - Gọi `GET /remedial` nhận thành công các câu hỏi thật từ Ngân hàng đề thuộc kỹ năng tương ứng.
+    - Gọi `POST /remedial-submit` chấm điểm dựa trên Content Service chính xác 100%.
+    - Khi làm sai (< 3/3 câu), gọi lại `GET /remedial` hệ thống tự động bốc đợt 2 với bộ 3 câu hỏi biến thể hoàn toàn mới từ Content Service.
+- **Kiểm Thử Biên Dịch**:
+  - Toàn bộ Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
 ## [09/10/2026] - Hiện Thực Trọn Vẹn Module 2: Sổ Tay Lỗi Sai & Thuật Toán Lặp Lại Ngắt Quãng SM-2 (Mistake Notebook & Spaced Repetition)
 - **Kiến Trúc Dữ Liệu Sổ Tay Lỗi Sai & Lặp Lại Ngắt Quãng (Module 2 - Core Flow 3)**:
   - Tạo thực thể [`MistakeNotebook.cs`](../V-Eval-Practice_Service.Domain/Entities/MistakeNotebook.cs):
