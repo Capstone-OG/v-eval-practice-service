@@ -1,5 +1,25 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [09/10/2026] - Hiện Thực Nhánh Cứu Trợ Phụ Đạo Động (Remedial Node - BR-03) & Tích Hợp Ngân Hàng Đề Content Service
+- **Hiện Thực Trọn Vẹn Chu Trình Cứu Trợ Phụ Đạo (Remedial Node - Core Flow 3)**:
+  - Bổ sung thực thể DTOs [`RemedialDtos.cs`](../V-Eval-Practice_Service.Application/Features/Stages/DTOs/RemedialDtos.cs) phục vụ phân phối gói cứu trợ và tiếp nhận bài làm của học sinh.
+  - Hiện thực Query [`GetRemedialPackageQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Queries/GetRemedialPackage/GetRemedialPackageQueryHandler.cs):
+    1. Tra cứu dạng bài `SkillId` và đề thi `QuizExamId` của chặng học.
+    2. Gọi `IContentGrpcClient.GetMilestoneQuizAsync` để bốc trực tiếp các câu hỏi cơ bản mức độ dễ ($b < 0.0$, Nhận biết / Thông hiểu) từ Ngân hàng đề của Content Service.
+    3. Tự động sinh tóm tắt lý thuyết, công thức cốt lõi và video ôn tập ngắn hạn phù hợp chính xác theo dạng bài đang hổng.
+    4. Cung cấp cơ chế dự phòng an toàn (Fallback Graceful Degradation) khi tạm mất kết nối gRPC.
+  - Hiện thực Command [`SubmitRemedialCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/SubmitRemedial/SubmitRemedialCommandHandler.cs):
+    1. Chấm điểm bài cứu trợ dựa trên AnswerKeys lấy từ Content Service (`GetExamAnswerKeysAsync`) hoặc bộ đối soát chuẩn.
+    2. Reset bộ đếm câu sai liên tiếp `progress.ConsecutiveIncorrect = 0`.
+    3. Giải cứu trạng thái chặng từ `REMEDIAL_REQUIRED` về `IN_PROGRESS` và đưa học sinh quay lại bước `APPLY` để tiếp tục làm bài thích ứng.
+  - Cập nhật [`StagesController.cs`](../V-Eval-Practice_Service.API/Controllers/StagesController.cs) với 2 endpoint chuẩn:
+    - `GET /api/practice/stages/{stageProgressId}/remedial`
+    - `POST /api/practice/stages/{stageProgressId}/remedial-submit`
+- **Kiểm Thử Biên Dịch**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
 ## [08/10/2026] - Khởi Động Core Flow 3 (Bước 0 & API 1): Mô Hình Thực Thể P-L-A-R & API Khởi Tạo Chặng Học (StartStage)
 - **Mở Rộng Domain Entities Core Flow 3**:
   - Tạo thực thể [`StageProgress.cs`](../V-Eval-Practice_Service.Domain/Entities/StageProgress.cs): Quản lý tiến trình 4 bước P-L-A-R (`CurrentStep`: `PREVIEW`, `LEARN`, `APPLY`, `REFLECT`), `VideoWatchPercentage`, xác suất thành thạo BKT `BktMasteryPlt` (mặc định 0.1000), đếm câu đúng liên tiếp $b \ge 0.50$ `ConsecutiveAdvancedCorrect`, đếm câu sai liên tiếp `ConsecutiveIncorrect`, trạng thái chặng `Status` (`IN_PROGRESS`, `REMEDIAL_REQUIRED`, `COMPLETED`).
