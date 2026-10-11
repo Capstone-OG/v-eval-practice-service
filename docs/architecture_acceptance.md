@@ -225,3 +225,28 @@
   - Dispatches an aggregated query across all classes via `classIds.Contains(s.ClassId)` ordered chronologically.
 - **DTO Model Enhancements (`LiveSessionScheduleItemDto`)**:
   - Exposed `ClassId`, `ClassName`, and `DomainCode` (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`) for each scheduled session, empowering students to readily distinguish domain live lectures from general cohort meetings.
+
+---
+
+## 7. CORE FLOW 4 — GRAPH-RAG SOCRATIC AI TUTOR INTEGRATION ACCEPTANCE (PHASE 5)
+
+### 7.1 Architecture Overview
+- **Inter-Service Role**: Acts as the student-facing gateway and streaming proxy bridge between client web/mobile applications and the downstream Python FastAPI AI Tutor engine (`rag-service` on port 8000).
+- **Core Principles**:
+  - Zero-blocking streaming: tokens emitted by the Python Socratic engine are piped instantaneously to students via Server-Sent Events (SSE).
+  - High resilience: network timeouts, model outages, or rate-limit violations trigger structured pedagogical fallbacks synthesized from Knowledge Graph theorems, preventing broken student sessions.
+  - Strict abuse defense: enforces ASP.NET Core 9 Rate Limiting with strict per-student token quotas.
+
+### 7.2 Component Specifications
+1. **Application Interface (`IAiTutorClient`)**:
+   - `StreamSocraticGuidanceAsync(SocraticAskRequestPayload, CancellationToken)`: Yields asynchronous stream chunks (`IAsyncEnumerable<string>`).
+   - `AskSocraticGuidanceAsync(SocraticAskRequestPayload, CancellationToken)`: Direct synchronous request returning `SocraticAskResponseDto`.
+2. **Infrastructure Client (`AiTutorClient`)**:
+   - Consumes `POST /api/v1/socratic/ask-stream` with `HttpCompletionOption.ResponseHeadersRead`.
+   - Parses incoming SSE lines (`data: {"type": "token", "token": "..."}`) with `JsonDocument` and yields tokens dynamically.
+   - Graceful fallback: If connection fails, yields verified Socratic heuristic guidance.
+3. **API Layer (`AiTutorController` & `Program.cs`)**:
+   - `StrictTutorPolicy`: Fixed window rate limiter configured to 10 requests / minute per client (`429 Too Many Requests`).
+   - `POST /api/practice/ai-tutor/ask-stream`: Emits `text/event-stream; charset=utf-8` with SSE events, terminating with `data: [DONE]\n\n`.
+   - Identity extraction: Seamlessly resolves `StudentId` from Gateway `X-User-Id` header with payload fallback.
+
