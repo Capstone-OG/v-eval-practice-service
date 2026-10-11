@@ -379,6 +379,59 @@
   - Employs dedicated repository insertion (`_stageProgressRepository.AddAttemptAsync`) preventing EF Core from erroneously marking new attempts as modified in navigation graphs.
   - Requires 100% correct answers (3/3) to transition status back to `IN_PROGRESS` and resume the `APPLY` step.
 
+---
+
+## 10. STRATEGIC MIGRATION: TRANSITION TO OFFLINE DELIVERY & RETIREMENT OF LIVESTREAM APIS
+
+### 10.1 Strategic Rationale
+- The educational delivery model transitions from real-time online video streaming to dedicated offline campus lectures and in-person mentorship.
+- Real-time online streaming endpoints (`/api/practice/live-sessions`) are formally decommissioned to eliminate dead code and prevent operational overhead.
+
+### 10.2 Decommissioned Components
+1. **API Layer**: `LiveSessionsController.cs` and all 7 associated endpoints (`POST /live-sessions`, `GET /my-schedule`, `POST /{sessionId}/join`, `POST /{sessionId}/attendance`, `GET /teacher-schedule`, `PUT /{sessionId}/recording`, `PUT /{sessionId}/cancel`) have been completely removed.
+2. **Application Layer**: Cleaned all CQRS commands, queries, and DTOs within `Features/LiveSessions`.
+3. **Repository Decoupling**: Refactored `AssignTeacherCommandHandler` to depend on `IClassEnrollmentRepository` rather than `ILiveSessionRepository`. Fully removed `ILiveSessionRepository` and `LiveSessionRepository`.
+
+---
+
+## 11. CORE FLOW 2 UPGRADE: OFFLINE COHORT CAPACITY ENFORCEMENT & MICRO STUDY GROUPING (3 - 5 STUDENTS)
+
+### 11.1 20-Student Cohort Capacity Enforcement & Auto-Incrementing Class Numbering
+- **Pedagogical Rationale**: Offline classroom delivery demands bounded cohort sizes to ensure close academic monitoring. A cap of 20 students represents the golden ratio for intensive offline coaching.
+- **Implementation (`ClassEnrollmentRepository.EnrollStudentAsync`)**:
+  - Imposes strict capacity ceiling `MaxClassCapacity = 20`.
+  - Queries active placement cohorts matching the student's assigned ability tier (`FOUNDATION`, `ACCELERATION`, `BREAKTHROUGH`).
+  - Computes active enrollment count per cohort (`e.Status == "ENROLLED"`).
+  - Automatically provisions new classes when existing cohorts reach 20 students, naming them deterministically with two-digit increments (e.g., `Lớp Nền tảng (Foundation) 01 - Cơ sở Quận 9`, `Lớp Nền tảng (Foundation) 02 - Cơ sở Quận 9`).
+
+### 11.2 Domain Entities & Relational Schema for Micro Study Groups
+- **`ClassGroup` Entity**: Represents a micro study group within an offline cohort.
+  - Properties: `GroupId`, `ClassId`, `GroupName`, `FocusArea`, `CommonWeakSkillIds`, `RecommendedWorksheetTitle`, `AssignedWorksheetId`, `AssignedWorksheetTitle`, `WorksheetAssignedAt`, `CreatedAt`.
+  - Navigation: Belongs to `Class` with cascade deletion; owns multiple `Members` (`ClassGroupMember`).
+- **`ClassGroupMember` Entity**: Bridges individual students to their micro-group.
+  - Properties: `GroupMemberId`, `GroupId`, `StudentId`, `JoinedAt`.
+- **Database Bootstrapping**: Registered in `PracticeDbContext` and bootstrapped via SQL DDL in `Program.cs` under tables `"ClassGroups"` and `"ClassGroupMembers"`.
+
+### 11.3 Constrained Homogeneous Micro-Clustering Engine (`ClassMicroClusterer.cs`)
+- **Strict Size Constraint**: Guarantees that every generated micro-group strictly satisfies `` `3 \le \text{Size} \le 5` ``.
+- **Mathematical Partitioning**:
+  - Valid group count range: `` `\lceil N / 5.0 \rceil \le M \le \lfloor N / 3.0 \rfloor` ``.
+  - Resolves target group sizes `` `\text{baseSize} = \lfloor N / M \rfloor` `` with remainder distributed across the first `` `N \bmod M` `` groups.
+- **Homogeneous Deficiency Matching**:
+  - Encodes student knowledge states via 4-domain vectors combined with granular skill mastery priors (`LearningProfiles.MasteryScore`).
+  - Initializes $M$ centroids using K-Means++ and applies a capacitated greedy matching algorithm to group students possessing similar knowledge gaps at the same study table.
+  - Profiling: Detects shared deficiency skills (`` `\text{MasteryScore} < 0.60` ``), names the group accordingly (e.g., `"Nhóm 01 - Bàn trọng tâm: [Skill Name]"`), and recommends targeted adaptive worksheets.
+
+### 11.4 REST API Specifications for In-Class Micro-Grouping
+1. **Auto-Partition Endpoint**: `POST /api/practice/classes/{classId}/micro-groups/auto-partition`
+   - Request: `AutoPartitionMicroGroupsRequestDto` (`PreferredGroupSize`: optional, default 4).
+   - Response: `AutoPartitionMicroGroupsResponseDto` (`ClassId`, `ClassName`, `TotalStudents`, `TotalGroups`, `Groups`).
+2. **Class Group Roster Query Endpoint**: `GET /api/practice/classes/{classId}/micro-groups`
+   - Response: `List<ClassMicroGroupDto>` detailing table layout, member rosters, common weak skills, and assigned worksheets.
+3. **Adaptive Worksheet Assignment Endpoint**: `POST /api/practice/classes/{classId}/micro-groups/{groupId}/assign-worksheet`
+   - Request: `AssignWorksheetRequestDto` (`WorksheetId`, `WorksheetTitle`).
+   - Response: `AssignWorksheetResponseDto` confirming targeted worksheet distribution to table members.
+
 
 
 
