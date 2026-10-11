@@ -41,7 +41,11 @@ public class StageProgressRepository : IStageProgressRepository
     public async Task UpdateAsync(StageProgress progress, CancellationToken ct = default)
     {
         progress.UpdatedAt = DateTime.UtcNow;
-        _context.StageProgresses.Update(progress);
+        if (_context.Entry(progress).State == EntityState.Detached)
+        {
+            _context.StageProgresses.Attach(progress);
+        }
+        _context.Entry(progress).State = EntityState.Modified;
         await _context.SaveChangesAsync(ct);
     }
 

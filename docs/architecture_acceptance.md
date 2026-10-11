@@ -311,22 +311,92 @@
 
 ---
 
-## 8. STRATEGIC MIGRATION: TRANSITION TO OFFLINE DELIVERY & RETIREMENT OF LIVESTREAM APIS
+## 8. CORE FLOW 3 - MODULE 2: MISTAKE NOTEBOOK & SPACED REPETITION ENGINE (SM-2)
 
-### 8.1 Strategic Rationale
+### 8.1 Domain Aggregate & Schema Design (`practice.MistakeNotebooks`)
+- **Table Definition**: `v_eval_practice."MistakeNotebooks"`
+  - `id`: UUID Primary Key.
+  - `student_id`: UUID, foreign ownership key.
+  - `question_id`: UUID, original mistaken question.
+  - `skill_id`: UUID, competency domain identifier.
+  - `pattern_id`: VARCHAR(100), pedagogical problem pattern (e.g. `PATTERN_DERIVATIVE_01`).
+  - `cognitive_error_tag`: VARCHAR(50), pedagogical error categorization (`CARELESS`, `MISREAD_QUESTION`, `MISSING_CONCEPT`).
+  - `student_notes`: TEXT, metacognitive self-reflection notes.
+  - `next_review_date`: DATE NOT NULL, next scheduled review timestamp (UTC).
+  - `review_count`: INT, total review attempts.
+  - `consecutive_correct_reviews`: INT, consecutive streak of correct reviews.
+  - `interval_days`: INT, current interval spacing (1, 3, 7+ days).
+  - `ease_factor`: DOUBLE PRECISION, SuperMemo-2 ease factor (default 2.50).
+  - `is_mastered`: BOOLEAN, mastery flag set upon 3 consecutive successful reviews.
+  - `last_reviewed_at`: TIMESTAMP WITH TIME ZONE.
+  - `created_at`, `updated_at`: Standard temporal audit columns.
+- **Index**: `idx_mistake_notebook_daily_review` on `(student_id, next_review_date, is_mastered)` for $O(\log N)$ review queries.
+
+### 8.2 Pedagogical Rule BR-15: Automated Error Capture
+- Implemented in `SubmitAnswerCommandHandler.cs`:
+  - When an adaptive question attempt at the `APPLY` step produces `isCorrect == false`, the engine automatically intercepts the event.
+  - Verifies whether an entry for `(StudentId, QuestionId)` already exists. If absent, an entry is persisted with `NextReviewDate = Tomorrow` (UTC), `ConsecutiveCorrectReviews = 0`, and `IntervalDays = 1`.
+
+### 8.3 SuperMemo-2 (SM-2) Spaced Repetition Mathematical Model
+- Implemented in `SpacedRepetitionCalculator.cs`:
+  - **Repetition 1 (Correct)**: `` `Interval_1 = 1` `` day, `` `Consecutive = 1` ``.
+  - **Repetition 2 (Correct)**: `` `Interval_2 = 3` `` days, `` `Consecutive = 2` ``.
+  - **Repetition `` `n \ge 3` `` (Correct)**:
+    - `` `Interval_n = \text{round}(Interval_{n-1} \times EaseFactor)` `` days.
+    - If `` `Consecutive \ge 3` ``: sets `` `IsMastered = true` ``, permanently retiring the knowledge gap.
+  - **Incorrect Review**:
+    - Resets `` `Consecutive = 0` ``, resets `` `Interval = 1` `` day.
+    - Adjusts ease factor downwards: `` `EaseFactor = \max(1.30, EaseFactor - 0.20)` ``.
+
+### 8.4 Module 2 RESTful Endpoints (`MistakesController`)
+1. **`GET /api/practice/mistakes`**:
+   - Paginated mistake list with filters (`skillId`, `isMastered`).
+   - Computes statistical summary: `totalCount`, `masteredCount`, and `unmasteredCount`.
+2. **`GET /api/practice/mistakes/daily-review`**:
+   - Queries due review items: `` `next_review_date \le \text{TargetDate} \land \neg is\_mastered` ``.
+   - Enriches candidates with Isomorphic Variant questions fetched dynamically from Content Service via gRPC.
+3. **`POST /api/practice/mistakes/{id}/tag-error`**:
+   - Enables metacognitive self-diagnosis (`CARELESS`, `MISREAD_QUESTION`, `MISSING_CONCEPT`).
+   - Validates input with FluentValidation and records personal student notes.
+4. **`POST /api/practice/mistakes/{id}/review-submit`**:
+   - Validates student answer against variant key, updates SM-2 repetition schedule, and yields next review date.
+
+---
+
+## 9. DYNAMIC CONTENT SERVICE INTEGRATION FOR REMEDIAL NODES (BR-03)
+
+### 9.1 Zero-Hardcoding Content Resolution Architecture
+- Remedial questions and their verification keys are completely decoupled from static application code.
+- **Dynamic Retrieval (`GetRemedialPackageQueryHandler`)**:
+  - Connects to `Content Service` via gRPC HTTP/2 port `5250` (`GetMilestoneQuizAsync`).
+  - Filters out previously attempted questions (`attemptedQuestionIds`) based on student's `AdaptiveQuizAttempt` history to prevent rote memorization and answer retention.
+  - Dynamically packages the easiest foundational questions ($b < 0.0$, Bloom levels: Remember / Understand).
+- **Dynamic Grading & Resolution (`SubmitRemedialCommandHandler`)**:
+  - Queries question details and options via `GetQuestionDetailAsync` in `Content Service`.
+  - Determines correct option from `Options.FirstOrDefault(o => o.IsCorrect)` and fetches authoritative pedagogical explanation (`Explanation`).
+  - Fully eliminates static Guid lookup tables.
+- **Concurrency & State Management**:
+  - Employs dedicated repository insertion (`_stageProgressRepository.AddAttemptAsync`) preventing EF Core from erroneously marking new attempts as modified in navigation graphs.
+  - Requires 100% correct answers (3/3) to transition status back to `IN_PROGRESS` and resume the `APPLY` step.
+
+---
+
+## 10. STRATEGIC MIGRATION: TRANSITION TO OFFLINE DELIVERY & RETIREMENT OF LIVESTREAM APIS
+
+### 10.1 Strategic Rationale
 - The educational delivery model transitions from real-time online video streaming to dedicated offline campus lectures and in-person mentorship.
 - Real-time online streaming endpoints (`/api/practice/live-sessions`) are formally decommissioned to eliminate dead code and prevent operational overhead.
 
-### 8.2 Decommissioned Components
+### 10.2 Decommissioned Components
 1. **API Layer**: `LiveSessionsController.cs` and all 7 associated endpoints (`POST /live-sessions`, `GET /my-schedule`, `POST /{sessionId}/join`, `POST /{sessionId}/attendance`, `GET /teacher-schedule`, `PUT /{sessionId}/recording`, `PUT /{sessionId}/cancel`) have been completely removed.
 2. **Application Layer**: Cleaned all CQRS commands, queries, and DTOs within `Features/LiveSessions`.
 3. **Repository Decoupling**: Refactored `AssignTeacherCommandHandler` to depend on `IClassEnrollmentRepository` rather than `ILiveSessionRepository`. Fully removed `ILiveSessionRepository` and `LiveSessionRepository`.
 
 ---
 
-## 9. CORE FLOW 2 UPGRADE: OFFLINE COHORT CAPACITY ENFORCEMENT & MICRO STUDY GROUPING (3 - 5 STUDENTS)
+## 11. CORE FLOW 2 UPGRADE: OFFLINE COHORT CAPACITY ENFORCEMENT & MICRO STUDY GROUPING (3 - 5 STUDENTS)
 
-### 9.1 20-Student Cohort Capacity Enforcement & Auto-Incrementing Class Numbering
+### 11.1 20-Student Cohort Capacity Enforcement & Auto-Incrementing Class Numbering
 - **Pedagogical Rationale**: Offline classroom delivery demands bounded cohort sizes to ensure close academic monitoring. A cap of 20 students represents the golden ratio for intensive offline coaching.
 - **Implementation (`ClassEnrollmentRepository.EnrollStudentAsync`)**:
   - Imposes strict capacity ceiling `MaxClassCapacity = 20`.
@@ -334,7 +404,7 @@
   - Computes active enrollment count per cohort (`e.Status == "ENROLLED"`).
   - Automatically provisions new classes when existing cohorts reach 20 students, naming them deterministically with two-digit increments (e.g., `Lớp Nền tảng (Foundation) 01 - Cơ sở Quận 9`, `Lớp Nền tảng (Foundation) 02 - Cơ sở Quận 9`).
 
-### 9.2 Domain Entities & Relational Schema for Micro Study Groups
+### 11.2 Domain Entities & Relational Schema for Micro Study Groups
 - **`ClassGroup` Entity**: Represents a micro study group within an offline cohort.
   - Properties: `GroupId`, `ClassId`, `GroupName`, `FocusArea`, `CommonWeakSkillIds`, `RecommendedWorksheetTitle`, `AssignedWorksheetId`, `AssignedWorksheetTitle`, `WorksheetAssignedAt`, `CreatedAt`.
   - Navigation: Belongs to `Class` with cascade deletion; owns multiple `Members` (`ClassGroupMember`).
@@ -342,7 +412,7 @@
   - Properties: `GroupMemberId`, `GroupId`, `StudentId`, `JoinedAt`.
 - **Database Bootstrapping**: Registered in `PracticeDbContext` and bootstrapped via SQL DDL in `Program.cs` under tables `"ClassGroups"` and `"ClassGroupMembers"`.
 
-### 9.3 Constrained Homogeneous Micro-Clustering Engine (`ClassMicroClusterer.cs`)
+### 11.3 Constrained Homogeneous Micro-Clustering Engine (`ClassMicroClusterer.cs`)
 - **Strict Size Constraint**: Guarantees that every generated micro-group strictly satisfies `` `3 \le \text{Size} \le 5` ``.
 - **Mathematical Partitioning**:
   - Valid group count range: `` `\lceil N / 5.0 \rceil \le M \le \lfloor N / 3.0 \rfloor` ``.
@@ -352,7 +422,7 @@
   - Initializes $M$ centroids using K-Means++ and applies a capacitated greedy matching algorithm to group students possessing similar knowledge gaps at the same study table.
   - Profiling: Detects shared deficiency skills (`` `\text{MasteryScore} < 0.60` ``), names the group accordingly (e.g., `"Nhóm 01 - Bàn trọng tâm: [Skill Name]"`), and recommends targeted adaptive worksheets.
 
-### 9.4 REST API Specifications for In-Class Micro-Grouping
+### 11.4 REST API Specifications for In-Class Micro-Grouping
 1. **Auto-Partition Endpoint**: `POST /api/practice/classes/{classId}/micro-groups/auto-partition`
    - Request: `AutoPartitionMicroGroupsRequestDto` (`PreferredGroupSize`: optional, default 4).
    - Response: `AutoPartitionMicroGroupsResponseDto` (`ClassId`, `ClassName`, `TotalStudents`, `TotalGroups`, `Groups`).

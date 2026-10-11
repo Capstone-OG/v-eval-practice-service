@@ -182,4 +182,51 @@ public class ContentGrpcClient : IContentGrpcClient
             throw;
         }
     }
+
+    public async Task<QuestionDetailDto?> GetQuestionDetailAsync(
+        Guid questionId,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var channel = GrpcChannel.ForAddress(_serviceUrl);
+            var client = new ContentService.ContentServiceClient(channel);
+
+            var request = new GetQuestionDetailRequest
+            {
+                QuestionId = questionId.ToString()
+            };
+
+            var response = await client.GetQuestionDetailAsync(request, cancellationToken: ct);
+            if (response == null || string.IsNullOrEmpty(response.QuestionId))
+            {
+                return null;
+            }
+
+            Guid.TryParse(response.QuestionId, out var qId);
+            Guid.TryParse(response.SkillId, out var sId);
+
+            var options = new List<QuestionDetailOptionDto>();
+            foreach (var opt in response.Options)
+            {
+                options.Add(new QuestionDetailOptionDto(opt.OptionId, opt.Content, opt.IsCorrect));
+            }
+
+            return new QuestionDetailDto(
+                QuestionId: qId,
+                SkillId: sId,
+                Difficulty: response.Difficulty,
+                Title: response.Title,
+                Content: response.Content,
+                Options: options,
+                Explanation: response.Explanation
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi gọi gRPC Content Service ({ServiceUrl}) GetQuestionDetail cho QuestionId {QuestionId}",
+                _serviceUrl, questionId);
+            return null;
+        }
+    }
 }

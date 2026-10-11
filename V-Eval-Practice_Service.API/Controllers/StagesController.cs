@@ -8,9 +8,11 @@ using V_Eval_Practice_Service.Application.Features.Stages.Commands.ReflectComple
 using V_Eval_Practice_Service.Application.Features.Stages.Commands.StartStage;
 using V_Eval_Practice_Service.Application.Features.Stages.Commands.SubmitAnswer;
 using V_Eval_Practice_Service.Application.Features.Stages.Commands.SubmitPreview;
+using V_Eval_Practice_Service.Application.Features.Stages.Commands.SubmitRemedial;
 using V_Eval_Practice_Service.Application.Features.Stages.Commands.TrackVideo;
 using V_Eval_Practice_Service.Application.Features.Stages.DTOs;
 using V_Eval_Practice_Service.Application.Features.Stages.Queries.GetNextQuestion;
+using V_Eval_Practice_Service.Application.Features.Stages.Queries.GetRemedialPackage;
 
 namespace V_Eval_Practice_Service.API.Controllers;
 
@@ -123,6 +125,47 @@ public class StagesController : ApiControllerBase
         [FromBody] SubmitAnswerRequestDto request)
     {
         var command = new SubmitAnswerCommand(stageProgressId, request);
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Cứu trợ (BR-03): Lấy gói cứu trợ phụ đạo (Remedial Node)
+    /// </summary>
+    /// <remarks>
+    /// Trả về tóm tắt lý thuyết/công thức cốt lõi, video hướng dẫn ngắn và 3 câu hỏi cơ bản mức độ dễ (b &lt; 0.0) khi học sinh sai 3 câu liên tiếp.
+    /// </remarks>
+    /// <param name="stageProgressId">Mã định danh tiến trình chặng học</param>
+    /// <returns>Gói cứu trợ phụ đạo kèm 3 câu hỏi cơ bản</returns>
+    [HttpGet("{stageProgressId:guid}/remedial")]
+    [ProducesResponseType(typeof(Result<RemedialPackageResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<RemedialPackageResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<RemedialPackageResponseDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetRemedialPackage([FromRoute] Guid stageProgressId)
+    {
+        var query = new GetRemedialPackageQuery(stageProgressId);
+        var result = await Mediator.Send(query);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Cứu trợ (BR-03): Nộp bài cứu trợ &amp; Khôi phục trạng thái (Remedial Submit)
+    /// </summary>
+    /// <remarks>
+    /// Chấm điểm gói cứu trợ, đặt lại chuỗi câu sai (ConsecutiveIncorrect = 0), khôi phục trạng thái chặng về IN_PROGRESS và cho phép tiếp tục bước APPLY.
+    /// </remarks>
+    /// <param name="stageProgressId">Mã định danh tiến trình chặng học</param>
+    /// <param name="request">Danh sách đáp án 3 câu hỏi cứu trợ</param>
+    /// <returns>Kết quả giải cứu và trạng thái khôi phục</returns>
+    [HttpPost("{stageProgressId:guid}/remedial-submit")]
+    [ProducesResponseType(typeof(Result<SubmitRemedialResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<SubmitRemedialResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<SubmitRemedialResponseDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SubmitRemedial(
+        [FromRoute] Guid stageProgressId,
+        [FromBody] SubmitRemedialRequestDto request)
+    {
+        var command = new SubmitRemedialCommand(stageProgressId, request);
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }

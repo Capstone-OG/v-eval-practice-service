@@ -50,9 +50,22 @@ public record MilestoneQuizResultDto(
     IReadOnlyList<MilestoneQuizQuestionDto> Questions
 );
 
+public record QuestionDetailOptionDto(string OptionId, string Content, bool IsCorrect);
+
+public record QuestionDetailDto(
+    Guid QuestionId,
+    Guid SkillId,
+    string Difficulty,
+    string Title,
+    string Content,
+    IReadOnlyList<QuestionDetailOptionDto> Options,
+    string Explanation
+);
+
 public interface IContentGrpcClient
 {
     Task<IReadOnlyDictionary<Guid, ExamQuestionKeyDto>> GetExamAnswerKeysAsync(Guid examId, CancellationToken ct = default);
     Task<IReadOnlyList<SkillTreeNodeDto>> GetSkillsTreeAsync(CancellationToken ct = default);
     Task<MilestoneQuizResultDto?> GetMilestoneQuizAsync(Guid skillId, Guid? examId, int questionCount = 5, CancellationToken ct = default);
+    Task<QuestionDetailDto?> GetQuestionDetailAsync(Guid questionId, CancellationToken ct = default);
 }
