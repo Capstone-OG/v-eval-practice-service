@@ -22,6 +22,16 @@
     3. Cung cấp cơ chế dự phòng an toàn (Fallback Graceful Degradation) khi tạm mất kết nối Content Service.
     4. Khởi tạo bản ghi `ExamSubmission` mới (`ExamType = "MOCK_EXAM"`, `Status = "IN_PROGRESS"`, thời hạn 150 phút) và lưu CSDL.
   - Xây dựng Controller mới [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs) với route `api/practice/mock-exams` và endpoint `[HttpPost("{examId:guid}/start")]`.
+- **Hiện Thực Core Flow 3 (Module 3 - API 2): Ghi Nhận Sự Kiện Rời Tab & Cắm Cờ Gian Lận (POST /api/practice/mock-exams/{submissionId}/log-tab-departure)**:
+  - Khởi tạo DTOs [`LogTabDepartureDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/LogTabDepartureDtos.cs) (`LogTabDepartureRequestDto`, `LogTabDepartureResponseDto`).
+  - Khởi tạo Command `LogTabDepartureCommand.cs` và Validator `LogTabDepartureCommandValidator.cs`.
+  - Xây dựng Handler [`LogTabDepartureCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/LogTabDeparture/LogTabDepartureCommandHandler.cs):
+    1. Xác thực phiên thi tồn tại và đang ở trạng thái `IN_PROGRESS`.
+    2. Tăng số lần rời màn hình `TabDepartureCount += 1`.
+    3. Thực thi quy tắc liêm chính học thuật (BR-20): Nếu rời tab vượt quá 3 lần (`TabDepartureCount > 3`), tự động gắn cờ nghi vấn gian lận `IntegrityStatus = "FLAGGED_FOR_REVIEW"`.
+    4. Cập nhật bản ghi vào CSDL qua `IMockExamRepository.UpdateAsync`.
+    5. Trả về thông điệp cảnh báo sư phạm tương ứng theo mức độ vi phạm.
+  - Bổ sung endpoint `[HttpPost("{submissionId:guid}/log-tab-departure")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
 - **Kiểm Thử Biên Dịch**:
   - Toàn bộ Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
 

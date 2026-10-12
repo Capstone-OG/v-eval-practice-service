@@ -455,6 +455,13 @@
   4. Enforces graceful fallback generation when external gRPC is unavailable.
   5. Initializes `ExamSubmission` with 150-minute countdown (9,000 seconds), `ExamType = "MOCK_EXAM"`, and default `NORMAL` integrity status.
 
+### 12.3 API 2: Log Tab Departure & Academic Integrity Flagging (`POST /api/practice/mock-exams/{submissionId}/log-tab-departure`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists and remains in `IN_PROGRESS` status.
+  2. Increments `TabDepartureCount` on every window blur / tab switch / fullscreen exit.
+  3. Enforces Business Rule BR-20: When `TabDepartureCount > 3`, dynamically updates `IntegrityStatus` to `FLAGGED_FOR_REVIEW`.
+  4. Returns real-time warning feedback and timestamped audit logs.
+
 
 
 

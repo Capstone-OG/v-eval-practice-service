@@ -99,6 +99,7 @@
 | 63 | **Bộ 3 APIs Nhóm Học Tập Vi Mô Trên Lớp** | `ClassesController.cs` & `Features/Classes/` | 🟢 Hoàn thành | 100% | `POST /micro-groups/auto-partition` (chia nhóm), `GET /micro-groups` (tra cứu sơ đồ bàn), `POST /{groupId}/assign-worksheet` (phát đề luyện tập thích ứng) |
 | 64 | **Core Flow 3 (Module 3 - CSDL Giám Sát)** | `Domain/Entities/` & `MockExamRepository.cs` | 🟢 Hoàn thành | 100% | Mở rộng `ExamSubmission` (4 trường giám sát), tạo `ProctoringSnapshot`, đăng ký DbContext và DDL |
 | 65 | **Core Flow 3 (Module 3 - API 1: Khởi Tạo Thi Thử)** | `MockExamsController.cs` & `StartMockExamCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/mock-exams/{examId}/start` lấy 120 câu hỏi, đếm ngược 150 phút, khởi tạo phiên thi và trạng thái giám sát |
+| 66 | **Core Flow 3 (Module 3 - API 2: Rời Tab & Giám Sát)** | `MockExamsController.cs` & `LogTabDepartureCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/mock-exams/{submissionId}/log-tab-departure` đếm số lần rời tab, vượt quá 3 lần tự động cắm cờ `FLAGGED_FOR_REVIEW` (BR-20) |
 
 
 
