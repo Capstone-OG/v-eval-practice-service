@@ -63,7 +63,6 @@
 | 28 | **Core Flow 2 - API 5: Lấy Đề Thi Quiz Củng Cố Chặng** | `RoadmapsController.cs` & `GetMilestoneQuizQueryHandler.cs` | 🔄 Tinh gọn | - | Chuyển giao sang `StagesController.cs` (Bước 4: NextQuestion ZPD IRT 2PL) |
 | 29 | **Core Flow 2 - API 6: Nộp Bài Quiz & Mở Khóa FSM** | `RoadmapsController.cs` & `SubmitMilestoneQuizCommandHandler.cs` | 🔄 Tinh gọn | - | Chuyển giao sang `StagesController.cs` (Bước 5 & 6: SubmitAnswer BKT & ReflectComplete) |
 | 30 | **Core Flow 2 - API 7: Nộp Quiz Bù Khi Vắng Mặt Live** | `RoadmapsController.cs` & `SubmitMakeupQuizCommandHandler.cs` | 🔄 Tinh gọn | - | Tích hợp vào quy trình hoàn tất chặng học thích ứng |
-
 | 31 | **Core Flow 2 - API 8: Tạo Lịch Buổi Học Live Q&A** | `LiveSessionsController.cs` | 🔄 Đã loại bỏ | - | Đã gỡ bỏ toàn bộ do hệ thống chuyển đổi mô hình giảng dạy tập trung offline |
 | 32 | **Core Flow 2 - API 9: Phân Công Giáo Viên Cho Lớp** | `ClassesController.cs` & `AssignTeacherCommandHandler.cs` | 🟢 Hoàn thành | 100% | `PUT /api/practice/classes/{classId}/assign-teacher` quản trị cơ sở phân công/điều chuyển giáo viên |
 | 33 | **Core Flow 2 - API 10: Thời Khóa Biểu Buổi Học Live** | `LiveSessionsController.cs` | 🔄 Đã loại bỏ | - | Đã gỡ bỏ toàn bộ do hệ thống chuyển đổi mô hình giảng dạy tập trung offline |
@@ -86,7 +85,7 @@
 | 50 | **Core Flow 3 (P-L-A-R - Bước 4): Lấy Câu Hỏi Thích Ứng ZPD (NextQuestion)** | `StagesController.cs` & `GetNextQuestionQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/stages/{stageProgressId}/next-question` áp dụng mô hình IRT 2PL lọc câu hỏi ZPD trong dải [0.60, 0.75], ẩn đáp án bảo mật |
 | 51 | **Core Flow 3 (P-L-A-R - Bước 5): Nộp Câu Trả Lời & Động Cơ BKT (SubmitAnswer)** | `StagesController.cs` & `SubmitAnswerCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/submit-answer` BKT tính P(Lt), phạt đoán mò, kiểm tra BR-01 (Mastery) và BR-03 (Remedial) |
 | 52 | **Core Flow 3 (P-L-A-R - Bước 6): Phản Tư & Hoàn Thành Chặng (ReflectComplete)** | `StagesController.cs` & `ReflectCompleteCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/reflect-complete` ghi nhận đánh giá độ tự tin, đồng bộ RoadmapNode sang COMPLETED, tự động mở khóa chặng kế tiếp |
-| 53 | **Core Flow 3 (BR-03 Remedial Node): Lấy Gói Cứu Trợ Phụ Đạo Động** | `StagesController.cs` & `GetRemedialPackageQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/stages/{stageProgressId}/remedial` video tóm tắt, công thức cốt lõi và 3 câu hỏi cơ bản ($b < 0.0$) bốc trực tiếp từ Content Service, tự động luân phiên câu hỏi biến thể mới khi học sinh làm lại |
+| 53 | **Core Flow 3 (BR-03 Remedial Node): Lấy Gói Cứu Trợ Phụ Đạo Động** | `StagesController.cs` & `GetRemedialPackageQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/stages/{stageProgressId}/remedial` video tóm tắt, công thức cốt lõi và 3 câu hỏi cơ bản (`b < 0.0`) bốc trực tiếp từ Content Service, tự động luân phiên câu hỏi biến thể mới khi học sinh làm lại |
 | 54 | **Core Flow 3 (BR-03 Remedial Node): Nộp Bài Cứu Trợ & Giải Cứu Tiến Trình** | `StagesController.cs` & `SubmitRemedialCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/stages/{stageProgressId}/remedial-submit` chấm điểm và lấy lời giải chi tiết trực tiếp từ Content Service qua gRPC, yêu cầu đúng 100% (3/3) mới khôi phục `IN_PROGRESS` |
 | 55 | **Core Flow 3 (Module 2 - BR-15): Tự Động Lưu Câu Sai Vào Sổ Tay** | `SubmitAnswerCommandHandler.cs` & `MistakeNotebookRepository.cs` | 🟢 Hoàn thành | 100% | Tự động thêm bản ghi vào `MistakeNotebooks` khi làm sai ở bước APPLY với `next_review_date = Tomorrow` |
 | 56 | **Core Flow 3 (Module 2 - API 1): Tra Cứu Sổ Tay Lỗi Sai Cá Nhân** | `MistakesController.cs` & `GetMistakeNotebookQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/mistakes` phân trang, lọc theo kỹ năng/trạng thái thành thạo, thống kê tổng số lỗi đã làm chủ và chưa làm chủ |
@@ -104,11 +103,3 @@
 | 68 | **Core Flow 3 (Module 3 - API 4: Nộp Bài & Phân Luồng)** | `MockExamsController.cs` & `SubmitMockExamCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/mock-exams/{submissionId}/submit` chấm điểm toàn bài, phân luồng liêm chính (UNDER_REVIEW vs COMPLETED), tự động đẩy câu sai vào Mistake Notebook và cập nhật LearningProfiles |
 | 69 | **Core Flow 3 (Module 3 - API 5: Chi Tiết & Giám Sát Thị Giác)** | `MockExamsController.cs` & `GetMockExamDetailQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/mock-exams/{submissionId}` truy xuất toàn diện điểm số, câu trả lời và chuỗi bằng chứng ảnh chụp webcam kèm cờ nhận diện khuôn mặt |
 | 70 | **Core Flow 3 (Module 3 - API 6: Thẩm Định Mentor)** | `MockExamsController.cs` & `MentorReviewCommandHandler.cs` | 🟢 Hoàn thành | 100% | `PATCH /api/practice/mock-exams/{submissionId}/mentor-review` Mentor duyệt bài (APPROVED) hoặc hủy kết quả vi phạm (DISQUALIFIED về 0 điểm) kèm lý do giải trình |
-
-
-
-
-
-
-
-
