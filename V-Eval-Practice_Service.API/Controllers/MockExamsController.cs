@@ -9,6 +9,7 @@ using V_Eval_Practice_Service.Application.Features.MockExams.Commands.StartMockE
 using V_Eval_Practice_Service.Application.Features.MockExams.Commands.SubmitMockExam;
 using V_Eval_Practice_Service.Application.Features.MockExams.Commands.UploadSnapshot;
 using V_Eval_Practice_Service.Application.Features.MockExams.DTOs;
+using V_Eval_Practice_Service.Application.Features.MockExams.Queries.GetMockExamDetail;
 
 namespace V_Eval_Practice_Service.API.Controllers;
 
@@ -111,6 +112,29 @@ public class MockExamsController : ApiControllerBase
     {
         var command = new SubmitMockExamCommand(submissionId, request.Answers);
         var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// API 5: Xem chi tiết bài thi thử &amp; Bằng chứng giám sát hình ảnh (Get Mock Exam Details &amp; Visual Audit Trail)
+    /// </summary>
+    /// <remarks>
+    /// Phục vụ học sinh xem lại kết quả bài thi thử hoặc Mentor truy xuất bằng chứng giám sát liêm chính:
+    /// - Kết quả điểm số, số câu đúng, thời gian làm bài.
+    /// - Trạng thái giám sát (IntegrityStatus), số lần rời tab (TabDepartureCount), quyết định thẩm định (MentorVerdict).
+    /// - Chuỗi bằng chứng ảnh chụp webcam định kỳ (Visual Audit Trail) và trạng thái nhận diện khuôn mặt (FaceDetected).
+    /// - Danh sách chi tiết từng câu trả lời đã nộp.
+    /// </remarks>
+    /// <param name="submissionId">Mã phiên nộp bài thi thử</param>
+    /// <returns>Chi tiết toàn diện bài thi thử và hồ sơ giám sát proctoring</returns>
+    [HttpGet("{submissionId:guid}")]
+    [ProducesResponseType(typeof(Result<GetMockExamDetailResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<GetMockExamDetailResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<GetMockExamDetailResponseDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMockExamDetail([FromRoute] Guid submissionId)
+    {
+        var query = new GetMockExamDetailQuery(submissionId);
+        var result = await Mediator.Send(query);
         return HandleResult(result);
     }
 }

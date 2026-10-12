@@ -52,6 +52,15 @@
     5. Tự động liên thông Core 3: Các câu làm sai (`!isCorrect`) được tự động nạp vào Sổ tay lỗi sai cá nhân (`MistakeNotebook`) với `NextReviewDate = Ngày mai` phục vụ chu kỳ lặp lại ngắt quãng SM-2.
     6. Liên thông Core 2: Cập nhật độ thành thạo các kỹ năng làm được vào `LearningProfiles` (`UpsertSkillPriorsAsync`) để chuẩn bị dữ liệu phân nhóm bàn học vi mô (Micro-groups 3-5 bạn) cho tuần học tiếp theo.
   - Bổ sung endpoint `[HttpPost("{submissionId:guid}/submit")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 5): Xem Chi Tiết Bài Thi & Dấu Vết Giám Sát Thị Giác (GET /api/practice/mock-exams/{submissionId})**:
+  - Khởi tạo DTOs [`GetMockExamDetailDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/GetMockExamDetailDtos.cs) (`MockExamSnapshotDto`, `MockExamAnswerDetailDto`, `GetMockExamDetailResponseDto`).
+  - Khởi tạo Query `GetMockExamDetailQuery.cs` và Validator `GetMockExamDetailQueryValidator.cs`.
+  - Xây dựng Handler [`GetMockExamDetailQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetMockExamDetail/GetMockExamDetailQueryHandler.cs):
+    1. Truy xuất thông tin bài thi kèm chi tiết câu trả lời và lịch sử ảnh chụp webcam qua `IMockExamRepository.GetByIdWithDetailsAsync`.
+    2. Trả về toàn diện kết quả điểm số, trạng thái liêm chính (`IntegrityStatus`), số lần vi phạm (`TabDepartureCount`), kết luận thẩm định của Mentor (`MentorVerdict`, `MentorNotes`).
+    3. Cung cấp chuỗi bằng chứng ảnh chụp (Visual Audit Trail) sắp xếp theo thời gian (`CapturedAt`) kèm cờ nhận diện khuôn mặt (`FaceDetected`) phục vụ quy trình thẩm định gian lận.
+    4. Cung cấp chi tiết từng câu hỏi học sinh đã trả lời.
+  - Bổ sung endpoint `[HttpGet("{submissionId:guid}")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
 - **Kiểm Thử Biên Dịch**:
   - Toàn bộ Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
 

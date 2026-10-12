@@ -478,6 +478,14 @@
   5. Core Flow 3 Closed-Loop Integration: Automatically injects incorrect answers into the student's personal `MistakeNotebook` with `NextReviewDate = Tomorrow` for spaced repetition (SM-2).
   6. Core Flow 2 Feedback Loop: Aggregates skill-level performance and updates `LearningProfiles` (`UpsertSkillPriorsAsync`) to inform downstream micro-group re-clustering (3-5 students) for next week's offline classes.
 
+### 12.6 API 5: Retrieve Mock Exam Details & Visual Audit Trail (`GET /api/practice/mock-exams/{submissionId}`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists.
+  2. Eagerly loads relational aggregates including `SubmissionAnswers` and `ProctoringSnapshots` via `IMockExamRepository.GetByIdWithDetailsAsync`.
+  3. Returns high-level scores, integrity telemetry (`TabDepartureCount`, `IntegrityStatus`), and mentor review decisions (`MentorVerdict`, `MentorNotes`).
+  4. Exposes chronological webcam visual audit trail (`CapturedAt` ascending order) with facial presence verification indicators (`FaceDetected`) for mentor inspection.
+  5. Outputs granular item-by-item student selections and correctness evaluations.
+
 
 
 

@@ -102,6 +102,7 @@
 | 66 | **Core Flow 3 (Module 3 - API 2: Rời Tab & Giám Sát)** | `MockExamsController.cs` & `LogTabDepartureCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/mock-exams/{submissionId}/log-tab-departure` đếm số lần rời tab, vượt quá 3 lần tự động cắm cờ `FLAGGED_FOR_REVIEW` (BR-20) |
 | 67 | **Core Flow 3 (Module 3 - API 3: Upload Webcam)** | `MockExamsController.cs` & `UploadSnapshotCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/mock-exams/{submissionId}/upload-snapshot` lưu URL ảnh webcam ngẫu nhiên định kỳ, cờ `FaceDetected` và tổng số ảnh phiên thi |
 | 68 | **Core Flow 3 (Module 3 - API 4: Nộp Bài & Phân Luồng)** | `MockExamsController.cs` & `SubmitMockExamCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/mock-exams/{submissionId}/submit` chấm điểm toàn bài, phân luồng liêm chính (UNDER_REVIEW vs COMPLETED), tự động đẩy câu sai vào Mistake Notebook và cập nhật LearningProfiles |
+| 69 | **Core Flow 3 (Module 3 - API 5: Chi Tiết & Giám Sát Thị Giác)** | `MockExamsController.cs` & `GetMockExamDetailQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/mock-exams/{submissionId}` truy xuất toàn diện điểm số, câu trả lời và chuỗi bằng chứng ảnh chụp webcam kèm cờ nhận diện khuôn mặt |
 
 
 
