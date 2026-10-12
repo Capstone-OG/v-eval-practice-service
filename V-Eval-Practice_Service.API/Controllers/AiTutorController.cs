@@ -183,6 +183,52 @@ public class AiTutorController : ApiControllerBase
 
         return Guid.Empty;
     }
+
+    /// <summary>
+    /// Học sinh báo cáo câu trả lời hoặc lời dẫn gia sư AI sai (Core Flow 4 - Giai đoạn 6).
+    /// </summary>
+    [HttpPost("report")]
+    [ProducesResponseType(typeof(ReportInteractionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ReportInteractionAsync(
+        [FromBody] ReportInteractionRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.InteractionId == Guid.Empty)
+        {
+            return BadRequest(new { error = "InteractionId không hợp lệ." });
+        }
+
+        var studentId = ResolveStudentId(request.StudentId);
+        var result = await _aiTutorClient.ReportInteractionAsync(
+            request.InteractionId,
+            request.Reason,
+            studentId != Guid.Empty ? studentId : null,
+            cancellationToken);
+
+        if (result == null)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway, new { error = "Không thể gửi báo cáo tới AI Tutor Engine." });
+        }
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Truy vấn danh sách lịch sử tương tác Socratic Tutor phục vụ Mentor kiểm duyệt.
+    /// </summary>
+    [HttpGet("interactions")]
+    [ProducesResponseType(typeof(IReadOnlyList<TutorInteractionItemDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetInteractionsAsync(
+        [FromQuery] bool reportedOnly = false,
+        [FromQuery] int limit = 50,
+        [FromQuery] int offset = 0,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _aiTutorClient.GetInteractionsAsync(reportedOnly, limit, offset, cancellationToken);
+        return Ok(result);
+    }
 }
 
 /// <summary>
@@ -196,4 +242,13 @@ public record AskTutorRequest(
     string StudentWrongOption,
     string CorrectOption,
     Guid? SkillId
+);
+
+/// <summary>
+/// Yêu cầu báo cáo câu trả lời gia sư AI sai từ học sinh.
+/// </summary>
+public record ReportInteractionRequest(
+    Guid InteractionId,
+    string? Reason,
+    Guid? StudentId
 );

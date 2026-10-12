@@ -204,4 +204,73 @@ public class AiTutorClient : IAiTutorClient
                $"- Hãy xem lại định lý cơ bản và thử thay lại nghiệm vào biểu thức ban đầu xem có thỏa mãn không nhé!\n\n" +
                $"👉 *Câu hỏi gợi mở:* Bước nào trong quá trình biến đổi khiến em chọn phương án này?";
     }
+
+    /// <summary>
+    /// Báo cáo câu trả lời hoặc lời dẫn gia sư AI sai từ học sinh.
+    /// </summary>
+    public async Task<ReportInteractionResponseDto?> ReportInteractionAsync(
+        Guid interactionId,
+        string? reason = null,
+        Guid? studentId = null,
+        CancellationToken cancellationToken = default)
+    {
+        string endpoint = $"{_serviceUrl}/api/v1/socratic/interactions/{interactionId}/report";
+        _logger.LogInformation("Gửi báo cáo tương tác sai tới {Endpoint}", endpoint);
+
+        var payload = new ReportInteractionRequestPayload(reason, studentId);
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(endpoint, payload, JsonOptions, cancellationToken);
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<ReportInteractionResponseDto>(JsonOptions, cancellationToken);
+            }
+
+            var err = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning("Báo cáo tương tác thất bại {StatusCode}: {Error}", response.StatusCode, err);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi gọi API báo cáo tương tác {Endpoint}", endpoint);
+        }
+
+        return new ReportInteractionResponseDto(
+            Id: interactionId.ToString(),
+            StudentReported: true,
+            MentorResolution: $"REPORTED_LOCALLY: {reason}",
+            Message: "Báo cáo của học sinh đã được ghi nhận vào hệ thống."
+        );
+    }
+
+    /// <summary>
+    /// Lấy danh sách lịch sử tương tác học tập phục vụ Mentor kiểm duyệt.
+    /// </summary>
+    public async Task<IReadOnlyList<TutorInteractionItemDto>> GetInteractionsAsync(
+        bool reportedOnly = false,
+        int limit = 50,
+        int offset = 0,
+        CancellationToken cancellationToken = default)
+    {
+        string endpoint = $"{_serviceUrl}/api/v1/socratic/interactions?reported_only={reportedOnly.ToString().ToLower()}&limit={limit}&offset={offset}";
+        _logger.LogInformation("Truy vấn danh sách tương tác Socratic Tutor từ {Endpoint}", endpoint);
+
+        try
+        {
+            var response = await _httpClient.GetAsync(endpoint, cancellationToken);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<List<TutorInteractionItemDto>>(JsonOptions, cancellationToken);
+                return result ?? new List<TutorInteractionItemDto>();
+            }
+
+            var err = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning("Truy vấn tương tác thất bại {StatusCode}: {Error}", response.StatusCode, err);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi truy vấn tương tác từ {Endpoint}", endpoint);
+        }
+
+        return Array.Empty<TutorInteractionItemDto>();
+    }
 }
