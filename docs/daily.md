@@ -1,6 +1,15 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
-## [12/10/2026] - Triển Khai Giai Đoạn 6 Core Flow 4 GraphRAG AI Tutor: Báo Cáo Học Sinh & Tích Hợp Mentor Resolution
+## [12/10/2026] - Triển Khai Giai Đoạn 6 Core Flow 4 GraphRAG AI Tutor & Nghiệm Thu Kiến Trúc Phân Nhóm Vi Mô - Liên Thông Content Service
+
+- **Nghiệm Thu Cấu Trúc Hồ Sơ Học Sinh (`StudentSkillProfileItem`)**:
+  - Làm rõ sự tách bạch giữa:
+    - **Vector Đặc Trưng Miền Vĩ Mô (`double[4] DomainFeatures`)**: Đại diện cho 4 miền kiến thức lớn `[Lang, Math, NatSci, SocSci]` lấy từ mã định danh `domain_code` do Content Service cung cấp, dùng làm tọa độ không gian để gom cụm K-Means.
+    - **Hồ Sơ Năng Lực Vi Mô (`Dictionary<Guid, double> SkillScores`)**: Lưu trữ xác suất thuần thục (Mastery Score) của từng kỹ năng cụ thể trong đồ thị DAG 12 kỹ năng.
+  - Phân tích cơ chế phát hiện lỗ hổng: Các kỹ năng có `` `MasteryScore < 0.60` `` được xem là điểm nghẽn và tổng hợp thành `CommonWeakSkillIds`.
+- **Định Hướng Liên Thông Khép Kín Với Content Service (API 19)**:
+  - Hiện tại: Giáo viên chỉ định thủ công đề có sẵn thông qua `AssignGroupWorksheetCommand`.
+  - Nghiệm thu luồng tự động: Practice Service sẽ gửi danh sách `CommonWeakSkillIds` sang `POST /api/content/exams/quiz` của Content Service để tự động bốc câu hỏi chuẩn Bloom và đóng gói đề thích ứng trả về.
 - **Mở Rộng Giao Thức AI Tutor Client (`Application/Common/Interfaces/IAiTutorClient.cs`)**:
   - Bổ sung phương thức `ReportInteractionAsync(Guid interactionId, string? reason, Guid? studentId)` gửi phản hồi báo cáo sai của học sinh.
   - Bổ sung phương thức `GetInteractionsAsync(bool reportedOnly, int limit, int offset)` phục vụ kiểm duyệt tương tác của Mentor.
@@ -60,7 +69,7 @@
 - **Động Cơ Phân Cụm Vi Mô Có Ràng Buộc Kích Thước (`ClassMicroClusterer.cs`)**:
   - Xây dựng [`IClassMicroClusterer`](../V-Eval-Practice_Service.Application/Common/Graph/ClassMicroClusterer.cs) và triển khai tại [`ClassMicroClusterer.cs`](../V-Eval-Practice_Service.Application/Common/Graph/ClassMicroClusterer.cs):
     - Đảm bảo chặt chẽ điều kiện sĩ số mỗi nhóm nhỏ: `` `3 \le \text{Size} \le 5` ``.
-    - Tính toán số nhóm $M$ tối ưu theo kích thước mong muốn (`preferredGroupSize`, mặc định 4): `` `\lceil N / 5.0 \rceil \le M \le \lfloor N / 3.0 \rfloor` ``.
+    - Tính toán số nhóm `` `M` `` tối ưu theo kích thước mong muốn (`preferredGroupSize`, mặc định 4): `` `\lceil N / 5.0 \rceil \le M \le \lfloor N / 3.0 \rfloor` ``.
     - Áp dụng thuật toán gom cụm đồng nhất (Homogeneous Capacitated Clustering): gom các học sinh có cùng năng lực và cùng vùng trũng kiến thức (dựa trên vector 4 miền và hồ sơ kỹ năng BKT `LearningProfiles`).
     - Phân tích sư phạm nhóm: Tự động phát hiện các kỹ năng yếu chung (`MasteryScore < 0.60`), xác định `FocusArea`, sinh tên nhóm sư phạm (ví dụ: `"Nhóm 01 - Bàn trọng tâm: [Tên Kỹ Năng Yếu]"`) và gợi ý phiếu bài tập vi mô thích ứng (`RecommendedWorksheetTitle`).
   - Đăng ký DI Transient trong [`DependencyInjection.cs`](../V-Eval-Practice_Service.Application/DependencyInjection.cs).

@@ -433,6 +433,17 @@
    - Response: `AssignWorksheetResponseDto` confirming targeted worksheet distribution to table members.
 ---
 
+### 11.5 Student Skill Profile Encoding & Integration with Content Service API 19
+- **Profile Representation (`StudentSkillProfileItem`)**:
+  - `DomainFeatures` (`double[4]`): Macro 4-domain vector representing overall student strength across `[Lang, Math, NatSci, SocSci]`. Used in K-Means distance calculations to place students in compatible learning contexts.
+  - `SkillScores` (`Dictionary<Guid, double>`): Micro-level granular mastery scores per competency node from `LearningProfiles.MasteryScore`.
+  - **Weak Skill Identification**: Skills where `` `MasteryScore < 0.60` `` across a majority of group members are aggregated into `CommonWeakSkillIds`.
+- **Automated Worksheet Generation Handshake (Future Phase with Content Service API 19)**:
+  - Currently: Teachers manually assign an existing `WorksheetId` via `AssignGroupWorksheetCommand`.
+  - Next Evolution: Practice Service invokes Content Service API 19 (`POST /api/content/exams/quiz`) providing `CommonWeakSkillIds`. Content Service extracts 5 to 10 questions calibrated to Bloom Levels 1-3 (Remember, Understand, Apply) with step-by-step LaTeX derivations, wraps them into a new `MockExam` of type `QUIZ`, and returns `worksheetId` + `worksheetTitle` for immediate table assignment.
+
+---
+
 ## 12. CORE FLOW 4 — GRAPH-RAG SOCRATIC AI TUTOR INTEGRATION ACCEPTANCE (PHASES 5 & 6)
 
 ### 12.1 Architecture Overview
