@@ -432,6 +432,30 @@
    - Request: `AssignWorksheetRequestDto` (`WorksheetId`, `WorksheetTitle`).
    - Response: `AssignWorksheetResponseDto` confirming targeted worksheet distribution to table members.
 
+---
+
+## 12. CORE FLOW 3 (MODULE 3) - PROCTORED MOCK EXAM & ACADEMIC INTEGRITY MONITORING
+
+### 12.1 Relational Schema & Persistence Architecture
+- **Reuse of `ExamSubmission`**: Avoids duplicate submission tables by adopting unified classification via `ExamType = "MOCK_EXAM"`.
+- **Integrity Tracking Fields**:
+  - `TabDepartureCount`: Quantifies student tab / window switches away from fullscreen mode.
+  - `IntegrityStatus`: Flagged as `NORMAL` or escalated to `FLAGGED_FOR_REVIEW` when violations exceed threshold (>3 departures).
+  - `MentorVerdict`: Workflow authorization status (`PENDING`, `APPROVED`, `DISQUALIFIED`).
+  - `MentorNotes`: Mentor justification notes.
+- **`ProctoringSnapshot` Entity**:
+  - Captures periodic / randomized webcam audit frames (`Id`, `SubmissionId`, `SnapshotUrl`, `CapturedAt`, `FaceDetected`).
+  - Cascades on deletion with `ExamSubmission`.
+
+### 12.2 API 1: Start Mock Exam Session (`POST /api/practice/mock-exams/{examId}/start`)
+- **Execution Pipeline**:
+  1. Validates input parameters (`ExamId`, `StudentId`).
+  2. Queries active uncompleted attempts for resuming valid sessions.
+  3. Integrates with Content Service via gRPC (`GetMilestoneQuizAsync`) to load 120 secure test items with hidden answer keys.
+  4. Enforces graceful fallback generation when external gRPC is unavailable.
+  5. Initializes `ExamSubmission` with 150-minute countdown (9,000 seconds), `ExamType = "MOCK_EXAM"`, and default `NORMAL` integrity status.
+
+
 
 
 

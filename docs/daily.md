@@ -1,5 +1,32 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [12/10/2026] - Khởi Động Core Flow 3 (Module 3): Nền Tảng CSDL Giám Sát & API Khởi Tạo Bài Thi Thử Chuẩn Hóa (StartMockExam)
+
+- **Mở Rộng Mô Hình CSDL & Thực Thể Giám Sát Liêm Chính Học Thuật (Proctoring & Mock Exam)**:
+  - Mở rộng thực thể [`ExamSubmission.cs`](../V-Eval-Practice_Service.Domain/Entities/ExamSubmission.cs):
+    - Tái sử dụng bảng `ExamSubmissions` với `ExamType = "MOCK_EXAM"`.
+    - Bổ sung 4 trường phục vụ giám sát gian lận và thẩm định: `TabDepartureCount` (đếm số lần rời tab), `IntegrityStatus` (mặc định `NORMAL`, chuyển sang `FLAGGED_FOR_REVIEW` khi vi phạm), `MentorVerdict` (`PENDING`, `APPROVED`, `DISQUALIFIED`), `MentorNotes`.
+    - Thêm quan hệ 1-N với bộ sưu tập `ProctoringSnapshots`.
+  - Tạo mới thực thể Domain [`ProctoringSnapshot.cs`](../V-Eval-Practice_Service.Domain/Entities/ProctoringSnapshot.cs): lưu vết ảnh chụp webcam ngẫu nhiên định kỳ (`Id`, `SubmissionId`, `SnapshotUrl`, `CapturedAt`, `FaceDetected`).
+  - Cấu hình Fluent API và DbSets trong [`PracticeDbContext.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs): ánh xạ các cột mới và thiết lập Cascade Delete.
+  - Cập nhật script khởi tạo bảng SQL DDL tự động trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs): `ALTER TABLE "ExamSubmissions"` và `CREATE TABLE IF NOT EXISTS "ProctoringSnapshots"`.
+- **Repository Tầng Dữ Liệu Thi Thử & Giám Sát**:
+  - Tạo interface [`IMockExamRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IMockExamRepository.cs) và hiện thực tại [`MockExamRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/MockExamRepository.cs).
+  - Đăng ký DI Scoped trong [`DependencyInjection.cs`](../V-Eval-Practice_Service.Infrastructure/DependencyInjection.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 1): Khởi Tạo Phiên Thi Thử Chuẩn Hóa (POST /api/practice/mock-exams/{examId}/start)**:
+  - Khởi tạo DTOs [`StartMockExamDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/StartMockExamDtos.cs) (`StartMockExamRequestDto`, `MockExamQuestionDto`, `StartMockExamResponseDto`).
+  - Khởi tạo Command `StartMockExamCommand.cs` và Validator `StartMockExamCommandValidator.cs`.
+  - Xây dựng Handler [`StartMockExamCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/StartMockExam/StartMockExamCommandHandler.cs):
+    1. Kiểm tra phiên thi đang dang dở (`IN_PROGRESS`) của học sinh; nếu còn trong thời gian 150 phút thì khôi phục phiên làm bài tiếp tục.
+    2. Nạp câu hỏi từ Content Service qua gRPC (`GetMilestoneQuizAsync` với `questionCount = 120`), ẩn hoàn toàn đáp án đúng để bảo mật.
+    3. Cung cấp cơ chế dự phòng an toàn (Fallback Graceful Degradation) khi tạm mất kết nối Content Service.
+    4. Khởi tạo bản ghi `ExamSubmission` mới (`ExamType = "MOCK_EXAM"`, `Status = "IN_PROGRESS"`, thời hạn 150 phút) và lưu CSDL.
+  - Xây dựng Controller mới [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs) với route `api/practice/mock-exams` và endpoint `[HttpPost("{examId:guid}/start")]`.
+- **Kiểm Thử Biên Dịch**:
+  - Toàn bộ Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
 ## [09/10/2026] - Nâng Cấp Mô Hình Giảng Dạy Offline: Giới Hạn Sĩ Số Lớp 20 Người, Đánh Số Thứ Tự Tăng Dần & Phân Nhóm Học Tập Vi Mô (3 - 5 Học Sinh)
 
 - **Giới Hạn Sĩ Số Lớp 20 Học Sinh & Tự Động Đánh Số Thứ Tự Lớp Tăng Dần**:

@@ -97,6 +97,8 @@
 | 61 | **Thực Thể & Repository Nhóm Học Tập Vi Mô** | `Domain/Entities/` & `Repositories/ClassGroupRepository.cs` | 🟢 Hoàn thành | 100% | Thực thể `ClassGroup`, `ClassGroupMember`, Fluent API mappings, khởi tạo bảng SQL và repository `IClassGroupRepository` |
 | 62 | **Động Cơ Phân Nhóm Vi Mô Đồng Nhất (3 - 5 Bạn)** | `Application/Common/Graph/ClassMicroClusterer.cs` | 🟢 Hoàn thành | 100% | Thuật toán gom cụm đồng nhất (Homogeneous) theo điểm nghẽn kiến thức, ràng buộc chặt chẽ kích thước 3 - 5 học sinh/nhóm, sinh tên nhóm sư phạm |
 | 63 | **Bộ 3 APIs Nhóm Học Tập Vi Mô Trên Lớp** | `ClassesController.cs` & `Features/Classes/` | 🟢 Hoàn thành | 100% | `POST /micro-groups/auto-partition` (chia nhóm), `GET /micro-groups` (tra cứu sơ đồ bàn), `POST /{groupId}/assign-worksheet` (phát đề luyện tập thích ứng) |
+| 64 | **Core Flow 3 (Module 3 - CSDL Giám Sát)** | `Domain/Entities/` & `MockExamRepository.cs` | 🟢 Hoàn thành | 100% | Mở rộng `ExamSubmission` (4 trường giám sát), tạo `ProctoringSnapshot`, đăng ký DbContext và DDL |
+| 65 | **Core Flow 3 (Module 3 - API 1: Khởi Tạo Thi Thử)** | `MockExamsController.cs` & `StartMockExamCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/mock-exams/{examId}/start` lấy 120 câu hỏi, đếm ngược 150 phút, khởi tạo phiên thi và trạng thái giám sát |
 
 
 

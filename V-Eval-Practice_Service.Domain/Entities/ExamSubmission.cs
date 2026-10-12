@@ -23,6 +23,13 @@ public class ExamSubmission
     public string? AiCommentary { get; set; }
     public Guid? EnrolledClassId { get; set; }
 
-    // Navigation property
+    // Proctoring & Academic Integrity Fields (Core Flow 3 - Module 3 Mock Exam)
+    public int TabDepartureCount { get; set; } = 0;
+    public string IntegrityStatus { get; set; } = "NORMAL"; // NORMAL, FLAGGED_FOR_REVIEW
+    public string MentorVerdict { get; set; } = "PENDING";  // PENDING, APPROVED, DISQUALIFIED
+    public string? MentorNotes { get; set; }
+
+    // Navigation properties
     public virtual ICollection<SubmissionAnswer> Answers { get; set; } = new List<SubmissionAnswer>();
+    public virtual ICollection<ProctoringSnapshot> ProctoringSnapshots { get; set; } = new List<ProctoringSnapshot>();
 }

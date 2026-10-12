@@ -1,18 +1,15 @@
-# Nhật Ký Cập Nhật (Update Log) - Practice Serv## [11/10/2026] - Hợp Nhất Toàn Diện Nhánh Giảng Dạy Offline: Trần Sĩ Số 20 Học Sinh, Đánh Số Tự Động & Phân Nhóm Vi Mô (3 - 5 Học Sinh)
+# NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-- **Hợp Nhất Toàn Diện Với Nhánh Develop (Core Flow 2 & Core Flow 3)**:
-  - Đồng bộ thành công cấu trúc `PracticeDbContext.cs` tích hợp đồng thời `ClassGroups`, `ClassGroupMembers` (Nhóm vi mô) và `MistakeNotebooks` (Sổ tay lỗi sai SM-2).
-- **Mô Hình Giảng Dạy Offline & Trần Sĩ Số 20 Học Sinh**:
-  - Ràng buộc trần sĩ số tối đa `MaxClassCapacity = 20` cho mỗi lớp cấp độ (Foundation, Acceleration, Breakthrough) tại cơ sở trong `ClassEnrollmentRepository.EnrollStudentAsync`.
-  - Tự động sinh lớp mới với số thứ tự tăng dần chuẩn hóa (`01, 02...`) khi các lớp hiện tại đã đủ 20 học sinh.
-- **Thuật Toán Phân Cụm Vi Mô & Quản Lý Nhóm Học Tập (3 - 5 Học Sinh)**:
-  - Hiện thực `ClassMicroClusterer.cs`: Phân cụm đồng nhất theo điểm nghẽn kiến thức, ràng buộc chặt chẽ 3 - 5 học sinh/nhóm (`3 <= Size <= 5`), phát hiện `FocusArea` và tự động sinh tên nhóm sư phạm kèm phiếu bài tập vi mô.
-  - Bộ 3 REST APIs trên `ClassesController.cs`: `POST /api/practice/classes/{classId}/micro-groups/auto-partition`, `GET /api/practice/classes/{classId}/micro-groups`, `POST /api/practice/classes/{classId}/micro-groups/{groupId}/assign-worksheet`.
+## [12/10/2026] - Khởi Động Core Flow 3 (Module 3): Nền Tảng CSDL Giám Sát & API 1 Khởi Tạo Bài Thi Thử Chuẩn Hóa (StartMockExam)
+
+- **Mở Rộng Mô Hình CSDL & Thực Thể Giám Sát Liêm Chính Học Thuật**:
+  - Mở rộng thực thể [`ExamSubmission.cs`](./V-Eval-Practice_Service.Domain/Entities/ExamSubmission.cs): Tái sử dụng bảng `ExamSubmissions` (`ExamType = "MOCK_EXAM"`), bổ sung 4 trường giám sát liêm chính: `TabDepartureCount`, `IntegrityStatus`, `MentorVerdict`, `MentorNotes` và navigation collection `ProctoringSnapshots`.
+  - Tạo thực thể [`ProctoringSnapshot.cs`](./V-Eval-Practice_Service.Domain/Entities/ProctoringSnapshot.cs): Lưu trữ ảnh chụp định kỳ từ webcam phục vụ hậu kiểm danh tính người thi.
+  - Cấu hình Fluent API trong [`PracticeDbContext.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs) và cập nhật DDL bootstrapping tự động trong [`Program.cs`](./V-Eval-Practice_Service.API/Program.cs).
+  - Triển khai repository [`IMockExamRepository.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IMockExamRepository.cs) và [`MockExamRepository.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/MockExamRepository.cs).
+- **Hiện Thực API 1: Khởi Tạo Phiên Thi Thử Chuẩn Hóa 120 Câu (StartMockExam)**:
+  - Khởi tạo chuỗi CQRS: [`StartMockExamDtos.cs`](./V-Eval-Practice_Service.Application/Features/MockExams/DTOs/StartMockExamDtos.cs), `StartMockExamCommand.cs`, `StartMockExamCommandValidator.cs` và [`StartMockExamCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/MockExams/Commands/StartMockExam/StartMockExamCommandHandler.cs).
+  - Tích hợp Content Service qua gRPC lấy 120 câu hỏi bảo mật (ẩn đáp án đúng), kích hoạt đồng hồ đếm ngược 150 phút (9000 giây) và thiết lập cơ chế khôi phục phiên thi đang dang dở.
+  - Tạo Controller [`MockExamsController.cs`](./V-Eval-Practice_Service.API/Controllers/MockExamsController.cs) với endpoint `POST /api/practice/mock-exams/{examId}/start`.
 - **Kiểm Thử & Biên Dịch**:
-  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).(nhân `EaseFactor`), và tự động gắn cờ `IsMastered = true` khi đúng liên tiếp 3 lần.
-  - 4 API Endpoints trong [`MistakesController.cs`](./V-Eval-Practice_Service.API/Controllers/MistakesController.cs): `GET /mistakes`, `GET /mistakes/daily-review`, `POST /mistakes/{id}/tag-error`, `POST /mistakes/{id}/review-submit`.
-- **Kiểm Thử Toàn Trình & Vận Hành Trực Tiếp (Live Services)**:
-  - Đã khởi chạy đồng thời Content Service (gRPC 5250) và Practice Service (REST & Swagger 5261).
-  - Kiểm thử toàn diện qua PowerShell: Khởi tạo chặng học -> Gọi cứu trợ bốc câu hỏi từ Content Service -> Nộp bài chấm điểm trực tiếp từ Content Service -> Nhận bộ đề biến thể mới ở đợt kế tiếp.
-  - Toàn bộ Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
->>>>>>> origin/develop
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
