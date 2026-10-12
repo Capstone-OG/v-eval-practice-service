@@ -250,3 +250,13 @@
    - `POST /api/practice/ai-tutor/ask-stream`: Emits `text/event-stream; charset=utf-8` with SSE events, terminating with `data: [DONE]\n\n`.
    - Identity extraction: Seamlessly resolves `StudentId` from Gateway `X-User-Id` header with payload fallback.
 
+### 7.3 Human-in-the-Loop Reporting & Mentor Audit Integration (Phase 6)
+- **Student Reporting Action**:
+  - `POST /api/practice/ai-tutor/report`: Dispatches student feedback flags to Python FastAPI engine via `ReportInteractionAsync`.
+  - Captures optional justification text and flags the record in `v_eval_ai.ai_tutor_interaction_logs` (`student_reported = TRUE`).
+- **Mentor Audit Querying**:
+  - `GET /api/practice/ai-tutor/interactions`: Fetches paginated interaction logs with `reportedOnly` filtering for mentor review.
+- **Fail-Safe Operation**:
+  - Downstream communication failures fallback to local logging ensuring the student experience is never disrupted.
+
+

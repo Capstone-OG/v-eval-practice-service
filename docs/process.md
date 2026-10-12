@@ -77,6 +77,8 @@
 | 45 | **Core Flow 2 (Thematic Cohort - Bước 5): Gắn LiveSession Theo Miền Chuyên Đề** | `LearningRoadmapRepository.cs` & `GenerateRoadmapCommandHandler.cs` | 🟢 Hoàn thành | 100% | Tự động ánh xạ LiveSession theo đúng DomainCode của chặng lộ trình học tập thay vì gán 1 buổi Live chung |
 | 46 | **Core Flow 2 (Thematic Cohort - Bước 6): API 10 Hỗ Trợ Đa Ghi Danh Lớp Học** | `LiveSessionRepository.cs` & `GetMyLiveScheduleQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/live-sessions/my-schedule` truy vấn lịch Live của TẤT CẢ lớp (hành chính + chuyên đề K-Means) kèm `ClassName` và `DomainCode` |
 | 47 | **Core Flow 4 (Phase 5): Tích Hợp AI Tutor Client & SSE Streaming** | `Application/Interfaces`, `Infrastructure/HttpClients`, `API/Controllers` | 🟢 Hoàn thành | 100% | `IAiTutorClient`, `AiTutorClient` SSE proxy, Rate Limiter (`StrictTutorPolicy`), `AiTutorController` (`ask-stream` & `ask`) |
+| 48 | **Core Flow 4 (Phase 6): Báo Cáo Học Sinh & Tương Tác Mentor** | `Application/Interfaces`, `Infrastructure/HttpClients`, `API/Controllers` | 🟢 Hoàn thành | 100% | API báo cáo sai `POST /api/practice/ai-tutor/report`, truy vấn tương tác `GET /api/practice/ai-tutor/interactions`, tích hợp fallback kiên cường |
+
 
 
 

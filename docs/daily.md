@@ -1,6 +1,21 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
-## [11/10/2026] - Triển Khai Giai Đoạn 5 Core Flow 4 GraphRAG AI Tutor: Tích Hợp Practice Service .NET 9 & SSE Streaming Proxy
+## [12/10/2026] - Triển Khai Giai Đoạn 6 Core Flow 4 GraphRAG AI Tutor: Báo Cáo Học Sinh & Tích Hợp Mentor Resolution
+- **Mở Rộng Giao Thức AI Tutor Client (`Application/Common/Interfaces/IAiTutorClient.cs`)**:
+  - Bổ sung phương thức `ReportInteractionAsync(Guid interactionId, string? reason, Guid? studentId)` gửi phản hồi báo cáo sai của học sinh.
+  - Bổ sung phương thức `GetInteractionsAsync(bool reportedOnly, int limit, int offset)` phục vụ kiểm duyệt tương tác của Mentor.
+  - Khởi tạo các DTO: `ReportInteractionRequestPayload`, `ReportInteractionResponseDto`, `TutorInteractionItemDto`, `TutorInteractionTranscriptItemDto`.
+- **Hiện Thực Hóa HTTP Client Phục Hồi Cao (`Infrastructure/HttpClients/AiTutorClient.cs`)**:
+  - Triển khai gọi `POST /api/v1/socratic/interactions/{id}/report` và `GET /api/v1/socratic/interactions`.
+  - Tích hợp cơ chế Fallback xử lý cục bộ khi dịch vụ AI Engine gặp sự cố mạng tạm thời.
+- **Xây Dựng Endpoints Báo Cáo & Kiểm Duyệt Tương Tác (`API/Controllers/AiTutorController.cs`)**:
+  - `POST /api/practice/ai-tutor/report` (alias `/api/v1/ai-tutor/report`): Học sinh báo cáo câu trả lời sai, giải mã danh tính `StudentId` từ `X-User-Id` header.
+  - `GET /api/practice/ai-tutor/interactions`: Mentor truy vấn lịch sử tương tác kèm cờ lọc `reportedOnly`.
+- **Kiểm Thử & Biên Dịch**:
+  - Toàn bộ solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
 - **Định Nghĩa Hợp Đồng Giao Tiếp Socratic AI Tutor (`Application/Common/Interfaces/IAiTutorClient.cs`)**:
   - Khởi tạo interface `IAiTutorClient` với 2 cơ chế:
     1. `StreamSocraticGuidanceAsync`: Stream bất đồng bộ `IAsyncEnumerable<string>` phục vụ chuyển tiếp Server-Sent Events (SSE) thời gian thực.
