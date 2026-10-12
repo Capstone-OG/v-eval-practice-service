@@ -58,7 +58,15 @@ public class SubmitMockExamCommandHandler : IRequestHandler<SubmitMockExamComman
         }
 
         // 3. Lấy bảng đáp án chuẩn từ Content Service gRPC
-        var answerKeys = await _contentGrpcClient.GetExamAnswerKeysAsync(submission.ExamId, cancellationToken);
+        IReadOnlyDictionary<Guid, ExamQuestionKeyDto>? answerKeys = null;
+        try
+        {
+            answerKeys = await _contentGrpcClient.GetExamAnswerKeysAsync(submission.ExamId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Content Service gRPC tạm thời không thể kết nối cho ExamId {ExamId}. Kích hoạt chế độ fallback grading độc lập.", submission.ExamId);
+        }
 
         // Chuẩn bị danh sách chấm điểm
         var answersList = request.Answers ?? new List<MockExamAnswerSubmissionDto>();
