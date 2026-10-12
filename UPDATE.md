@@ -1,6 +1,6 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [12/10/2026] - Triển Khai Core Flow 3 (Module 3): CSDL Giám Sát & Bộ 5 APIs Thi Thử Mô Phỏng (Start, LogTab, Snapshot, Submit, Details)
+## [12/10/2026] - Hoàn Tất Toàn Diện Core Flow 3 (Module 3): CSDL Giám Sát & Trọn Bộ 6 APIs Thi Thử Mô Phỏng Chuẩn Hóa
 
 - **Mở Rộng Mô Hình CSDL & Thực Thể Giám Sát Liêm Chính Học Thuật**:
   - Mở rộng thực thể [`ExamSubmission.cs`](./V-Eval-Practice_Service.Domain/Entities/ExamSubmission.cs): Tái sử dụng bảng `ExamSubmissions` (`ExamType = "MOCK_EXAM"`), bổ sung 4 trường giám sát liêm chính: `TabDepartureCount`, `IntegrityStatus`, `MentorVerdict`, `MentorNotes` và navigation collection `ProctoringSnapshots`.
@@ -29,5 +29,9 @@
   - Khởi tạo chuỗi CQRS: [`GetMockExamDetailDtos.cs`](./V-Eval-Practice_Service.Application/Features/MockExams/DTOs/GetMockExamDetailDtos.cs), `GetMockExamDetailQuery.cs`, `GetMockExamDetailQueryValidator.cs` và [`GetMockExamDetailQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetMockExamDetail/GetMockExamDetailQueryHandler.cs).
   - Nghiệp vụ: Truy xuất toàn diện thông tin bài thi, điểm số, câu trả lời, trạng thái liêm chính học thuật và chuỗi bằng chứng ảnh chụp webcam (Visual Audit Trail) sắp xếp theo thời gian kèm cờ nhận diện khuôn mặt (`FaceDetected`).
   - Endpoint: `GET /api/practice/mock-exams/{submissionId}`.
+- **Hiện Thực API 6: Mentor Thẩm Định & Phê Duyệt Kết Quả Thi Thử (MentorReview)**:
+  - Khởi tạo chuỗi CQRS: [`MentorReviewDtos.cs`](./V-Eval-Practice_Service.Application/Features/MockExams/DTOs/MentorReviewDtos.cs), `MentorReviewCommand.cs`, `MentorReviewCommandValidator.cs` và [`MentorReviewCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/MockExams/Commands/MentorReview/MentorReviewCommandHandler.cs).
+  - Nghiệp vụ: Mentor thẩm duyệt bài thi có dấu hiệu gian lận (`UNDER_REVIEW`). Nếu `APPROVED`, phục hồi `Status = "COMPLETED"`, `IntegrityStatus = "NORMAL"` và công nhận điểm số; nếu `DISQUALIFIED`, đưa `Status = "DISQUALIFIED"`, hủy điểm số về 0 và lưu ghi chú giải trình lý do.
+  - Endpoint: `PATCH /api/practice/mock-exams/{submissionId}/mentor-review`.
 - **Kiểm Thử & Biên Dịch**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).

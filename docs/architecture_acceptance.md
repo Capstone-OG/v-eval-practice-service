@@ -486,6 +486,14 @@
   4. Exposes chronological webcam visual audit trail (`CapturedAt` ascending order) with facial presence verification indicators (`FaceDetected`) for mentor inspection.
   5. Outputs granular item-by-item student selections and correctness evaluations.
 
+### 12.7 API 6: Mentor Review & Academic Integrity Verdict (`PATCH /api/practice/mock-exams/{submissionId}/mentor-review`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists and has transitioned out of active student testing (`Status != "IN_PROGRESS"`).
+  2. Enforces strict input validation: `Verdict` must be either `APPROVED` or `DISQUALIFIED`. If `DISQUALIFIED`, `Notes` is strictly required.
+  3. Under `APPROVED` verdict: Updates `Status = "COMPLETED"`, resets suspicious flag to `IntegrityStatus = "NORMAL"`, and legitimizes the earned `TotalScore`.
+  4. Under `DISQUALIFIED` verdict: Updates `Status = "DISQUALIFIED"`, voids academic credentials by zeroing out `TotalScore = 0` and `TotalCorrect = 0`.
+  5. Persists mentor review rationale into `MentorNotes` and timestamps the decision for audit traceability.
+
 
 
 

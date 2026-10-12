@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using V_Eval_Practice_Service.API.Controllers.Base;
 using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.MockExams.Commands.LogTabDeparture;
+using V_Eval_Practice_Service.Application.Features.MockExams.Commands.MentorReview;
 using V_Eval_Practice_Service.Application.Features.MockExams.Commands.StartMockExam;
 using V_Eval_Practice_Service.Application.Features.MockExams.Commands.SubmitMockExam;
 using V_Eval_Practice_Service.Application.Features.MockExams.Commands.UploadSnapshot;
@@ -135,6 +136,31 @@ public class MockExamsController : ApiControllerBase
     {
         var query = new GetMockExamDetailQuery(submissionId);
         var result = await Mediator.Send(query);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// API 6: Mentor thẩm định &amp; phê duyệt kết quả thi thử (Mentor Review &amp; Academic Integrity Verdict)
+    /// </summary>
+    /// <remarks>
+    /// Cho phép Mentor/Giáo viên thẩm duyệt bài thi có dấu hiệu gian lận sau khi đã rà soát hình ảnh webcam và số lần rời tab:
+    /// - Verdict = APPROVED: Phê duyệt bài thi hợp lệ, chuyển Status sang COMPLETED, phục hồi IntegrityStatus = NORMAL và công nhận điểm số.
+    /// - Verdict = DISQUALIFIED: Hủy kết quả bài thi do gian lận, chuyển Status sang DISQUALIFIED, đưa điểm số về 0. Bắt buộc kèm Notes giải trình.
+    /// </remarks>
+    /// <param name="submissionId">Mã phiên nộp bài thi thử</param>
+    /// <param name="request">Quyết định thẩm duyệt và ghi chú của Mentor</param>
+    /// <returns>Trạng thái cập nhật của bài thi và kết luận thẩm định chính thức</returns>
+    [HttpPatch("{submissionId:guid}/mentor-review")]
+    [ProducesResponseType(typeof(Result<MentorReviewResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<MentorReviewResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<MentorReviewResponseDto>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Result<MentorReviewResponseDto>), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> MentorReview(
+        [FromRoute] Guid submissionId,
+        [FromBody] MentorReviewRequestDto request)
+    {
+        var command = new MentorReviewCommand(submissionId, request.Verdict, request.Notes);
+        var result = await Mediator.Send(command);
         return HandleResult(result);
     }
 }

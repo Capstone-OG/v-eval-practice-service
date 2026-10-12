@@ -61,6 +61,15 @@
     3. Cung cấp chuỗi bằng chứng ảnh chụp (Visual Audit Trail) sắp xếp theo thời gian (`CapturedAt`) kèm cờ nhận diện khuôn mặt (`FaceDetected`) phục vụ quy trình thẩm định gian lận.
     4. Cung cấp chi tiết từng câu hỏi học sinh đã trả lời.
   - Bổ sung endpoint `[HttpGet("{submissionId:guid}")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 6): Mentor Thẩm Định & Phê Duyệt Kết Quả Thi Thử (PATCH /api/practice/mock-exams/{submissionId}/mentor-review)**:
+  - Khởi tạo DTOs [`MentorReviewDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/MentorReviewDtos.cs) (`MentorReviewRequestDto`, `MentorReviewResponseDto`).
+  - Khởi tạo Command `MentorReviewCommand.cs` và Validator `MentorReviewCommandValidator.cs` (ràng buộc Verdict chỉ nhận `APPROVED` hoặc `DISQUALIFIED`, bắt buộc nhập `Notes` khi hủy kết quả).
+  - Xây dựng Handler [`MentorReviewCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/MentorReview/MentorReviewCommandHandler.cs):
+    1. Xác thực bài thi tồn tại và không ở trạng thái đang làm (`IN_PROGRESS`).
+    2. Nếu `Verdict == "APPROVED"`: Chuyển trạng thái `Status = "COMPLETED"`, giải phóng cờ `IntegrityStatus = "NORMAL"`, giữ nguyên và công nhận điểm số chính thức.
+    3. Nếu `Verdict == "DISQUALIFIED"`: Chuyển trạng thái `Status = "DISQUALIFIED"`, hủy điểm `TotalScore = 0`, `TotalCorrect = 0` do vi phạm quy chế thi.
+    4. Lưu vết ghi chú sư phạm và lý do thẩm định của Mentor vào `MentorNotes`.
+  - Bổ sung endpoint `[HttpPatch("{submissionId:guid}/mentor-review")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
 - **Kiểm Thử Biên Dịch**:
   - Toàn bộ Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
 
