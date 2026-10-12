@@ -19,6 +19,11 @@ public class PracticeDbContext : DbContext
     public DbSet<RoadmapNode> RoadmapNodes => Set<RoadmapNode>();
     public DbSet<LiveSession> LiveSessions => Set<LiveSession>();
     public DbSet<LiveSessionAttendance> LiveSessionAttendances => Set<LiveSessionAttendance>();
+    public DbSet<StageProgress> StageProgresses => Set<StageProgress>();
+    public DbSet<AdaptiveQuizAttempt> AdaptiveQuizAttempts => Set<AdaptiveQuizAttempt>();
+    public DbSet<ClassGroup> ClassGroups => Set<ClassGroup>();
+    public DbSet<ClassGroupMember> ClassGroupMembers => Set<ClassGroupMember>();
+    public DbSet<MistakeNotebook> MistakeNotebooks => Set<MistakeNotebook>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -120,6 +125,46 @@ public class PracticeDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.ClassId)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Cấu hình bảng ClassGroups (Nhóm học tập vi mô 3 - 5 học sinh)
+        modelBuilder.Entity<ClassGroup>(entity =>
+        {
+            entity.ToTable("ClassGroups");
+            entity.HasKey(e => e.GroupId);
+
+            entity.Property(e => e.GroupId).HasColumnName("group_id");
+            entity.Property(e => e.ClassId).HasColumnName("class_id").IsRequired();
+            entity.Property(e => e.GroupName).HasColumnName("group_name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.FocusArea).HasColumnName("focus_area").HasMaxLength(255);
+            entity.Property(e => e.CommonWeakSkillIds).HasColumnName("common_weak_skill_ids");
+            entity.Property(e => e.RecommendedWorksheetTitle).HasColumnName("recommended_worksheet_title").HasMaxLength(255);
+            entity.Property(e => e.AssignedWorksheetId).HasColumnName("assigned_worksheet_id").HasMaxLength(100);
+            entity.Property(e => e.AssignedWorksheetTitle).HasColumnName("assigned_worksheet_title").HasMaxLength(255);
+            entity.Property(e => e.WorksheetAssignedAt).HasColumnName("worksheet_assigned_at");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+
+            entity.HasOne(e => e.Class)
+                  .WithMany()
+                  .HasForeignKey(e => e.ClassId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.Members)
+                  .WithOne(m => m.Group)
+                  .HasForeignKey(m => m.GroupId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Cấu hình bảng ClassGroupMembers
+        modelBuilder.Entity<ClassGroupMember>(entity =>
+        {
+            entity.ToTable("ClassGroupMembers");
+            entity.HasKey(e => e.GroupMemberId);
+
+            entity.Property(e => e.GroupMemberId).HasColumnName("group_member_id");
+            entity.Property(e => e.GroupId).HasColumnName("group_id").IsRequired();
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.JoinedAt).HasColumnName("joined_at");
         });
 
         // Cấu hình bảng LearningRoadmaps (Core Flow 2)
@@ -224,6 +269,81 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.LeftAt).HasColumnName("left_at");
             entity.Property(e => e.MakeupQuizId).HasColumnName("makeup_quiz_id");
             entity.Property(e => e.IsMakeupQuizPassed).HasColumnName("is_makeup_quiz_passed");
+        });
+
+        // Cấu hình bảng StageProgress (Core Flow 3 - Tiến trình chặng học P-L-A-R)
+        modelBuilder.Entity<StageProgress>(entity =>
+        {
+            entity.ToTable("StageProgress");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.RoadmapNodeId).HasColumnName("roadmap_node_id").IsRequired();
+            entity.Property(e => e.CurrentStep).HasColumnName("current_step").HasMaxLength(20).IsRequired();
+            entity.Property(e => e.VideoWatchPercentage).HasColumnName("video_watch_percentage").HasPrecision(5, 2);
+            entity.Property(e => e.BktMasteryPlt).HasColumnName("bkt_mastery_plt");
+            entity.Property(e => e.ConsecutiveAdvancedCorrect).HasColumnName("consecutive_advanced_correct");
+            entity.Property(e => e.ConsecutiveIncorrect).HasColumnName("consecutive_incorrect");
+            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
+            entity.HasOne(e => e.RoadmapNode)
+                  .WithMany()
+                  .HasForeignKey(e => e.RoadmapNodeId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.AdaptiveAttempts)
+                  .WithOne(a => a.StageProgress)
+                  .HasForeignKey(a => a.StageProgressId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Cấu hình bảng AdaptiveQuizAttempt (Core Flow 3 - Nhật ký trả lời câu hỏi thích ứng)
+        modelBuilder.Entity<AdaptiveQuizAttempt>(entity =>
+        {
+            entity.ToTable("AdaptiveQuizAttempts");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.StageProgressId).HasColumnName("stage_progress_id").IsRequired();
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.QuestionId).HasColumnName("question_id").IsRequired();
+            entity.Property(e => e.PatternId).HasColumnName("pattern_id").HasMaxLength(100);
+            entity.Property(e => e.SelectedOption).HasColumnName("selected_option").HasMaxLength(10);
+            entity.Property(e => e.IsCorrect).HasColumnName("is_correct");
+            entity.Property(e => e.TimeSpentSeconds).HasColumnName("time_spent_seconds");
+            entity.Property(e => e.ItemDifficultyB).HasColumnName("item_difficulty_b");
+            entity.Property(e => e.ItemDiscriminationA).HasColumnName("item_discrimination_a");
+            entity.Property(e => e.IsLuckyGuess).HasColumnName("is_lucky_guess");
+            entity.Property(e => e.PriorPlt).HasColumnName("prior_plt");
+            entity.Property(e => e.PosteriorPlt).HasColumnName("posterior_plt");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+        });
+
+        // Cấu hình bảng MistakeNotebooks (Core Flow 3 - Sổ tay lỗi sai & Lặp lại ngắt quãng SM-2)
+        modelBuilder.Entity<MistakeNotebook>(entity =>
+        {
+            entity.ToTable("MistakeNotebooks");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.QuestionId).HasColumnName("question_id").IsRequired();
+            entity.Property(e => e.SkillId).HasColumnName("skill_id").IsRequired();
+            entity.Property(e => e.PatternId).HasColumnName("pattern_id").HasMaxLength(100);
+            entity.Property(e => e.CognitiveErrorTag).HasColumnName("cognitive_error_tag").HasMaxLength(50);
+            entity.Property(e => e.StudentNotes).HasColumnName("student_notes");
+            entity.Property(e => e.NextReviewDate).HasColumnName("next_review_date").HasColumnType("date");
+            entity.Property(e => e.ReviewCount).HasColumnName("review_count");
+            entity.Property(e => e.ConsecutiveCorrectReviews).HasColumnName("consecutive_correct_reviews");
+            entity.Property(e => e.IntervalDays).HasColumnName("interval_days");
+            entity.Property(e => e.EaseFactor).HasColumnName("ease_factor");
+            entity.Property(e => e.IsMastered).HasColumnName("is_mastered");
+            entity.Property(e => e.LastReviewedAt).HasColumnName("last_reviewed_at");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
         });
     }
 }

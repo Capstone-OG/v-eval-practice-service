@@ -12,5 +12,7 @@
 - **Xây Dựng Endpoints Báo Cáo & Kiểm Duyệt Tương Tác (`API/Controllers/AiTutorController.cs`)**:
   - `POST /api/practice/ai-tutor/report` (alias `/api/v1/ai-tutor/report`): Tiếp nhận báo cáo từ học sinh, tự động giải mã danh tính `StudentId` từ Gateway Header `X-User-Id`.
   - `GET /api/practice/ai-tutor/interactions`: Cung cấp danh sách tương tác kèm bộ lọc `reportedOnly` phục vụ thẩm định sư phạm của Mentor.
+- **Hợp Nhất Toàn Diện Với Nhánh Develop (Core Flow 3 & Offline Micro-Groups)**:
+  - Đồng bộ thành công cấu trúc `PracticeDbContext.cs` tích hợp đồng thời `ClassGroups`, `ClassGroupMembers` (Nhóm vi mô 3-5 học sinh), `MistakeNotebooks` (Sổ tay lỗi sai SM-2) và hạ tầng `IAiTutorClient` (Core Flow 4).
 - **Kiểm Thử & Biên Dịch**:
   - Toàn bộ solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
