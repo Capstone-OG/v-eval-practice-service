@@ -469,6 +469,15 @@
   3. Records anomaly warnings if `FaceDetected` is false (absence or occlusion).
   4. Yields total accumulated snapshots count for student verification.
 
+### 12.5 API 4: Submit Mock Exam, Grade & Integrity Routing (`POST /api/practice/mock-exams/{submissionId}/submit`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists and remains in `IN_PROGRESS` status.
+  2. Fetches official answer keys from Content Service via gRPC `GetExamAnswerKeysAsync`, supporting resilient fallback grading in isolated local testing.
+  3. Evaluates correctness for each question item, computes total score (120 questions x 10 = 1200 points scale), and logs granular answers into `SubmissionAnswers`.
+  4. Applies Proctoring Integrity Policy (BR-20): If flagged (`IntegrityStatus == "FLAGGED_FOR_REVIEW"` or `TabDepartureCount > 3`), sets `Status = "UNDER_REVIEW"` and `MentorVerdict = "PENDING"` for mentor verification; otherwise marks `Status = "COMPLETED"` and `MentorVerdict = "APPROVED"`.
+  5. Core Flow 3 Closed-Loop Integration: Automatically injects incorrect answers into the student's personal `MistakeNotebook` with `NextReviewDate = Tomorrow` for spaced repetition (SM-2).
+  6. Core Flow 2 Feedback Loop: Aggregates skill-level performance and updates `LearningProfiles` (`UpsertSkillPriorsAsync`) to inform downstream micro-group re-clustering (3-5 students) for next week's offline classes.
+
 
 
 

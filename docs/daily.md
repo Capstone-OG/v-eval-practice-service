@@ -41,6 +41,17 @@
     3. Cảnh báo trong log kiểm toán nếu phát hiện frame ảnh không nhận diện được khuôn mặt (`FaceDetected = false`).
     4. Cập nhật và đếm tổng số lượng ảnh chụp trong phiên thi qua `IMockExamRepository.AddSnapshotAsync`.
   - Bổ sung endpoint `[HttpPost("{submissionId:guid}/upload-snapshot")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 4): Nộp Bài Thi Thử, Chấm Điểm & Phân Luồng Liêm Chính Học Thuật (POST /api/practice/mock-exams/{submissionId}/submit)**:
+  - Khởi tạo DTOs [`SubmitMockExamDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/SubmitMockExamDtos.cs) (`MockExamAnswerSubmissionDto`, `SubmitMockExamRequestDto`, `MockExamQuestionResultDto`, `SubmitMockExamResponseDto`).
+  - Khởi tạo Command `SubmitMockExamCommand.cs` và Validator `SubmitMockExamCommandValidator.cs`.
+  - Xây dựng Handler [`SubmitMockExamCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/SubmitMockExam/SubmitMockExamCommandHandler.cs):
+    1. Xác thực phiên thi tồn tại và trạng thái `IN_PROGRESS`.
+    2. Nạp bảng đáp án chuẩn qua gRPC `IContentGrpcClient.GetExamAnswerKeysAsync`, hỗ trợ cơ chế fallback chấm điểm độc lập khi test local.
+    3. Chấm điểm từng câu, tính `TotalCorrect`, `TotalQuestions`, `TotalScore` (120 câu chuẩn ĐGNL x 10 điểm = 1200 điểm), và `TotalTimeSpentSeconds`. Lưu chi tiết từng câu vào `SubmissionAnswers`.
+    4. Áp dụng quy tắc giám sát thi cử (BR-20): Nếu `IntegrityStatus == "FLAGGED_FOR_REVIEW"` hoặc `TabDepartureCount > 3`, tự động chuyển bài thi sang `Status = "UNDER_REVIEW"` và `MentorVerdict = "PENDING"` để Mentor thẩm định. Ngược lại đánh dấu `Status = "COMPLETED"` và `MentorVerdict = "APPROVED"`.
+    5. Tự động liên thông Core 3: Các câu làm sai (`!isCorrect`) được tự động nạp vào Sổ tay lỗi sai cá nhân (`MistakeNotebook`) với `NextReviewDate = Ngày mai` phục vụ chu kỳ lặp lại ngắt quãng SM-2.
+    6. Liên thông Core 2: Cập nhật độ thành thạo các kỹ năng làm được vào `LearningProfiles` (`UpsertSkillPriorsAsync`) để chuẩn bị dữ liệu phân nhóm bàn học vi mô (Micro-groups 3-5 bạn) cho tuần học tiếp theo.
+  - Bổ sung endpoint `[HttpPost("{submissionId:guid}/submit")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
 - **Kiểm Thử Biên Dịch**:
   - Toàn bộ Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
 
