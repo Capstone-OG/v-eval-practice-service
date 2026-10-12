@@ -1,5 +1,46 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [12/10/2026] - Triển Khai Giai Đoạn 6 Core Flow 4 GraphRAG AI Tutor: Báo Cáo Học Sinh & Tích Hợp Mentor Resolution
+- **Mở Rộng Giao Thức AI Tutor Client (`Application/Common/Interfaces/IAiTutorClient.cs`)**:
+  - Bổ sung phương thức `ReportInteractionAsync(Guid interactionId, string? reason, Guid? studentId)` gửi phản hồi báo cáo sai của học sinh.
+  - Bổ sung phương thức `GetInteractionsAsync(bool reportedOnly, int limit, int offset)` phục vụ kiểm duyệt tương tác của Mentor.
+  - Khởi tạo các DTO: `ReportInteractionRequestPayload`, `ReportInteractionResponseDto`, `TutorInteractionItemDto`, `TutorInteractionTranscriptItemDto`.
+- **Hiện Thực Hóa HTTP Client Phục Hồi Cao (`Infrastructure/HttpClients/AiTutorClient.cs`)**:
+  - Triển khai gọi `POST /api/v1/socratic/interactions/{id}/report` và `GET /api/v1/socratic/interactions`.
+  - Tích hợp cơ chế Fallback xử lý cục bộ khi dịch vụ AI Engine gặp sự cố mạng tạm thời.
+- **Xây Dựng Endpoints Báo Cáo & Kiểm Duyệt Tương Tác (`API/Controllers/AiTutorController.cs`)**:
+  - `POST /api/practice/ai-tutor/report` (alias `/api/v1/ai-tutor/report`): Học sinh báo cáo câu trả lời sai, giải mã danh tính `StudentId` từ `X-User-Id` header.
+  - `GET /api/practice/ai-tutor/interactions`: Mentor truy vấn lịch sử tương tác kèm cờ lọc `reportedOnly`.
+- **Kiểm Thử & Biên Dịch**:
+  - Toàn bộ solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
+## [11/10/2026] - Triển Khai Giai Đoạn 5 Core Flow 4 GraphRAG AI Tutor: Tích Hợp Practice Service .NET 9 & SSE Streaming Proxy
+- **Định Nghĩa Hợp Đồng Giao Tiếp Socratic AI Tutor (`Application/Common/Interfaces/IAiTutorClient.cs`)**:
+  - Khởi tạo interface `IAiTutorClient` với 2 cơ chế:
+    1. `StreamSocraticGuidanceAsync`: Stream bất đồng bộ `IAsyncEnumerable<string>` phục vụ chuyển tiếp Server-Sent Events (SSE) thời gian thực.
+    2. `AskSocraticGuidanceAsync`: Gọi trực tiếp nhận kết quả DTO đồng bộ `Task<SocraticAskResponseDto?>`.
+  - Thiết kế DTO payload chuẩn `SocraticAskRequestPayload` (StudentId, QuestionId, QuestionLatex, Options, StudentSelectedOption, CorrectOption, SkillId) và `SocraticAskResponseDto`.
+- **Hiện Thực Hóa HTTP Client Phục Hồi Cao (`Infrastructure/HttpClients/AiTutorClient.cs`)**:
+  - Kết nối FastAPI AI Engine tại `http://localhost:8000` (đọc linh hoạt từ cấu hình `AiSettings:ServiceUrl`).
+  - Xử lý chuyển tiếp dòng dữ liệu SSE (`text/event-stream`) line-by-line với `StreamReader` và `HttpCompletionOption.ResponseHeadersRead`.
+  - Phân tích cú pháp JSON payload của từng sự kiện token (`data: {"type": "token", "token": "..."}`) và yield trả về cho client.
+  - Tích hợp cơ chế Fallback Sư Phạm Kiên Cường (Resilient Socratic Fallback): Nếu AI Engine quá tải, gặp lỗi mạng hoặc ngắt kết nối, client tự động sinh lời gợi mở sư phạm chuẩn mực, bảo đảm học sinh không bao giờ bị nghẽn luồng học tập.
+  - Đăng ký `IAiTutorClient` Scoped vào DI container tại `Infrastructure/DependencyInjection.cs`.
+- **Cấu Hình Giới Hạn Tần Suất Gọi API Chuẩn .NET 9 (`API/Program.cs`)**:
+  - Cấu hình policy `StrictTutorPolicy` bằng `AddFixedWindowLimiter` giới hạn tối đa 10 requests / phút mỗi học sinh, từ chối với HTTP Status `429 Too Many Requests`.
+  - Kích hoạt middleware `app.UseRateLimiter()` trong pipeline.
+- **Xây Dựng Controller Chuyên Biệt (`API/Controllers/AiTutorController.cs`)**:
+  - Ánh xạ route `/api/practice/ai-tutor` và alias `/api/v1/ai-tutor`.
+  - Gắn attribute `[EnableRateLimiting("StrictTutorPolicy")]`.
+  - Trích xuất an toàn `StudentId` từ Gateway Header `X-User-Id` (fallback về request payload).
+  - Endpoint `POST /api/practice/ai-tutor/ask-stream`: Xuất dòng dữ liệu SSE chuẩn `text/event-stream; charset=utf-8`, phát `data: {"token": "..."}\n\n` và kết thúc bằng `data: [DONE]\n\n`.
+  - Endpoint `POST /api/practice/ai-tutor/ask`: Trả về JSON đồng bộ phục vụ kiểm thử và ứng dụng không stream.
+- **Kiểm Thử & Biên Dịch**:
+  - Toàn bộ solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
 ## [09/10/2026] - Nâng Cấp Mô Hình Giảng Dạy Offline: Giới Hạn Sĩ Số Lớp 20 Người, Đánh Số Thứ Tự Tăng Dần & Phân Nhóm Học Tập Vi Mô (3 - 5 Học Sinh)
 
 - **Giới Hạn Sĩ Số Lớp 20 Học Sinh & Tự Động Đánh Số Thứ Tự Lớp Tăng Dần**:
@@ -197,6 +238,7 @@
 ---
 
 ## [07/10/2026] - Chuẩn Hóa Cấu Hình gRPC Settings, AI Subsystem & Kết Nối CSDL Tập Trung
+>>>>>>> origin/develop
 - **Chuẩn Hóa File Cấu Hình Mẫu (`appsettings.example.json`)**:
   - Bổ sung khối cấu hình `GrpcSettings` (IdentityServiceUrl: `http://localhost:5156`, ContentServiceUrl: `http://localhost:5250`).
   - Bổ sung cấu hình `AiSettings` (ServiceUrl: `http://localhost:8000`).

@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<IIdentityGrpcClient, IdentityGrpcClient>();
         services.AddScoped<IContentGrpcClient, ContentGrpcClient>();
         services.AddScoped<IAiDiagnosticClient, HttpClients.AiDiagnosticClient>();
+        services.AddScoped<IAiTutorClient, HttpClients.AiTutorClient>();
 
         return services;
     }

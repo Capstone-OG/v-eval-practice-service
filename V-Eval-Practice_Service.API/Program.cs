@@ -3,6 +3,8 @@ using System.IO;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using V_Eval_Practice_Service.API.Middlewares;
 using V_Eval_Practice_Service.Application;
 using V_Eval_Practice_Service.Domain.Entities;
@@ -53,12 +55,26 @@ builder.Services.AddCors(options =>
     });
 });
 
+// 5. Cấu hình Rate Limiting (Giới hạn tốc độ gọi AI Tutor)
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("StrictTutorPolicy", opt =>
+    {
+        opt.PermitLimit = 10;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        opt.QueueLimit = 0;
+    });
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
+
 var app = builder.Build();
 
-// 5. Middleware xử lý lỗi toàn cục
+// 6. Middleware xử lý lỗi toàn cục & Rate Limiter
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
 app.UseCors("AllowAll");
+app.UseRateLimiter();
 app.UseStaticFiles();
 
 // 6. Kích hoạt Swagger UI
