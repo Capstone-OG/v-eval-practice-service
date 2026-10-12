@@ -1,6 +1,6 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [12/10/2026] - Triển Khai Core Flow 3 (Module 3): CSDL Giám Sát, API 1 Khởi Tạo Thi Thử & API 2 Ghi Nhận Rời Tab (LogTabDeparture)
+## [12/10/2026] - Triển Khai Core Flow 3 (Module 3): CSDL Giám Sát, API 1 StartMockExam, API 2 LogTabDeparture & API 3 UploadSnapshot
 
 - **Mở Rộng Mô Hình CSDL & Thực Thể Giám Sát Liêm Chính Học Thuật**:
   - Mở rộng thực thể [`ExamSubmission.cs`](./V-Eval-Practice_Service.Domain/Entities/ExamSubmission.cs): Tái sử dụng bảng `ExamSubmissions` (`ExamType = "MOCK_EXAM"`), bổ sung 4 trường giám sát liêm chính: `TabDepartureCount`, `IntegrityStatus`, `MentorVerdict`, `MentorNotes` và navigation collection `ProctoringSnapshots`.
@@ -15,5 +15,9 @@
   - Khởi tạo chuỗi CQRS: [`LogTabDepartureDtos.cs`](./V-Eval-Practice_Service.Application/Features/MockExams/DTOs/LogTabDepartureDtos.cs), `LogTabDepartureCommand.cs`, `LogTabDepartureCommandValidator.cs` và [`LogTabDepartureCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/MockExams/Commands/LogTabDeparture/LogTabDepartureCommandHandler.cs).
   - Nghiệp vụ: Đếm số lần rời tab/màn hình (`TabDepartureCount += 1`). Khi số lần vi phạm vượt quá 3 lần (`> 3`), hệ thống tự động cắm cờ `IntegrityStatus = "FLAGGED_FOR_REVIEW"` để Mentor thẩm định.
   - Endpoint: `POST /api/practice/mock-exams/{submissionId}/log-tab-departure`.
+- **Hiện Thực API 3: Lưu Ảnh Chụp Webcam Giám Sát Ngẫu Nhiên (UploadSnapshot)**:
+  - Khởi tạo chuỗi CQRS: [`UploadSnapshotDtos.cs`](./V-Eval-Practice_Service.Application/Features/MockExams/DTOs/UploadSnapshotDtos.cs), `UploadSnapshotCommand.cs`, `UploadSnapshotCommandValidator.cs` và [`UploadSnapshotCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/MockExams/Commands/UploadSnapshot/UploadSnapshotCommandHandler.cs).
+  - Nghiệp vụ: Lưu trữ URL ảnh chụp webcam định kỳ, mốc thời gian UTC và kết quả nhận diện khuôn mặt (`FaceDetected`) vào bảng `ProctoringSnapshots`.
+  - Endpoint: `POST /api/practice/mock-exams/{submissionId}/upload-snapshot`.
 - **Kiểm Thử & Biên Dịch**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).

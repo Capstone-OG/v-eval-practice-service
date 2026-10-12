@@ -32,6 +32,15 @@
     4. Cập nhật bản ghi vào CSDL qua `IMockExamRepository.UpdateAsync`.
     5. Trả về thông điệp cảnh báo sư phạm tương ứng theo mức độ vi phạm.
   - Bổ sung endpoint `[HttpPost("{submissionId:guid}/log-tab-departure")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 3): Lưu Ảnh Chụp Webcam Giám Sát Ngẫu Nhiên (POST /api/practice/mock-exams/{submissionId}/upload-snapshot)**:
+  - Khởi tạo DTOs [`UploadSnapshotDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/UploadSnapshotDtos.cs) (`UploadSnapshotRequestDto`, `UploadSnapshotResponseDto`).
+  - Khởi tạo Command `UploadSnapshotCommand.cs` và Validator `UploadSnapshotCommandValidator.cs`.
+  - Xây dựng Handler [`UploadSnapshotCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/UploadSnapshot/UploadSnapshotCommandHandler.cs):
+    1. Xác thực bài thi tồn tại và trạng thái `IN_PROGRESS`.
+    2. Khởi tạo bản ghi `ProctoringSnapshot` liên kết `SubmissionId`, lưu vết `SnapshotUrl`, mốc thời gian `CapturedAt = UtcNow` và kết quả nhận diện khuôn mặt `FaceDetected`.
+    3. Cảnh báo trong log kiểm toán nếu phát hiện frame ảnh không nhận diện được khuôn mặt (`FaceDetected = false`).
+    4. Cập nhật và đếm tổng số lượng ảnh chụp trong phiên thi qua `IMockExamRepository.AddSnapshotAsync`.
+  - Bổ sung endpoint `[HttpPost("{submissionId:guid}/upload-snapshot")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
 - **Kiểm Thử Biên Dịch**:
   - Toàn bộ Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
 

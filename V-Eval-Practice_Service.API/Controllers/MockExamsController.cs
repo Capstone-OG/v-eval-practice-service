@@ -6,6 +6,7 @@ using V_Eval_Practice_Service.API.Controllers.Base;
 using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.MockExams.Commands.LogTabDeparture;
 using V_Eval_Practice_Service.Application.Features.MockExams.Commands.StartMockExam;
+using V_Eval_Practice_Service.Application.Features.MockExams.Commands.UploadSnapshot;
 using V_Eval_Practice_Service.Application.Features.MockExams.DTOs;
 
 namespace V_Eval_Practice_Service.API.Controllers;
@@ -58,6 +59,30 @@ public class MockExamsController : ApiControllerBase
         [FromBody] LogTabDepartureRequestDto? request)
     {
         var command = new LogTabDepartureCommand(submissionId, request?.Reason);
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// API 3: Tải lên ảnh chụp webcam ngẫu nhiên định kỳ (Proctoring Snapshot)
+    /// </summary>
+    /// <remarks>
+    /// Lưu URL hoặc dữ liệu ảnh chụp ngẫu nhiên từ camera của thí sinh kèm cờ nhận diện khuôn mặt (FaceDetected).
+    /// Phục vụ thiết lập chuỗi bằng chứng kiểm toán thị giác (Visual Audit Trail) cho Mentor thẩm định.
+    /// </remarks>
+    /// <param name="submissionId">Mã phiên nộp bài thi thử</param>
+    /// <param name="request">Thông tin ảnh chụp và trạng thái nhận diện khuôn mặt</param>
+    /// <returns>Bản ghi ảnh chụp được lưu trữ và tổng số ảnh hiện có</returns>
+    [HttpPost("{submissionId:guid}/upload-snapshot")]
+    [ProducesResponseType(typeof(Result<UploadSnapshotResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<UploadSnapshotResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<UploadSnapshotResponseDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UploadSnapshot(
+        [FromRoute] Guid submissionId,
+        [FromBody] UploadSnapshotRequestDto request)
+    {
+        var command = new UploadSnapshotCommand(
+            submissionId, request.SnapshotUrl, request.FaceDetected);
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }

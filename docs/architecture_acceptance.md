@@ -462,6 +462,13 @@
   3. Enforces Business Rule BR-20: When `TabDepartureCount > 3`, dynamically updates `IntegrityStatus` to `FLAGGED_FOR_REVIEW`.
   4. Returns real-time warning feedback and timestamped audit logs.
 
+### 12.4 API 3: Upload Random Proctoring Snapshot (`POST /api/practice/mock-exams/{submissionId}/upload-snapshot`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists and remains in `IN_PROGRESS` status.
+  2. Persists timestamped webcam frame metadata into `ProctoringSnapshots` table (`SnapshotUrl`, `CapturedAt = UtcNow`, `FaceDetected`).
+  3. Records anomaly warnings if `FaceDetected` is false (absence or occlusion).
+  4. Yields total accumulated snapshots count for student verification.
+
 
 
 
