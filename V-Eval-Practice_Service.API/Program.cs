@@ -228,6 +228,15 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE v_eval_practice.""ExamSubmissions"" ADD COLUMN IF NOT EXISTS mentor_verdict VARCHAR(50) DEFAULT 'PENDING';
             ALTER TABLE v_eval_practice.""ExamSubmissions"" ADD COLUMN IF NOT EXISTS mentor_notes TEXT;
 
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""SubmissionAnswers"" (
+                answer_id UUID PRIMARY KEY,
+                submission_id UUID NOT NULL REFERENCES v_eval_practice.""ExamSubmissions""(submission_id) ON DELETE CASCADE,
+                question_id UUID NOT NULL,
+                selected_option VARCHAR(10),
+                is_correct BOOLEAN NOT NULL,
+                time_spent_seconds INT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS v_eval_practice.""ProctoringSnapshots"" (
                 id UUID PRIMARY KEY,
                 submission_id UUID NOT NULL REFERENCES v_eval_practice.""ExamSubmissions""(submission_id) ON DELETE CASCADE,

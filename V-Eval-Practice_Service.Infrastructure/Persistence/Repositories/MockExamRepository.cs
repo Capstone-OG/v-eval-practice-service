@@ -56,6 +56,11 @@ public class MockExamRepository : IMockExamRepository
         await _context.ProctoringSnapshots.AddAsync(snapshot, ct);
     }
 
+    public async Task AddAnswersAsync(IEnumerable<SubmissionAnswer> answers, CancellationToken ct = default)
+    {
+        await _context.SubmissionAnswers.AddRangeAsync(answers, ct);
+    }
+
     public async Task<IReadOnlyList<ProctoringSnapshot>> GetSnapshotsBySubmissionIdAsync(Guid submissionId, CancellationToken ct = default)
     {
         return await _context.ProctoringSnapshots

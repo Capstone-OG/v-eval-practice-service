@@ -17,6 +17,7 @@ public interface IMockExamRepository
     Task AddAsync(ExamSubmission submission, CancellationToken ct = default);
     Task UpdateAsync(ExamSubmission submission, CancellationToken ct = default);
     Task AddSnapshotAsync(ProctoringSnapshot snapshot, CancellationToken ct = default);
+    Task AddAnswersAsync(IEnumerable<SubmissionAnswer> answers, CancellationToken ct = default);
     Task<IReadOnlyList<ProctoringSnapshot>> GetSnapshotsBySubmissionIdAsync(Guid submissionId, CancellationToken ct = default);
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

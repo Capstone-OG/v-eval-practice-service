@@ -99,7 +99,8 @@ public class SubmitMockExamCommandHandler : IRequestHandler<SubmitMockExamComman
             }
         }
 
-        submission.Answers.Clear();
+        var newAnswers = new List<SubmissionAnswer>();
+        var newMistakes = new List<MistakeNotebook>();
 
         foreach (var item in scoringKeys)
         {
@@ -127,7 +128,7 @@ public class SubmitMockExamCommandHandler : IRequestHandler<SubmitMockExamComman
                 IsCorrect = isCorrect,
                 TimeSpentSeconds = timeSpent
             };
-            submission.Answers.Add(answerEntity);
+            newAnswers.Add(answerEntity);
 
             questionResults.Add(new MockExamQuestionResultDto(
                 item.QuestionId,
@@ -137,7 +138,7 @@ public class SubmitMockExamCommandHandler : IRequestHandler<SubmitMockExamComman
                 timeSpent
             ));
 
-            // Core Flow 3: Nếu làm SAI -> Tự động nạp vào Sổ tay lỗi sai (Mistake Notebook)
+            // Core Flow 3: Nếu làm SAI -> Chuẩn bị nạp vào Sổ tay lỗi sai (Mistake Notebook)
             if (!isCorrect)
             {
                 var existingMistake = await _mistakeNotebookRepository.GetByStudentAndQuestionAsync(
@@ -164,10 +165,22 @@ public class SubmitMockExamCommandHandler : IRequestHandler<SubmitMockExamComman
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     };
-                    await _mistakeNotebookRepository.AddAsync(newMistake, cancellationToken);
+                    newMistakes.Add(newMistake);
                     mistakesAddedCount++;
                 }
             }
+        }
+
+        // Lưu danh sách câu trả lời
+        if (newAnswers.Count > 0)
+        {
+            await _mockExamRepository.AddAnswersAsync(newAnswers, cancellationToken);
+        }
+
+        // Lưu danh sách câu sai vào Sổ tay
+        foreach (var mistake in newMistakes)
+        {
+            await _mistakeNotebookRepository.AddAsync(mistake, cancellationToken);
         }
 
         int totalQuestions = scoringKeys.Count;
@@ -206,7 +219,7 @@ public class SubmitMockExamCommandHandler : IRequestHandler<SubmitMockExamComman
             foreach (var group in skillGroups)
             {
                 var skillQIds = group.Select(x => x.QuestionId).ToHashSet();
-                var skillAnswers = submission.Answers.Where(a => skillQIds.Contains(a.QuestionId)).ToList();
+                var skillAnswers = newAnswers.Where(a => skillQIds.Contains(a.QuestionId)).ToList();
                 double mastery = skillAnswers.Count > 0
                     ? (double)skillAnswers.Count(a => a.IsCorrect) / skillAnswers.Count
                     : 0.5;
