@@ -99,6 +99,7 @@
 | 63 | **Bộ 3 APIs Nhóm Học Tập Vi Mô Trên Lớp** | `ClassesController.cs` & `Features/Classes/` | 🟢 Hoàn thành | 100% | `POST /micro-groups/auto-partition` (chia nhóm), `GET /micro-groups` (tra cứu sơ đồ bàn), `POST /{groupId}/assign-worksheet` (phát đề luyện tập thích ứng) |
 | 64 | **Core Flow 4 (Phase 5): Tích Hợp AI Tutor Client & SSE Streaming** | `Application/Interfaces`, `Infrastructure/HttpClients`, `API/Controllers` | 🟢 Hoàn thành | 100% | `IAiTutorClient`, `AiTutorClient` SSE proxy, Rate Limiter (`StrictTutorPolicy`), `AiTutorController` (`ask-stream` & `ask`) |
 | 65 | **Core Flow 4 (Phase 6): Báo Cáo Học Sinh & Tương Tác Mentor** | `Application/Interfaces`, `Infrastructure/HttpClients`, `API/Controllers` | 🟢 Hoàn thành | 100% | API báo cáo sai `POST /api/practice/ai-tutor/report`, truy vấn tương tác `GET /api/practice/ai-tutor/interactions`, tích hợp fallback kiên cường |
+| 66 | **Liên Thông Tự Động Gán Đề Nhóm Vi Mô Với Content Service API 19** | `IContentHttpClient.cs`, `ContentHttpClient.cs` & `AssignGroupWorksheetCommandHandler.cs` | 🟢 Hoàn thành | 100% | Tự động trích xuất `CommonWeakSkillIds`, gọi `POST /api/content/exams/quiz` Content Service đóng gói 5 câu Bloom L1-L3, gán trực tiếp làm phiếu bài tập vi mô |
 
 
 

@@ -8,6 +8,7 @@ namespace V_Eval_Practice_Service.Application.Features.Classes.Commands.AssignGr
 public record AssignGroupWorksheetCommand(
     Guid ClassId,
     Guid GroupId,
-    string WorksheetId,
-    string WorksheetTitle
+    string? WorksheetId = null,
+    string? WorksheetTitle = null,
+    int QuestionCount = 5
 ) : IRequest<Result<AssignWorksheetResponseDto>>;
