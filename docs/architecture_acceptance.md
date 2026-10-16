@@ -431,6 +431,14 @@
 3. **Adaptive Worksheet Assignment Endpoint**: `POST /api/practice/classes/{classId}/micro-groups/{groupId}/assign-worksheet`
    - Request: `AssignWorksheetRequestDto` (`WorksheetId`, `WorksheetTitle`).
    - Response: `AssignWorksheetResponseDto` confirming targeted worksheet distribution to table members.
+### 11.5 Student Skill Profile Encoding & Integration with Content Service API 19
+- **Profile Representation (`StudentSkillProfileItem`)**:
+  - `DomainFeatures` (`double[4]`): Macro 4-domain vector representing overall student strength across `[Lang, Math, NatSci, SocSci]`. Used in K-Means distance calculations to place students in compatible learning contexts.
+  - `SkillScores` (`Dictionary<Guid, double>`): Micro-level granular mastery scores per competency node from `LearningProfiles.MasteryScore`.
+  - **Weak Skill Identification**: Skills where `` `MasteryScore < 0.60` `` across a majority of group members are aggregated into `CommonWeakSkillIds`.
+- **Automated Worksheet Generation Handshake (Future Phase with Content Service API 19)**:
+  - Currently: Teachers manually assign an existing `WorksheetId` via `AssignGroupWorksheetCommand`.
+  - Next Evolution: Practice Service invokes Content Service API 19 (`POST /api/content/exams/quiz`) providing `CommonWeakSkillIds`. Content Service extracts 5 to 10 questions calibrated to Bloom Levels 1-3 (Remember, Understand, Apply) with step-by-step LaTeX derivations, wraps them into a new `MockExam` of type `QUIZ`, and returns `worksheetId` + `worksheetTitle` for immediate table assignment.
 
 ---
 
@@ -494,9 +502,35 @@
   4. Under `DISQUALIFIED` verdict: Updates `Status = "DISQUALIFIED"`, voids academic credentials by zeroing out `TotalScore = 0` and `TotalCorrect = 0`.
   5. Persists mentor review rationale into `MentorNotes` and timestamps the decision for audit traceability.
 
+---
 
+## 13. CORE FLOW 4 — GRAPH-RAG SOCRATIC AI TUTOR INTEGRATION ACCEPTANCE (PHASES 5 & 6)
 
+### 13.1 Architecture Overview
+- **Inter-Service Role**: Acts as the student-facing gateway and streaming proxy bridge between client web/mobile applications and the downstream Python FastAPI AI Tutor engine (`rag-service` on port 8000).
+- **Core Principles**:
+  - Zero-blocking streaming: tokens emitted by the Python Socratic engine are piped instantaneously to students via Server-Sent Events (SSE).
+  - High resilience: network timeouts, model outages, or rate-limit violations trigger structured pedagogical fallbacks synthesized from Knowledge Graph theorems, preventing broken student sessions.
+  - Strict abuse defense: enforces ASP.NET Core 9 Rate Limiting with strict per-student token quotas.
 
+### 13.2 Component Specifications
+1. **Application Interface (`IAiTutorClient`)**:
+   - `StreamSocraticGuidanceAsync(SocraticAskRequestPayload, CancellationToken)`: Yields asynchronous stream chunks (`IAsyncEnumerable<string>`).
+   - `AskSocraticGuidanceAsync(SocraticAskRequestPayload, CancellationToken)`: Direct synchronous request returning `SocraticAskResponseDto`.
+2. **Infrastructure Client (`AiTutorClient`)**:
+   - Consumes `POST /api/v1/socratic/ask-stream` with `HttpCompletionOption.ResponseHeadersRead`.
+   - Parses incoming SSE lines (`data: {"type": "token", "token": "..."}`) with `JsonDocument` and yields tokens dynamically.
+   - Graceful fallback: If connection fails, yields verified Socratic heuristic guidance.
+3. **API Layer (`AiTutorController` & `Program.cs`)**:
+   - `StrictTutorPolicy`: Fixed window rate limiter configured to 10 requests / minute per client (`429 Too Many Requests`).
+   - `POST /api/practice/ai-tutor/ask-stream`: Emits `text/event-stream; charset=utf-8` with SSE events, terminating with `data: [DONE]\n\n`.
+   - Identity extraction: Seamlessly resolves `StudentId` from Gateway `X-User-Id` header with payload fallback.
 
-
-
+### 13.3 Human-in-the-Loop Reporting & Mentor Audit Integration (Phase 6)
+- **Student Reporting Action**:
+  - `POST /api/practice/ai-tutor/report`: Dispatches student feedback flags to Python FastAPI engine via `ReportInteractionAsync`.
+  - Captures optional justification text and flags the record in `v_eval_ai.ai_tutor_interaction_logs` (`student_reported = TRUE`).
+- **Mentor Audit Querying**:
+  - `GET /api/practice/ai-tutor/interactions`: Fetches paginated interaction logs with `reportedOnly` filtering for mentor review.
+- **Fail-Safe Operation**:
+  - Downstream communication failures fallback to local logging ensuring the student experience is never disrupted.
