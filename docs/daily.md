@@ -1,5 +1,92 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [16/10/2026] - Hợp Nhất Kiến Trúc Nhánh Develop: Tích Hợp Core Flow 4 (GraphRAG AI Tutor) & Core Flow 3 (Proctored Mock Exam)
+
+- **Hợp Nhất Codebase & Giải Quyết Xung Đột Tích Hợp**:
+  - Hợp nhất thành công các cập nhật mới nhất từ `origin/develop` vào nhánh `feature/core-flow-3-interactive-learning`.
+  - Tích hợp liền mạch phân hệ **Graph-RAG Socratic AI Tutor** (Core Flow 4: `AiTutorController`, `IAiTutorClient`, `AiTutorClient`, Rate Limiting `StrictTutorPolicy`) cùng phân hệ **Thi Thử Có Giám Sát Chuẩn Hóa** (Core Flow 3 Module 3: `MockExamsController`, `IMockExamRepository`, `MockExamRepository`, `ProctoringSnapshots`).
+  - Đồng bộ `Program.cs` và `DependencyInjection.cs` đảm bảo khởi tạo đầy đủ các pipeline và DI container.
+- **Kiểm Thử & Biên Dịch Toàn Cục**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Chuẩn bị sẵn sàng cho Pull Request từ nhánh tính năng vào nhánh `develop`.
+
+---
+
+## [12/10/2026] - Khởi Động Core Flow 3 (Module 3): Nền Tảng CSDL Giám Sát & API Khởi Tạo Bài Thi Thử Chuẩn Hóa (StartMockExam)
+
+- **Mở Rộng Mô Hình CSDL & Thực Thể Giám Sát Liêm Chính Học Thuật (Proctoring & Mock Exam)**:
+  - Mở rộng thực thể [`ExamSubmission.cs`](../V-Eval-Practice_Service.Domain/Entities/ExamSubmission.cs):
+    - Tái sử dụng bảng `ExamSubmissions` với `ExamType = "MOCK_EXAM"`.
+    - Bổ sung 4 trường phục vụ giám sát gian lận và thẩm định: `TabDepartureCount` (đếm số lần rời tab), `IntegrityStatus` (mặc định `NORMAL`, chuyển sang `FLAGGED_FOR_REVIEW` khi vi phạm), `MentorVerdict` (`PENDING`, `APPROVED`, `DISQUALIFIED`), `MentorNotes`.
+    - Thêm quan hệ 1-N với bộ sưu tập `ProctoringSnapshots`.
+  - Tạo mới thực thể Domain [`ProctoringSnapshot.cs`](../V-Eval-Practice_Service.Domain/Entities/ProctoringSnapshot.cs): lưu vết ảnh chụp webcam ngẫu nhiên định kỳ (`Id`, `SubmissionId`, `SnapshotUrl`, `CapturedAt`, `FaceDetected`).
+  - Cấu hình Fluent API và DbSets trong [`PracticeDbContext.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs): ánh xạ các cột mới và thiết lập Cascade Delete.
+  - Cập nhật script khởi tạo bảng SQL DDL tự động trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs): `ALTER TABLE "ExamSubmissions"` và `CREATE TABLE IF NOT EXISTS "ProctoringSnapshots"`.
+- **Repository Tầng Dữ Liệu Thi Thử & Giám Sát**:
+  - Tạo interface [`IMockExamRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IMockExamRepository.cs) và hiện thực tại [`MockExamRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/MockExamRepository.cs).
+  - Đăng ký DI Scoped trong [`DependencyInjection.cs`](../V-Eval-Practice_Service.Infrastructure/DependencyInjection.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 1): Khởi Tạo Phiên Thi Thử Chuẩn Hóa (POST /api/practice/mock-exams/{examId}/start)**:
+  - Khởi tạo DTOs [`StartMockExamDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/StartMockExamDtos.cs) (`StartMockExamRequestDto`, `MockExamQuestionDto`, `StartMockExamResponseDto`).
+  - Khởi tạo Command `StartMockExamCommand.cs` và Validator `StartMockExamCommandValidator.cs`.
+  - Xây dựng Handler [`StartMockExamCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/StartMockExam/StartMockExamCommandHandler.cs):
+    1. Kiểm tra phiên thi đang dang dở (`IN_PROGRESS`) của học sinh; nếu còn trong thời gian 150 phút thì khôi phục phiên làm bài tiếp tục.
+    2. Nạp câu hỏi từ Content Service qua gRPC (`GetMilestoneQuizAsync` với `questionCount = 120`), ẩn hoàn toàn đáp án đúng để bảo mật.
+    3. Cung cấp cơ chế dự phòng an toàn (Fallback Graceful Degradation) khi tạm mất kết nối Content Service.
+    4. Khởi tạo bản ghi `ExamSubmission` mới (`ExamType = "MOCK_EXAM"`, `Status = "IN_PROGRESS"`, thời hạn 150 phút) và lưu CSDL.
+  - Xây dựng Controller mới [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs) với route `api/practice/mock-exams` và endpoint `[HttpPost("{examId:guid}/start")]`.
+- **Hiện Thực Core Flow 3 (Module 3 - API 2): Ghi Nhận Sự Kiện Rời Tab & Cắm Cờ Gian Lận (POST /api/practice/mock-exams/{submissionId}/log-tab-departure)**:
+  - Khởi tạo DTOs [`LogTabDepartureDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/LogTabDepartureDtos.cs) (`LogTabDepartureRequestDto`, `LogTabDepartureResponseDto`).
+  - Khởi tạo Command `LogTabDepartureCommand.cs` và Validator `LogTabDepartureCommandValidator.cs`.
+  - Xây dựng Handler [`LogTabDepartureCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/LogTabDeparture/LogTabDepartureCommandHandler.cs):
+    1. Xác thực phiên thi tồn tại và đang ở trạng thái `IN_PROGRESS`.
+    2. Tăng số lần rời màn hình `TabDepartureCount += 1`.
+    3. Thực thi quy tắc liêm chính học thuật (BR-20): Nếu rời tab vượt quá 3 lần (`TabDepartureCount > 3`), tự động gắn cờ nghi vấn gian lận `IntegrityStatus = "FLAGGED_FOR_REVIEW"`.
+    4. Cập nhật bản ghi vào CSDL qua `IMockExamRepository.UpdateAsync`.
+    5. Trả về thông điệp cảnh báo sư phạm tương ứng theo mức độ vi phạm.
+  - Bổ sung endpoint `[HttpPost("{submissionId:guid}/log-tab-departure")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 3): Lưu Ảnh Chụp Webcam Giám Sát Ngẫu Nhiên (POST /api/practice/mock-exams/{submissionId}/upload-snapshot)**:
+  - Khởi tạo DTOs [`UploadSnapshotDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/UploadSnapshotDtos.cs) (`UploadSnapshotRequestDto`, `UploadSnapshotResponseDto`).
+  - Khởi tạo Command `UploadSnapshotCommand.cs` và Validator `UploadSnapshotCommandValidator.cs`.
+  - Xây dựng Handler [`UploadSnapshotCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/UploadSnapshot/UploadSnapshotCommandHandler.cs):
+    1. Xác thực bài thi tồn tại và trạng thái `IN_PROGRESS`.
+    2. Khởi tạo bản ghi `ProctoringSnapshot` liên kết `SubmissionId`, lưu vết `SnapshotUrl`, mốc thời gian `CapturedAt = UtcNow` và kết quả nhận diện khuôn mặt `FaceDetected`.
+    3. Cảnh báo trong log kiểm toán nếu phát hiện frame ảnh không nhận diện được khuôn mặt (`FaceDetected = false`).
+    4. Cập nhật và đếm tổng số lượng ảnh chụp trong phiên thi qua `IMockExamRepository.AddSnapshotAsync`.
+  - Bổ sung endpoint `[HttpPost("{submissionId:guid}/upload-snapshot")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 4): Nộp Bài Thi Thử, Chấm Điểm & Phân Luồng Liêm Chính Học Thuật (POST /api/practice/mock-exams/{submissionId}/submit)**:
+  - Khởi tạo DTOs [`SubmitMockExamDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/SubmitMockExamDtos.cs) (`MockExamAnswerSubmissionDto`, `SubmitMockExamRequestDto`, `MockExamQuestionResultDto`, `SubmitMockExamResponseDto`).
+  - Khởi tạo Command `SubmitMockExamCommand.cs` và Validator `SubmitMockExamCommandValidator.cs`.
+  - Xây dựng Handler [`SubmitMockExamCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/SubmitMockExam/SubmitMockExamCommandHandler.cs):
+    1. Xác thực phiên thi tồn tại và trạng thái `IN_PROGRESS`.
+    2. Nạp bảng đáp án chuẩn qua gRPC `IContentGrpcClient.GetExamAnswerKeysAsync`, hỗ trợ cơ chế fallback chấm điểm độc lập khi test local.
+    3. Chấm điểm từng câu, tính `TotalCorrect`, `TotalQuestions`, `TotalScore` (120 câu chuẩn ĐGNL x 10 điểm = 1200 điểm), và `TotalTimeSpentSeconds`. Lưu chi tiết từng câu vào `SubmissionAnswers`.
+    4. Áp dụng quy tắc giám sát thi cử (BR-20): Nếu `IntegrityStatus == "FLAGGED_FOR_REVIEW"` hoặc `TabDepartureCount > 3`, tự động chuyển bài thi sang `Status = "UNDER_REVIEW"` và `MentorVerdict = "PENDING"` để Mentor thẩm định. Ngược lại đánh dấu `Status = "COMPLETED"` và `MentorVerdict = "APPROVED"`.
+    5. Tự động liên thông Core 3: Các câu làm sai (`!isCorrect`) được tự động nạp vào Sổ tay lỗi sai cá nhân (`MistakeNotebook`) với `NextReviewDate = Ngày mai` phục vụ chu kỳ lặp lại ngắt quãng SM-2.
+    6. Liên thông Core 2: Cập nhật độ thành thạo các kỹ năng làm được vào `LearningProfiles` (`UpsertSkillPriorsAsync`) để chuẩn bị dữ liệu phân nhóm bàn học vi mô (Micro-groups 3-5 bạn) cho tuần học tiếp theo.
+  - Bổ sung endpoint `[HttpPost("{submissionId:guid}/submit")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 5): Xem Chi Tiết Bài Thi & Dấu Vết Giám Sát Thị Giác (GET /api/practice/mock-exams/{submissionId})**:
+  - Khởi tạo DTOs [`GetMockExamDetailDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/GetMockExamDetailDtos.cs) (`MockExamSnapshotDto`, `MockExamAnswerDetailDto`, `GetMockExamDetailResponseDto`).
+  - Khởi tạo Query `GetMockExamDetailQuery.cs` và Validator `GetMockExamDetailQueryValidator.cs`.
+  - Xây dựng Handler [`GetMockExamDetailQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetMockExamDetail/GetMockExamDetailQueryHandler.cs):
+    1. Truy xuất thông tin bài thi kèm chi tiết câu trả lời và lịch sử ảnh chụp webcam qua `IMockExamRepository.GetByIdWithDetailsAsync`.
+    2. Trả về toàn diện kết quả điểm số, trạng thái liêm chính (`IntegrityStatus`), số lần vi phạm (`TabDepartureCount`), kết luận thẩm định của Mentor (`MentorVerdict`, `MentorNotes`).
+    3. Cung cấp chuỗi bằng chứng ảnh chụp (Visual Audit Trail) sắp xếp theo thời gian (`CapturedAt`) kèm cờ nhận diện khuôn mặt (`FaceDetected`) phục vụ quy trình thẩm định gian lận.
+    4. Cung cấp chi tiết từng câu hỏi học sinh đã trả lời.
+  - Bổ sung endpoint `[HttpGet("{submissionId:guid}")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 6): Mentor Thẩm Định & Phê Duyệt Kết Quả Thi Thử (PATCH /api/practice/mock-exams/{submissionId}/mentor-review)**:
+  - Khởi tạo DTOs [`MentorReviewDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/MentorReviewDtos.cs) (`MentorReviewRequestDto`, `MentorReviewResponseDto`).
+  - Khởi tạo Command `MentorReviewCommand.cs` và Validator `MentorReviewCommandValidator.cs` (ràng buộc Verdict chỉ nhận `APPROVED` hoặc `DISQUALIFIED`, bắt buộc nhập `Notes` khi hủy kết quả).
+  - Xây dựng Handler [`MentorReviewCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/MentorReview/MentorReviewCommandHandler.cs):
+    1. Xác thực bài thi tồn tại và không ở trạng thái đang làm (`IN_PROGRESS`).
+    2. Nếu `Verdict == "APPROVED"`: Chuyển trạng thái `Status = "COMPLETED"`, giải phóng cờ `IntegrityStatus = "NORMAL"`, giữ nguyên và công nhận điểm số chính thức.
+    3. Nếu `Verdict == "DISQUALIFIED"`: Chuyển trạng thái `Status = "DISQUALIFIED"`, hủy điểm `TotalScore = 0`, `TotalCorrect = 0` do vi phạm quy chế thi.
+    4. Lưu vết ghi chú sư phạm và lý do thẩm định của Mentor vào `MentorNotes`.
+  - Bổ sung endpoint `[HttpPatch("{submissionId:guid}/mentor-review")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
+- **Kiểm Thử Biên Dịch**:
+  - Toàn bộ Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
 ## [12/10/2026] - Triển Khai Giai Đoạn 6 Core Flow 4 GraphRAG AI Tutor & Nghiệm Thu Kiến Trúc Phân Nhóm Vi Mô - Liên Thông Content Service
 
 - **Nghiệm Thu Cấu Trúc Hồ Sơ Học Sinh (`StudentSkillProfileItem`)**:
@@ -22,8 +109,6 @@
   - `GET /api/practice/ai-tutor/interactions`: Mentor truy vấn lịch sử tương tác kèm cờ lọc `reportedOnly`.
 - **Kiểm Thử & Biên Dịch**:
   - Toàn bộ solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
-
----
 
 ## [11/10/2026] - Triển Khai Giai Đoạn 5 Core Flow 4 GraphRAG AI Tutor: Tích Hợp Practice Service .NET 9 & SSE Streaming Proxy
 - **Định Nghĩa Hợp Đồng Giao Tiếp Socratic AI Tutor (`Application/Common/Interfaces/IAiTutorClient.cs`)**:
@@ -50,6 +135,7 @@
   - Toàn bộ solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
 
 ---
+>>>>>>> origin/develop
 ## [09/10/2026] - Nâng Cấp Mô Hình Giảng Dạy Offline: Giới Hạn Sĩ Số Lớp 20 Người, Đánh Số Thứ Tự Tăng Dần & Phân Nhóm Học Tập Vi Mô (3 - 5 Học Sinh)
 
 - **Giới Hạn Sĩ Số Lớp 20 Học Sinh & Tự Động Đánh Số Thứ Tự Lớp Tăng Dần**:

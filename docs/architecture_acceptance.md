@@ -431,8 +431,6 @@
 3. **Adaptive Worksheet Assignment Endpoint**: `POST /api/practice/classes/{classId}/micro-groups/{groupId}/assign-worksheet`
    - Request: `AssignWorksheetRequestDto` (`WorksheetId`, `WorksheetTitle`).
    - Response: `AssignWorksheetResponseDto` confirming targeted worksheet distribution to table members.
----
-
 ### 11.5 Student Skill Profile Encoding & Integration with Content Service API 19
 - **Profile Representation (`StudentSkillProfileItem`)**:
   - `DomainFeatures` (`double[4]`): Macro 4-domain vector representing overall student strength across `[Lang, Math, NatSci, SocSci]`. Used in K-Means distance calculations to place students in compatible learning contexts.
@@ -444,16 +442,78 @@
 
 ---
 
-## 12. CORE FLOW 4 — GRAPH-RAG SOCRATIC AI TUTOR INTEGRATION ACCEPTANCE (PHASES 5 & 6)
+## 12. CORE FLOW 3 (MODULE 3) - PROCTORED MOCK EXAM & ACADEMIC INTEGRITY MONITORING
 
-### 12.1 Architecture Overview
+### 12.1 Relational Schema & Persistence Architecture
+- **Reuse of `ExamSubmission`**: Avoids duplicate submission tables by adopting unified classification via `ExamType = "MOCK_EXAM"`.
+- **Integrity Tracking Fields**:
+  - `TabDepartureCount`: Quantifies student tab / window switches away from fullscreen mode.
+  - `IntegrityStatus`: Flagged as `NORMAL` or escalated to `FLAGGED_FOR_REVIEW` when violations exceed threshold (>3 departures).
+  - `MentorVerdict`: Workflow authorization status (`PENDING`, `APPROVED`, `DISQUALIFIED`).
+  - `MentorNotes`: Mentor justification notes.
+- **`ProctoringSnapshot` Entity**:
+  - Captures periodic / randomized webcam audit frames (`Id`, `SubmissionId`, `SnapshotUrl`, `CapturedAt`, `FaceDetected`).
+  - Cascades on deletion with `ExamSubmission`.
+
+### 12.2 API 1: Start Mock Exam Session (`POST /api/practice/mock-exams/{examId}/start`)
+- **Execution Pipeline**:
+  1. Validates input parameters (`ExamId`, `StudentId`).
+  2. Queries active uncompleted attempts for resuming valid sessions.
+  3. Integrates with Content Service via gRPC (`GetMilestoneQuizAsync`) to load 120 secure test items with hidden answer keys.
+  4. Enforces graceful fallback generation when external gRPC is unavailable.
+  5. Initializes `ExamSubmission` with 150-minute countdown (9,000 seconds), `ExamType = "MOCK_EXAM"`, and default `NORMAL` integrity status.
+
+### 12.3 API 2: Log Tab Departure & Academic Integrity Flagging (`POST /api/practice/mock-exams/{submissionId}/log-tab-departure`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists and remains in `IN_PROGRESS` status.
+  2. Increments `TabDepartureCount` on every window blur / tab switch / fullscreen exit.
+  3. Enforces Business Rule BR-20: When `TabDepartureCount > 3`, dynamically updates `IntegrityStatus` to `FLAGGED_FOR_REVIEW`.
+  4. Returns real-time warning feedback and timestamped audit logs.
+
+### 12.4 API 3: Upload Random Proctoring Snapshot (`POST /api/practice/mock-exams/{submissionId}/upload-snapshot`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists and remains in `IN_PROGRESS` status.
+  2. Persists timestamped webcam frame metadata into `ProctoringSnapshots` table (`SnapshotUrl`, `CapturedAt = UtcNow`, `FaceDetected`).
+  3. Records anomaly warnings if `FaceDetected` is false (absence or occlusion).
+  4. Yields total accumulated snapshots count for student verification.
+
+### 12.5 API 4: Submit Mock Exam, Grade & Integrity Routing (`POST /api/practice/mock-exams/{submissionId}/submit`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists and remains in `IN_PROGRESS` status.
+  2. Fetches official answer keys from Content Service via gRPC `GetExamAnswerKeysAsync`, supporting resilient fallback grading in isolated local testing.
+  3. Evaluates correctness for each question item, computes total score (120 questions x 10 = 1200 points scale), and logs granular answers into `SubmissionAnswers`.
+  4. Applies Proctoring Integrity Policy (BR-20): If flagged (`IntegrityStatus == "FLAGGED_FOR_REVIEW"` or `TabDepartureCount > 3`), sets `Status = "UNDER_REVIEW"` and `MentorVerdict = "PENDING"` for mentor verification; otherwise marks `Status = "COMPLETED"` and `MentorVerdict = "APPROVED"`.
+  5. Core Flow 3 Closed-Loop Integration: Automatically injects incorrect answers into the student's personal `MistakeNotebook` with `NextReviewDate = Tomorrow` for spaced repetition (SM-2).
+  6. Core Flow 2 Feedback Loop: Aggregates skill-level performance and updates `LearningProfiles` (`UpsertSkillPriorsAsync`) to inform downstream micro-group re-clustering (3-5 students) for next week's offline classes.
+
+### 12.6 API 5: Retrieve Mock Exam Details & Visual Audit Trail (`GET /api/practice/mock-exams/{submissionId}`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists.
+  2. Eagerly loads relational aggregates including `SubmissionAnswers` and `ProctoringSnapshots` via `IMockExamRepository.GetByIdWithDetailsAsync`.
+  3. Returns high-level scores, integrity telemetry (`TabDepartureCount`, `IntegrityStatus`), and mentor review decisions (`MentorVerdict`, `MentorNotes`).
+  4. Exposes chronological webcam visual audit trail (`CapturedAt` ascending order) with facial presence verification indicators (`FaceDetected`) for mentor inspection.
+  5. Outputs granular item-by-item student selections and correctness evaluations.
+
+### 12.7 API 6: Mentor Review & Academic Integrity Verdict (`PATCH /api/practice/mock-exams/{submissionId}/mentor-review`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists and has transitioned out of active student testing (`Status != "IN_PROGRESS"`).
+  2. Enforces strict input validation: `Verdict` must be either `APPROVED` or `DISQUALIFIED`. If `DISQUALIFIED`, `Notes` is strictly required.
+  3. Under `APPROVED` verdict: Updates `Status = "COMPLETED"`, resets suspicious flag to `IntegrityStatus = "NORMAL"`, and legitimizes the earned `TotalScore`.
+  4. Under `DISQUALIFIED` verdict: Updates `Status = "DISQUALIFIED"`, voids academic credentials by zeroing out `TotalScore = 0` and `TotalCorrect = 0`.
+  5. Persists mentor review rationale into `MentorNotes` and timestamps the decision for audit traceability.
+
+---
+
+## 13. CORE FLOW 4 — GRAPH-RAG SOCRATIC AI TUTOR INTEGRATION ACCEPTANCE (PHASES 5 & 6)
+
+### 13.1 Architecture Overview
 - **Inter-Service Role**: Acts as the student-facing gateway and streaming proxy bridge between client web/mobile applications and the downstream Python FastAPI AI Tutor engine (`rag-service` on port 8000).
 - **Core Principles**:
   - Zero-blocking streaming: tokens emitted by the Python Socratic engine are piped instantaneously to students via Server-Sent Events (SSE).
   - High resilience: network timeouts, model outages, or rate-limit violations trigger structured pedagogical fallbacks synthesized from Knowledge Graph theorems, preventing broken student sessions.
   - Strict abuse defense: enforces ASP.NET Core 9 Rate Limiting with strict per-student token quotas.
 
-### 12.2 Component Specifications
+### 13.2 Component Specifications
 1. **Application Interface (`IAiTutorClient`)**:
    - `StreamSocraticGuidanceAsync(SocraticAskRequestPayload, CancellationToken)`: Yields asynchronous stream chunks (`IAsyncEnumerable<string>`).
    - `AskSocraticGuidanceAsync(SocraticAskRequestPayload, CancellationToken)`: Direct synchronous request returning `SocraticAskResponseDto`.
@@ -466,7 +526,7 @@
    - `POST /api/practice/ai-tutor/ask-stream`: Emits `text/event-stream; charset=utf-8` with SSE events, terminating with `data: [DONE]\n\n`.
    - Identity extraction: Seamlessly resolves `StudentId` from Gateway `X-User-Id` header with payload fallback.
 
-### 12.3 Human-in-the-Loop Reporting & Mentor Audit Integration (Phase 6)
+### 13.3 Human-in-the-Loop Reporting & Mentor Audit Integration (Phase 6)
 - **Student Reporting Action**:
   - `POST /api/practice/ai-tutor/report`: Dispatches student feedback flags to Python FastAPI engine via `ReportInteractionAsync`.
   - Captures optional justification text and flags the record in `v_eval_ai.ai_tutor_interaction_logs` (`student_reported = TRUE`).

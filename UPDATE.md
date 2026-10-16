@@ -1,14 +1,12 @@
-# Nhật Ký Cập Nhật (Update Log) - Practice Service
+# NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [12/10/2026] - Triển Khai Giai Đoạn 6 AI Tutor & Nghiệm Thu Kiến Trúc Hồ Sơ Năng Lực Học Sinh - Phân Cụm Vi Mô
+## [16/10/2026] - Hợp Nhất Kiến Trúc Nhánh Develop: Tích Hợp Core Flow 4 (GraphRAG AI Tutor) & Core Flow 3 (Proctored Mock Exam)
 
-- **Nghiệm Thu Cơ Chế Phân Tầng Năng Lực (`StudentSkillProfileItem`)**:
-  - Làm rõ sự kết hợp giữa Vector Đặc Trưng Miền Vĩ Mô (`DomainFeatures [Lang, Math, NatSci, SocSci]`) và Điểm Kỹ Năng Vi Mô (`SkillScores Dictionary`).
-  - Xác nhận cơ chế phân cụm đồng nhất (K-Means++ & Capacitated Greedy Matching) đảm bảo trần sĩ số 3 - 5 bạn/bàn.
-- **Định Hướng Tích Hợp Tự Động Với Content Service API 19**:
-  - Nghiệm thu luồng trích xuất `CommonWeakSkillIds` từ nhóm học tập để gửi yêu cầu đóng gói đề thích ứng (`POST /api/content/exams/quiz`) bên Content Service, thay thế cho thao tác gán đề thủ công của giáo viên.
-- **Triển Khai Giai Đoạn 6 Core Flow 4 GraphRAG AI Tutor (Mentor Resolution)**:
-  - Mở rộng giao thức `IAiTutorClient` và hiện thực `AiTutorClient`: Bổ sung `ReportInteractionAsync` và `GetInteractionsAsync`.
-  - Triển khai endpoints trong `AiTutorController`: `POST /api/practice/ai-tutor/report` (học sinh báo cáo lỗi gợi ý) và `GET /api/practice/ai-tutor/interactions` (Mentor kiểm duyệt tương tác).
-- **Kiểm Thử & Biên Dịch**:
-  - Toàn bộ solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+- **Hợp Nhất Codebase & Giải Quyết Xung Đột Tích Hợp**:
+  - Hợp nhất thành công các cập nhật mới nhất từ `origin/develop` vào nhánh `feature/core-flow-3-interactive-learning`.
+  - Tích hợp liền mạch phân hệ **Graph-RAG Socratic AI Tutor** (Core Flow 4: `AiTutorController`, `IAiTutorClient`, `AiTutorClient`, Rate Limiting `StrictTutorPolicy`) cùng phân hệ **Thi Thử Có Giám Sát Chuẩn Hóa** (Core Flow 3 Module 3: `MockExamsController`, `IMockExamRepository`, `MockExamRepository`, `ProctoringSnapshots`).
+  - Đồng bộ `Program.cs` và `DependencyInjection.cs` đảm bảo khởi tạo đầy đủ các pipeline và DI container.
+  - Cập nhật và đồng bộ tài liệu kiến trúc, bảng theo dõi tiến độ (`docs/process.md`), nhật ký hàng ngày (`docs/daily.md`) và nghiệm thu kiến trúc (`docs/architecture_acceptance.md`).
+- **Kiểm Thử & Biên Dịch Toàn Cục**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Chuẩn bị sẵn sàng hoàn tất merge vào nhánh `develop`.

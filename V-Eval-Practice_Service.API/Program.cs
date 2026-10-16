@@ -237,6 +237,32 @@ using (var scope = app.Services.CreateScope())
 
             CREATE INDEX IF NOT EXISTS idx_mistake_notebook_daily_review 
             ON v_eval_practice.""MistakeNotebooks"" (student_id, next_review_date, is_mastered);
+
+            -- Core Flow 3 (Module 3): Proctoring & Mock Exam fields
+            ALTER TABLE v_eval_practice.""ExamSubmissions"" ADD COLUMN IF NOT EXISTS tab_departure_count INT DEFAULT 0;
+            ALTER TABLE v_eval_practice.""ExamSubmissions"" ADD COLUMN IF NOT EXISTS integrity_status VARCHAR(50) DEFAULT 'NORMAL';
+            ALTER TABLE v_eval_practice.""ExamSubmissions"" ADD COLUMN IF NOT EXISTS mentor_verdict VARCHAR(50) DEFAULT 'PENDING';
+            ALTER TABLE v_eval_practice.""ExamSubmissions"" ADD COLUMN IF NOT EXISTS mentor_notes TEXT;
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""SubmissionAnswers"" (
+                answer_id UUID PRIMARY KEY,
+                submission_id UUID NOT NULL REFERENCES v_eval_practice.""ExamSubmissions""(submission_id) ON DELETE CASCADE,
+                question_id UUID NOT NULL,
+                selected_option VARCHAR(10),
+                is_correct BOOLEAN NOT NULL,
+                time_spent_seconds INT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""ProctoringSnapshots"" (
+                id UUID PRIMARY KEY,
+                submission_id UUID NOT NULL REFERENCES v_eval_practice.""ExamSubmissions""(submission_id) ON DELETE CASCADE,
+                snapshot_url TEXT NOT NULL,
+                captured_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
+                face_detected BOOLEAN DEFAULT TRUE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_proctoring_snapshots_sub 
+            ON v_eval_practice.""ProctoringSnapshots"" (submission_id, captured_at);
         ");
         logger.LogInformation("Đã xác thực và khởi tạo thành công CSDL schema practice trên Supabase.");
 

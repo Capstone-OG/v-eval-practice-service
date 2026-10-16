@@ -24,6 +24,7 @@ public class PracticeDbContext : DbContext
     public DbSet<ClassGroup> ClassGroups => Set<ClassGroup>();
     public DbSet<ClassGroupMember> ClassGroupMembers => Set<ClassGroupMember>();
     public DbSet<MistakeNotebook> MistakeNotebooks => Set<MistakeNotebook>();
+    public DbSet<ProctoringSnapshot> ProctoringSnapshots => Set<ProctoringSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -53,9 +54,20 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.AiCommentary).HasColumnName("ai_commentary");
             entity.Property(e => e.EnrolledClassId).HasColumnName("enrolled_class_id");
 
+            // Module 3: Proctoring & Integrity fields
+            entity.Property(e => e.TabDepartureCount).HasColumnName("tab_departure_count");
+            entity.Property(e => e.IntegrityStatus).HasColumnName("integrity_status").HasMaxLength(50);
+            entity.Property(e => e.MentorVerdict).HasColumnName("mentor_verdict").HasMaxLength(50);
+            entity.Property(e => e.MentorNotes).HasColumnName("mentor_notes");
+
             entity.HasMany(e => e.Answers)
                   .WithOne(a => a.Submission)
                   .HasForeignKey(a => a.SubmissionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.ProctoringSnapshots)
+                  .WithOne(p => p.Submission)
+                  .HasForeignKey(p => p.SubmissionId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -344,6 +356,19 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.LastReviewedAt).HasColumnName("last_reviewed_at");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+        });
+
+        // Cấu hình bảng ProctoringSnapshots (Core Flow 3 - Module 3 Ảnh chụp webcam giám sát thi thử)
+        modelBuilder.Entity<ProctoringSnapshot>(entity =>
+        {
+            entity.ToTable("ProctoringSnapshots");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.SubmissionId).HasColumnName("submission_id").IsRequired();
+            entity.Property(e => e.SnapshotUrl).HasColumnName("snapshot_url").IsRequired();
+            entity.Property(e => e.CapturedAt).HasColumnName("captured_at");
+            entity.Property(e => e.FaceDetected).HasColumnName("face_detected");
         });
     }
 }
