@@ -18,6 +18,8 @@ public class SubmitAnswerCommandHandler : IRequestHandler<SubmitAnswerCommand, R
     private readonly IMistakeNotebookRepository _mistakeNotebookRepository;
     private readonly IBktEngine _bktEngine;
     private readonly IContentGrpcClient _contentGrpcClient;
+    private readonly Application.Common.Interfaces.Services.IClassHeatmapAggregatorService _aggregatorService;
+    private readonly IClassEnrollmentRepository _classEnrollmentRepository;
     private readonly ILogger<SubmitAnswerCommandHandler> _logger;
 
     public SubmitAnswerCommandHandler(
@@ -25,12 +27,16 @@ public class SubmitAnswerCommandHandler : IRequestHandler<SubmitAnswerCommand, R
         IMistakeNotebookRepository mistakeNotebookRepository,
         IBktEngine bktEngine,
         IContentGrpcClient contentGrpcClient,
+        Application.Common.Interfaces.Services.IClassHeatmapAggregatorService aggregatorService,
+        IClassEnrollmentRepository classEnrollmentRepository,
         ILogger<SubmitAnswerCommandHandler> logger)
     {
         _stageProgressRepository = stageProgressRepository;
         _mistakeNotebookRepository = mistakeNotebookRepository;
         _bktEngine = bktEngine;
         _contentGrpcClient = contentGrpcClient;
+        _aggregatorService = aggregatorService;
+        _classEnrollmentRepository = classEnrollmentRepository;
         _logger = logger;
     }
 
@@ -203,6 +209,37 @@ public class SubmitAnswerCommandHandler : IRequestHandler<SubmitAnswerCommand, R
             {
                 _logger.LogWarning(ex, "Lỗi khi tự động ghi nhận câu sai vào Sổ tay lỗi sai.");
             }
+        }
+
+        // 10. Core Flow 5: Ghi nhận chuyên cần Streak (Active Study Day) và cập nhật Write-Through Class Heatmap
+        try
+        {
+            int studyMinutes = Math.Max(1, request.Request.TimeSpentSeconds / 60);
+            await _aggregatorService.RecordStudentActivityAsync(
+                progress.StudentId,
+                studyMinutes: studyMinutes,
+                practiceQuestionsSolved: 1,
+                videoMinutesWatched: 0,
+                mockExamsTaken: 0,
+                ct);
+
+            var enrollment = await _classEnrollmentRepository.GetEnrollmentByStudentIdAsync(progress.StudentId, ct);
+            if (enrollment != null && progress.RoadmapNode != null)
+            {
+                await _aggregatorService.UpdateCellWriteThroughAsync(
+                    enrollment.ClassId,
+                    progress.StudentId,
+                    progress.RoadmapNode.SkillId,
+                    skillName: $"Kỹ năng {progress.RoadmapNode.SkillId.ToString()[..8]}",
+                    domainCode: "DOM_MATH",
+                    pltValue: bktResult.PosteriorPlt,
+                    assessmentType: "ADAPTIVE_QUIZ",
+                    ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Flow 5] Lỗi khi cập nhật activity hoặc heatmap write-through cho học sinh {StudentId}", progress.StudentId);
         }
 
         _logger.LogInformation(

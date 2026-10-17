@@ -19,6 +19,8 @@ public class SubmitMockExamCommandHandler : IRequestHandler<SubmitMockExamComman
     private readonly IContentGrpcClient _contentGrpcClient;
     private readonly IMistakeNotebookRepository _mistakeNotebookRepository;
     private readonly ILearningProfileRepository _learningProfileRepository;
+    private readonly Application.Common.Interfaces.Services.IClassHeatmapAggregatorService _aggregatorService;
+    private readonly IClassEnrollmentRepository _classEnrollmentRepository;
     private readonly ILogger<SubmitMockExamCommandHandler> _logger;
 
     public SubmitMockExamCommandHandler(
@@ -26,12 +28,16 @@ public class SubmitMockExamCommandHandler : IRequestHandler<SubmitMockExamComman
         IContentGrpcClient contentGrpcClient,
         IMistakeNotebookRepository mistakeNotebookRepository,
         ILearningProfileRepository learningProfileRepository,
+        Application.Common.Interfaces.Services.IClassHeatmapAggregatorService aggregatorService,
+        IClassEnrollmentRepository classEnrollmentRepository,
         ILogger<SubmitMockExamCommandHandler> logger)
     {
         _mockExamRepository = mockExamRepository;
         _contentGrpcClient = contentGrpcClient;
         _mistakeNotebookRepository = mistakeNotebookRepository;
         _learningProfileRepository = learningProfileRepository;
+        _aggregatorService = aggregatorService;
+        _classEnrollmentRepository = classEnrollmentRepository;
         _logger = logger;
     }
 
@@ -231,6 +237,46 @@ public class SubmitMockExamCommandHandler : IRequestHandler<SubmitMockExamComman
 
         // 6. Lưu toàn bộ kết quả vào Database
         await _mockExamRepository.SaveChangesAsync(cancellationToken);
+
+        // 7. Core Flow 5: Ghi nhận chuyên cần Streak (Active Study Day) và cập nhật Write-Through Class Heatmap
+        try
+        {
+            int studyMinutes = Math.Max(1, totalTimeSpent / 60);
+            await _aggregatorService.RecordStudentActivityAsync(
+                submission.StudentId,
+                studyMinutes: studyMinutes,
+                practiceQuestionsSolved: 0,
+                videoMinutesWatched: 0,
+                mockExamsTaken: 1,
+                cancellationToken);
+
+            var enrollment = await _classEnrollmentRepository.GetEnrollmentByStudentIdAsync(submission.StudentId, cancellationToken);
+            if (enrollment != null && skillGroups.Count > 0)
+            {
+                foreach (var group in skillGroups)
+                {
+                    var skillQIds = group.Select(x => x.QuestionId).ToHashSet();
+                    var skillAnswers = newAnswers.Where(a => skillQIds.Contains(a.QuestionId)).ToList();
+                    double mastery = skillAnswers.Count > 0
+                        ? (double)skillAnswers.Count(a => a.IsCorrect) / skillAnswers.Count
+                        : 0.5;
+
+                    await _aggregatorService.UpdateCellWriteThroughAsync(
+                        enrollment.ClassId,
+                        submission.StudentId,
+                        group.Key,
+                        skillName: $"Kỹ năng {group.Key.ToString()[..8]}",
+                        domainCode: "DOM_MATH",
+                        pltValue: mastery,
+                        assessmentType: "MOCK_EXAM",
+                        cancellationToken);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Flow 5] Lỗi khi cập nhật activity hoặc heatmap write-through sau khi thi thử cho học sinh {StudentId}", submission.StudentId);
+        }
 
         string responseMessage = isFlagged
             ? $"Nộp bài thành công! Do phát hiện {submission.TabDepartureCount} lần rời màn hình thi, bài thi của bạn đã được gắn cờ [FLAGGED_FOR_REVIEW] và chuyển sang trạng thái CHỜ MENTOR DUYỆT (UNDER_REVIEW)."

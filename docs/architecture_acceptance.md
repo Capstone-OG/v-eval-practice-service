@@ -573,3 +573,20 @@
    - Database startup pipeline in [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs) provisions all 4 tables and their indexes dynamically with `CREATE TABLE IF NOT EXISTS`.
    - Standalone migration script maintained in [`SQL_Migration_Flow5_Analytics.sql`](../../docs/SQL/SQL_Migration_Flow5_Analytics.sql).
 
+### 14.4 Phase 2 Hybrid Aggregation Engine & Background Worker Acceptance
+1. **Repository Abstractions & Implementations**:
+   - [`IClassHeatmapRepository`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassHeatmapRepository.cs) & [`ClassHeatmapRepository`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassHeatmapRepository.cs): Multi-criteria heatmap queries, domain filtering, single-cell updates, and batch summary upserts.
+   - [`IStudentActivityRepository`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IStudentActivityRepository.cs) & [`StudentActivityRepository`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/StudentActivityRepository.cs): Backward streak tracing algorithm, weekly study hours aggregation, and readiness metric persistence.
+2. **Matrix Caching Strategy**:
+   - [`IClassHeatmapCacheService`](../V-Eval-Practice_Service.Application/Common/Interfaces/Services/IClassHeatmapCacheService.cs) & [`ClassHeatmapCacheService`](../V-Eval-Practice_Service.Infrastructure/Caching/ClassHeatmapCacheService.cs): High-performance in-memory cache leveraging `IMemoryCache` with concurrent key tracking and class-level cache invalidation (`InvalidateClassHeatmapAsync`).
+3. **Core Aggregator Service**:
+   - [`IClassHeatmapAggregatorService`](../V-Eval-Practice_Service.Application/Common/Interfaces/Services/IClassHeatmapAggregatorService.cs) & [`ClassHeatmapAggregatorService`](../V-Eval-Practice_Service.Infrastructure/Services/ClassHeatmapAggregatorService.cs):
+     - Complete implementation of the psychometric formula: mean ability, struggling rates, standard deviation `` `\sigma` ``, bimodal polarization culling, and 3-tier pedagogical alert generation (`CRITICAL_RED`, `WARNING_AMBER`, `SAFE_GREEN`).
+     - Composite Parent Exam Readiness Index: `` `R_{\text{exam}} = 0.50 \cdot S_{\theta} + 0.35 \cdot C_{\text{BKT}} + 0.15 \cdot F_{\text{consistency}}` ``.
+     - Active Study Day evaluation logic across adaptive quiz attempts, video lectures, and mock exams.
+4. **Periodic 15-Minute Background Worker**:
+   - [`ClassHeatmapAggregationWorker`](../V-Eval-Practice_Service.Infrastructure/BackgroundJobs/ClassHeatmapAggregationWorker.cs): Registered `IHostedService` periodically running in the background every 15 minutes across all active classes with graceful cancellation tokens.
+5. **Real-time Write-Through Integration**:
+   - Integrated into [`SubmitAnswerCommandHandler`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/SubmitAnswer/SubmitAnswerCommandHandler.cs) (step 10), [`SubmitMockExamCommandHandler`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/SubmitMockExam/SubmitMockExamCommandHandler.cs) (step 7), and [`TrackVideoCommandHandler`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/TrackVideo/TrackVideoCommandHandler.cs) to deliver instant zero-lag updates to student streak and class heatmap.
+
+

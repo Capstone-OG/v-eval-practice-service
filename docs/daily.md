@@ -1,21 +1,32 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
-## [18/10/2026] - Hoàn Tất Giai Đoạn 1 Core Flow 5: Khởi Tạo 4 Thực Thể Domain, Cấu Hình Fluent API & DDL Migration Script
+## [18/10/2026] - Hoàn Tất Giai Đoạn 1 & Giai Đoạn 2 Core Flow 5: Khởi Tạo CSDL & Động Cơ Hybrid Aggregation Engine
 
-- **Khởi Tạo 4 Thực Thể CSDL Mới Trong Tầng Domain (`V-Eval-Practice_Service.Domain/Entities/`)**:
-  - [`ClassSkillHeatmap.cs`](../V-Eval-Practice_Service.Domain/Entities/ClassSkillHeatmap.cs): Quản lý từng ô ma trận nhiệt `` `(ClassId, StudentId, SkillId)` `` với trường `` `PltValue` ``, phân loại `` `MasteryLevel` `` (CRITICAL, WEAK, DEVELOPING, MASTERED) và `` `LastAssessmentType` ``.
+- **Giai Đoạn 1: Khởi Tạo 4 Thực Thể Domain CSDL & Cấu Hình Fluent API (`Domain/Entities/` & `Infrastructure/Persistence/`)**:
+  - [`ClassSkillHeatmap.cs`](../V-Eval-Practice_Service.Domain/Entities/ClassSkillHeatmap.cs): Quản lý từng ô ma trận nhiệt `` `(ClassId, StudentId, SkillId)` `` với trường `` `PltValue` ``, phân loại `` `MasteryLevel` `` và `` `LastAssessmentType` ``.
   - [`ClassHeatmapSummary.cs`](../V-Eval-Practice_Service.Domain/Entities/ClassHeatmapSummary.cs): Bản ghi tổng hợp thống kê cột kỹ năng toàn lớp với `` `AveragePlt` ``, `` `StrugglingCount` ``, `` `StrugglingRate` ``, độ lệch chuẩn `` `StdDevPlt` ``, cờ phân hóa 2 cực `` `IsBimodal` `` và trạng thái cảnh báo sư phạm `` `AlertStatus` ``.
   - [`StudentDailyActivity.cs`](../V-Eval-Practice_Service.Domain/Entities/StudentDailyActivity.cs): Ghi nhận chi tiết chuyên cần và thời gian học tập hằng ngày theo chuẩn Active Study Day (làm bài tập APPLY, xem video LEARN, làm bài thi thử), tích hợp cờ bảo vệ chuỗi `` `IsFrozen` `` và `` `IsStreakCounted` ``.
   - [`StudentReadinessMetric.cs`](../V-Eval-Practice_Service.Domain/Entities/StudentReadinessMetric.cs): Lưu trữ chỉ số sẵn sàng thi tổng hợp `` `ExamReadinessIndex` ``, năng lực tiềm ẩn chuẩn hóa `` `NormalizedTheta` ``, độ phủ kiến thức BKT `` `SkillCoveragePlt` `` và điểm kỷ luật `` `ConsistencyScore` `` phục vụ Cổng Phụ huynh.
-- **Cấu Hình Tầng Hạ Tầng & Dữ Liệu (`PracticeDbContext.cs`)**:
-  - Đăng ký 4 `DbSet` mới: `ClassSkillHeatmaps`, `ClassHeatmapSummaries`, `StudentDailyActivities`, `StudentReadinessMetrics`.
-  - Cấu hình Fluent API chi tiết trong schema `v_eval_practice`:
-    - Ràng buộc khóa chính, độ dài chuỗi tối đa (`HasMaxLength`).
-    - Chỉ mục độc nhất: `uq_class_student_skill`, `uq_class_skill_summary`, `uq_student_activity_date`, `idx_readiness_student_id`.
-    - Thiết lập quan hệ khóa ngoại `Cascade Delete` liên kết đến bảng `Classes`.
-- **Tự Động Hóa DDL Khởi Tạo & Script Di Trú CSDL**:
-  - Cập nhật pipeline khởi động [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs): Bổ sung các lệnh SQL `CREATE TABLE IF NOT EXISTS` và `CREATE INDEX IF NOT EXISTS` đảm bảo bảng được tự động provision trên PostgreSQL Supabase khi ứng dụng khởi chạy.
-  - Tạo script DDL độc lập [`SQL_Migration_Flow5_Analytics.sql`](../../docs/SQL/SQL_Migration_Flow5_Analytics.sql) trong thư mục `docs/SQL`.
+  - Cấu hình Fluent API chi tiết trong schema `v_eval_practice` của [`PracticeDbContext.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs) với các ràng buộc chỉ mục độc nhất và Cascade Delete.
+  - Tự động hóa DDL khởi tạo trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs) và xuất bản [`SQL_Migration_Flow5_Analytics.sql`](../../docs/SQL/SQL_Migration_Flow5_Analytics.sql).
+- **Giai Đoạn 2: Triển Khai Động Cơ Hybrid Aggregation Engine & Background Worker 15 Phút**:
+  - **Kho Dữ Liệu Chuyên Biệt**:
+    - [`IClassHeatmapRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassHeatmapRepository.cs) & [`ClassHeatmapRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassHeatmapRepository.cs): Truy vấn ma trận nhiệt, lọc theo phân môn và upsert hàng loạt bản ghi tóm tắt.
+    - [`IStudentActivityRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IStudentActivityRepository.cs) & [`StudentActivityRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/StudentActivityRepository.cs): Tính toán chuỗi chuyên cần thực tế (Streak) lùi ngày liên tục, thời gian tự học trong 7 ngày gần nhất và chỉ số sẵn sàng thi.
+  - **Tối Ưu Hóa Bộ Đệm Ma Trận (< 300ms)**:
+    - [`IClassHeatmapCacheService.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Services/IClassHeatmapCacheService.cs) & [`ClassHeatmapCacheService.cs`](../V-Eval-Practice_Service.Infrastructure/Caching/ClassHeatmapCacheService.cs): Dịch vụ đệm bộ nhớ trong `IMemoryCache` kèm cơ chế theo dõi khóa ConcurrentDictionary và hàm `InvalidateClassHeatmapAsync` xóa cache cục bộ theo lớp.
+  - **Động Cơ Tính Toán Khảo Thí & Phân Tích Sư Phạm**:
+    - [`IClassHeatmapAggregatorService.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Services/IClassHeatmapAggregatorService.cs) & [`ClassHeatmapAggregatorService.cs`](../V-Eval-Practice_Service.Infrastructure/Services/ClassHeatmapAggregatorService.cs):
+      - Tính toán trung bình cộng `` `\overline{P(L_t)}` ``, tỷ lệ học sinh yếu kém `` `\text{StrugglingRate}` ``, độ lệch chuẩn mẫu `` `\sigma` ``, xác định phân hóa 2 cực `IsBimodal` và phân loại cảnh báo đỏ/vàng/xanh 3 cấp độ.
+      - Thuật toán tính toán chỉ số sẵn sàng thi: `` `R_{\text{exam}} = 0.50 \cdot S_{\theta} + 0.35 \cdot C_{\text{BKT}} + 0.15 \cdot F_{\text{consistency}}` ``.
+      - Xử lý ghi nhận chuyên cần Active Study Day: Tự động đánh dấu `IsStreakCounted = true` khi hoàn thành bài tập thích ứng hoặc xem >= 15 phút video hoặc làm bài thi thử.
+  - **Background Worker Quét Định Kỳ 15 Phút**:
+    - [`ClassHeatmapAggregationWorker.cs`](../V-Eval-Practice_Service.Infrastructure/BackgroundJobs/ClassHeatmapAggregationWorker.cs): Kế thừa `BackgroundService`, khởi chạy sau 20s và kích hoạt chu kỳ quét tự động mỗi 15 phút cho tất cả các lớp học `ACTIVE`.
+  - **Tích Hợp Write-Through O(1) Vào Các Điểm Nộp Bài Thực Tế**:
+    - [`SubmitAnswerCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/SubmitAnswer/SubmitAnswerCommandHandler.cs): Ghi nhận 1 câu làm bài vào Streak và cập nhật ô nhiệt của học sinh ngay khi nộp bài thích ứng.
+    - [`SubmitMockExamCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/SubmitMockExam/SubmitMockExamCommandHandler.cs): Ghi nhận bài thi thử vào Streak, tích lũy giờ làm bài và cập nhật toàn bộ kỹ năng xuất hiện trong đề thi vào bảng nhiệt của lớp.
+    - [`TrackVideoCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/TrackVideo/TrackVideoCommandHandler.cs): Tích lũy thời gian xem video bài giảng lý thuyết vào chỉ số chuyên cần.
+  - **Đăng Ký DI Container**: Cập nhật [`DependencyInjection.cs`](../V-Eval-Practice_Service.Infrastructure/DependencyInjection.cs) đăng ký đầy đủ các kho, dịch vụ tính toán, cache và HostedService worker.
 - **Kiểm Thử Biên Dịch**:
   - Chạy `dotnet build` toàn bộ solution `V-Eval-Practice_Service.sln` thành công 100% (**0 Error, 0 Warning**).
 
