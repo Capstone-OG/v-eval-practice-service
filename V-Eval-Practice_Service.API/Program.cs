@@ -263,6 +263,79 @@ using (var scope = app.Services.CreateScope())
 
             CREATE INDEX IF NOT EXISTS idx_proctoring_snapshots_sub 
             ON v_eval_practice.""ProctoringSnapshots"" (submission_id, captured_at);
+
+            -- Core Flow 5: Analytics & Class Heatmap
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""ClassSkillHeatmaps"" (
+                id UUID PRIMARY KEY,
+                class_id UUID NOT NULL REFERENCES ""Classes""(class_id) ON DELETE CASCADE,
+                student_id UUID NOT NULL,
+                skill_id UUID NOT NULL,
+                skill_name VARCHAR(255) NOT NULL,
+                domain_code VARCHAR(50) NOT NULL,
+                plt_value DOUBLE PRECISION NOT NULL DEFAULT 0.1000,
+                mastery_level VARCHAR(30) NOT NULL DEFAULT 'WEAK',
+                last_assessment_type VARCHAR(50) NOT NULL DEFAULT 'DIAGNOSTIC',
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
+                CONSTRAINT uq_class_student_skill UNIQUE (class_id, student_id, skill_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_heatmaps_class_id ON v_eval_practice.""ClassSkillHeatmaps""(class_id);
+            CREATE INDEX IF NOT EXISTS idx_heatmaps_student_id ON v_eval_practice.""ClassSkillHeatmaps""(student_id);
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""ClassHeatmapSummaries"" (
+                id UUID PRIMARY KEY,
+                class_id UUID NOT NULL REFERENCES ""Classes""(class_id) ON DELETE CASCADE,
+                skill_id UUID NOT NULL,
+                skill_name VARCHAR(255) NOT NULL,
+                domain_code VARCHAR(50) NOT NULL,
+                average_plt DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                struggling_count INT NOT NULL DEFAULT 0,
+                total_students INT NOT NULL DEFAULT 0,
+                struggling_rate DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                std_dev_plt DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                alert_status VARCHAR(30) NOT NULL DEFAULT 'SAFE_GREEN',
+                is_bimodal BOOLEAN NOT NULL DEFAULT FALSE,
+                calculated_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
+                CONSTRAINT uq_class_skill_summary UNIQUE (class_id, skill_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_heatmap_summaries_class_status 
+            ON v_eval_practice.""ClassHeatmapSummaries""(class_id, alert_status);
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""StudentDailyActivities"" (
+                id UUID PRIMARY KEY,
+                student_id UUID NOT NULL,
+                activity_date DATE NOT NULL,
+                study_time_minutes INT NOT NULL DEFAULT 0,
+                practice_questions_solved INT NOT NULL DEFAULT 0,
+                video_minutes_watched INT NOT NULL DEFAULT 0,
+                mock_exams_taken INT NOT NULL DEFAULT 0,
+                is_streak_counted BOOLEAN NOT NULL DEFAULT FALSE,
+                is_frozen BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
+                CONSTRAINT uq_student_activity_date UNIQUE (student_id, activity_date)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_student_activity_date 
+            ON v_eval_practice.""StudentDailyActivities""(student_id, activity_date DESC);
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""StudentReadinessMetrics"" (
+                id UUID PRIMARY KEY,
+                student_id UUID NOT NULL,
+                normalized_theta DOUBLE PRECISION NOT NULL DEFAULT 50.0,
+                skill_coverage_plt DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                consistency_score DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                exam_readiness_index DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                readiness_tier VARCHAR(30) NOT NULL DEFAULT 'PREPARING',
+                study_hours_this_week DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                current_streak_days INT NOT NULL DEFAULT 0,
+                calculated_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
+                CONSTRAINT uq_student_readiness UNIQUE (student_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_readiness_student_id 
+            ON v_eval_practice.""StudentReadinessMetrics""(student_id);
         ");
         logger.LogInformation("Đã xác thực và khởi tạo thành công CSDL schema practice trên Supabase.");
 

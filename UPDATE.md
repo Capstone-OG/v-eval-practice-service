@@ -1,10 +1,17 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [17/10/2026] - Đặc Tả Kỹ Thuật & Kế Hoạch Kiến Trúc Core Flow 5 (Learning Analytics & Class Heatmap)
+## [18/10/2026] - Hoàn Tất Giai Đoạn 1 Core Flow 5: Khởi Tạo 4 Thực Thể Domain & Cấu Hình CSDL
 
-- **Quy Hoạch Kiến Trúc & Thiết Kế Triển Khai Core Flow 5**:
-  - Thiết kế kiến trúc Hybrid Aggregation Engine: Fast-path (Write-Through Micro-update $O(1)$) kết hợp Batch-path (Background Sweep Worker $15$ phút) đảm bảo thời gian phản hồi Class Heatmap $< 300\text{ms}$.
-  - Hoàn thiện mô hình toán khảo thí định lượng: Cảnh báo đỏ 3 cấp độ ($\ge 40\%$ học sinh yếu hoặc $\overline{P(L_t)} < 0.50$), phát hiện phân hóa 2 cực (Bimodal $\sigma \ge 0.28$), công thức Exam Readiness Index ($R_{\text{exam}} = 0.50 S_\theta + 0.35 C_{\text{BKT}} + 0.15 F_{\text{consistency}}$), và tiêu chuẩn hóa Streak chuyên cần.
-  - Thiết kế 4 thực thể CSDL mới trong schema `v_eval_practice`: `ClassSkillHeatmap`, `ClassHeatmapSummary`, `StudentDailyActivity`, `StudentReadinessMetric`.
-  - Đặc tả chi tiết bộ 6 REST APIs cho Teacher Heatmap, Student Dashboard, Parent Portal và Campus Director.
-  - Cập nhật đồng bộ bộ 3 tài liệu chuẩn `docs/daily.md`, `docs/process.md` và `docs/architecture_acceptance.md`.
+- **Triển Khai 4 Thực Thể Domain Mới (`Domain/Entities/`)**:
+  - `ClassSkillHeatmap`: Lưu trữ từng ô ma trận nhiệt $P(L_t)$ cho học sinh và kỹ năng.
+  - `ClassHeatmapSummary`: Tổng hợp thống kê cột kỹ năng toàn lớp (Mean, StdDev, StrugglingRate, Bimodal Flag, AlertStatus).
+  - `StudentDailyActivity`: Ghi nhận chuyên cần và thời gian học tập hằng ngày theo chuẩn Active Study Day (Streak & Streak Freeze).
+  - `StudentReadinessMetric`: Chỉ số sẵn sàng thi tổng hợp $R_{\text{exam}}$ cho Cổng Phụ huynh & Học sinh.
+- **Cấu Hình Tầng Dữ Liệu & Hạ Tầng (`Infrastructure/Persistence/PracticeDbContext.cs`)**:
+  - Khai báo 4 `DbSet` trong schema `v_eval_practice`.
+  - Cấu hình Fluent API: Khóa chính, ràng buộc unique index (`uq_class_student_skill`, `uq_class_skill_summary`, `uq_student_activity_date`, `idx_readiness_student_id`) và quan hệ cascade delete với bảng `Classes`.
+- **Tự Động Hóa DDL Khởi Tạo Database (`API/Program.cs` & `docs/SQL`)**:
+  - Tích hợp câu lệnh `CREATE TABLE IF NOT EXISTS` và chỉ mục tự động khởi tạo khi service khởi động.
+  - Xuất bản file script DDL di trú độc lập `SQL_Migration_Flow5_Analytics.sql`.
+- **Kiểm Thử & Biên Dịch**:
+  - Biên dịch `dotnet build` toàn bộ solution thành công sạch sẽ 100% (**0 Warning, 0 Error**).

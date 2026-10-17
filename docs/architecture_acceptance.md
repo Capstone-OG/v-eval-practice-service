@@ -558,3 +558,18 @@
    - Blends standardized IRT latent ability, comprehensive BKT skill coverage, and weekly study consistency.
 4. **Active Study Day & Anti-Vanity Streak Verification**:
    - Requires tangible study proof (1 completed adaptive practice attempt OR `` `\ge 15` `` minutes video watching OR 1 completed mock exam) to increment daily streak counters.
+
+### 14.3 Phase 1 Database & EF Core Entities Acceptance
+1. **Domain Entities Implemented**:
+   - [`ClassSkillHeatmap`](../V-Eval-Practice_Service.Domain/Entities/ClassSkillHeatmap.cs): Primary key `Id`, foreign key `ClassId` (cascade delete), `StudentId`, `SkillId`, `DomainCode`, `PltValue`, `MasteryLevel`, `LastAssessmentType`, `UpdatedAt`.
+   - [`ClassHeatmapSummary`](../V-Eval-Practice_Service.Domain/Entities/ClassHeatmapSummary.cs): Primary key `Id`, foreign key `ClassId` (cascade delete), `SkillId`, `AveragePlt`, `StrugglingCount`, `TotalStudents`, `StrugglingRate`, `StdDevPlt`, `AlertStatus`, `IsBimodal`, `CalculatedAt`.
+   - [`StudentDailyActivity`](../V-Eval-Practice_Service.Domain/Entities/StudentDailyActivity.cs): Primary key `Id`, `StudentId`, `ActivityDate` (`date`), `StudyTimeMinutes`, `PracticeQuestionsSolved`, `VideoMinutesWatched`, `MockExamsTaken`, `IsStreakCounted`, `IsFrozen`.
+   - [`StudentReadinessMetric`](../V-Eval-Practice_Service.Domain/Entities/StudentReadinessMetric.cs): Primary key `Id`, unique `StudentId`, `NormalizedTheta`, `SkillCoveragePlt`, `ConsistencyScore`, `ExamReadinessIndex`, `ReadinessTier`, `StudyHoursThisWeek`, `CurrentStreakDays`.
+2. **Infrastructure Persistence & Fluent API Mapping**:
+   - Verified 4 `DbSet` registrations in [`PracticeDbContext`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs).
+   - Unique constraints enforced: `uq_class_student_skill`, `uq_class_skill_summary`, `uq_student_activity_date`, `idx_readiness_student_id`.
+   - Explicit schema isolation to `v_eval_practice`.
+3. **Automated DDL Provisioning**:
+   - Database startup pipeline in [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs) provisions all 4 tables and their indexes dynamically with `CREATE TABLE IF NOT EXISTS`.
+   - Standalone migration script maintained in [`SQL_Migration_Flow5_Analytics.sql`](../../docs/SQL/SQL_Migration_Flow5_Analytics.sql).
+

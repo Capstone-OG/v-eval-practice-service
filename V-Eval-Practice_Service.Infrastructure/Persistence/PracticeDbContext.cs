@@ -26,6 +26,12 @@ public class PracticeDbContext : DbContext
     public DbSet<MistakeNotebook> MistakeNotebooks => Set<MistakeNotebook>();
     public DbSet<ProctoringSnapshot> ProctoringSnapshots => Set<ProctoringSnapshot>();
 
+    // Core Flow 5: Analytics & Class Heatmap
+    public DbSet<ClassSkillHeatmap> ClassSkillHeatmaps => Set<ClassSkillHeatmap>();
+    public DbSet<ClassHeatmapSummary> ClassHeatmapSummaries => Set<ClassHeatmapSummary>();
+    public DbSet<StudentDailyActivity> StudentDailyActivities => Set<StudentDailyActivity>();
+    public DbSet<StudentReadinessMetric> StudentReadinessMetrics => Set<StudentReadinessMetric>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -370,5 +376,120 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.CapturedAt).HasColumnName("captured_at");
             entity.Property(e => e.FaceDetected).HasColumnName("face_detected");
         });
+
+        // Cấu hình bảng ClassSkillHeatmaps (Core Flow 5 - Từng ô ma trận nhiệt lớp học)
+        modelBuilder.Entity<ClassSkillHeatmap>(entity =>
+        {
+            entity.ToTable("ClassSkillHeatmaps", "v_eval_practice");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ClassId).HasColumnName("class_id").IsRequired();
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.SkillId).HasColumnName("skill_id").IsRequired();
+            entity.Property(e => e.SkillName).HasColumnName("skill_name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.DomainCode).HasColumnName("domain_code").HasMaxLength(50).IsRequired();
+            entity.Property(e => e.PltValue).HasColumnName("plt_value");
+            entity.Property(e => e.MasteryLevel).HasColumnName("mastery_level").HasMaxLength(30).IsRequired();
+            entity.Property(e => e.LastAssessmentType).HasColumnName("last_assessment_type").HasMaxLength(50).IsRequired();
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
+            entity.HasIndex(e => new { e.ClassId, e.StudentId, e.SkillId })
+                  .IsUnique()
+                  .HasDatabaseName("uq_class_student_skill");
+
+            entity.HasIndex(e => e.ClassId)
+                  .HasDatabaseName("idx_heatmaps_class_id");
+
+            entity.HasIndex(e => e.StudentId)
+                  .HasDatabaseName("idx_heatmaps_student_id");
+
+            entity.HasOne(e => e.Class)
+                  .WithMany()
+                  .HasForeignKey(e => e.ClassId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Cấu hình bảng ClassHeatmapSummaries (Core Flow 5 - Tổng hợp cột kỹ năng lớp học)
+        modelBuilder.Entity<ClassHeatmapSummary>(entity =>
+        {
+            entity.ToTable("ClassHeatmapSummaries", "v_eval_practice");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ClassId).HasColumnName("class_id").IsRequired();
+            entity.Property(e => e.SkillId).HasColumnName("skill_id").IsRequired();
+            entity.Property(e => e.SkillName).HasColumnName("skill_name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.DomainCode).HasColumnName("domain_code").HasMaxLength(50).IsRequired();
+            entity.Property(e => e.AveragePlt).HasColumnName("average_plt");
+            entity.Property(e => e.StrugglingCount).HasColumnName("struggling_count");
+            entity.Property(e => e.TotalStudents).HasColumnName("total_students");
+            entity.Property(e => e.StrugglingRate).HasColumnName("struggling_rate");
+            entity.Property(e => e.StdDevPlt).HasColumnName("std_dev_plt");
+            entity.Property(e => e.AlertStatus).HasColumnName("alert_status").HasMaxLength(30).IsRequired();
+            entity.Property(e => e.IsBimodal).HasColumnName("is_bimodal");
+            entity.Property(e => e.CalculatedAt).HasColumnName("calculated_at");
+
+            entity.HasIndex(e => new { e.ClassId, e.SkillId })
+                  .IsUnique()
+                  .HasDatabaseName("uq_class_skill_summary");
+
+            entity.HasIndex(e => new { e.ClassId, e.AlertStatus })
+                  .HasDatabaseName("idx_heatmap_summaries_class_status");
+
+            entity.HasOne(e => e.Class)
+                  .WithMany()
+                  .HasForeignKey(e => e.ClassId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Cấu hình bảng StudentDailyActivities (Core Flow 5 - Chuyên cần & Streak)
+        modelBuilder.Entity<StudentDailyActivity>(entity =>
+        {
+            entity.ToTable("StudentDailyActivities", "v_eval_practice");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.ActivityDate).HasColumnName("activity_date").HasColumnType("date").IsRequired();
+            entity.Property(e => e.StudyTimeMinutes).HasColumnName("study_time_minutes");
+            entity.Property(e => e.PracticeQuestionsSolved).HasColumnName("practice_questions_solved");
+            entity.Property(e => e.VideoMinutesWatched).HasColumnName("video_minutes_watched");
+            entity.Property(e => e.MockExamsTaken).HasColumnName("mock_exams_taken");
+            entity.Property(e => e.IsStreakCounted).HasColumnName("is_streak_counted");
+            entity.Property(e => e.IsFrozen).HasColumnName("is_frozen");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
+            entity.HasIndex(e => new { e.StudentId, e.ActivityDate })
+                  .IsUnique()
+                  .HasDatabaseName("uq_student_activity_date");
+
+            entity.HasIndex(e => new { e.StudentId, e.ActivityDate })
+                  .HasDatabaseName("idx_student_activity_date");
+        });
+
+        // Cấu hình bảng StudentReadinessMetrics (Core Flow 5 - Chỉ số sẵn sàng thi)
+        modelBuilder.Entity<StudentReadinessMetric>(entity =>
+        {
+            entity.ToTable("StudentReadinessMetrics", "v_eval_practice");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.NormalizedTheta).HasColumnName("normalized_theta");
+            entity.Property(e => e.SkillCoveragePlt).HasColumnName("skill_coverage_plt");
+            entity.Property(e => e.ConsistencyScore).HasColumnName("consistency_score");
+            entity.Property(e => e.ExamReadinessIndex).HasColumnName("exam_readiness_index");
+            entity.Property(e => e.ReadinessTier).HasColumnName("readiness_tier").HasMaxLength(30).IsRequired();
+            entity.Property(e => e.StudyHoursThisWeek).HasColumnName("study_hours_this_week");
+            entity.Property(e => e.CurrentStreakDays).HasColumnName("current_streak_days");
+            entity.Property(e => e.CalculatedAt).HasColumnName("calculated_at");
+
+            entity.HasIndex(e => e.StudentId)
+                  .IsUnique()
+                  .HasDatabaseName("idx_readiness_student_id");
+        });
     }
 }
+

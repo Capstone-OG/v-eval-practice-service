@@ -1,5 +1,26 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [18/10/2026] - Hoàn Tất Giai Đoạn 1 Core Flow 5: Khởi Tạo 4 Thực Thể Domain, Cấu Hình Fluent API & DDL Migration Script
+
+- **Khởi Tạo 4 Thực Thể CSDL Mới Trong Tầng Domain (`V-Eval-Practice_Service.Domain/Entities/`)**:
+  - [`ClassSkillHeatmap.cs`](../V-Eval-Practice_Service.Domain/Entities/ClassSkillHeatmap.cs): Quản lý từng ô ma trận nhiệt `` `(ClassId, StudentId, SkillId)` `` với trường `` `PltValue` ``, phân loại `` `MasteryLevel` `` (CRITICAL, WEAK, DEVELOPING, MASTERED) và `` `LastAssessmentType` ``.
+  - [`ClassHeatmapSummary.cs`](../V-Eval-Practice_Service.Domain/Entities/ClassHeatmapSummary.cs): Bản ghi tổng hợp thống kê cột kỹ năng toàn lớp với `` `AveragePlt` ``, `` `StrugglingCount` ``, `` `StrugglingRate` ``, độ lệch chuẩn `` `StdDevPlt` ``, cờ phân hóa 2 cực `` `IsBimodal` `` và trạng thái cảnh báo sư phạm `` `AlertStatus` ``.
+  - [`StudentDailyActivity.cs`](../V-Eval-Practice_Service.Domain/Entities/StudentDailyActivity.cs): Ghi nhận chi tiết chuyên cần và thời gian học tập hằng ngày theo chuẩn Active Study Day (làm bài tập APPLY, xem video LEARN, làm bài thi thử), tích hợp cờ bảo vệ chuỗi `` `IsFrozen` `` và `` `IsStreakCounted` ``.
+  - [`StudentReadinessMetric.cs`](../V-Eval-Practice_Service.Domain/Entities/StudentReadinessMetric.cs): Lưu trữ chỉ số sẵn sàng thi tổng hợp `` `ExamReadinessIndex` ``, năng lực tiềm ẩn chuẩn hóa `` `NormalizedTheta` ``, độ phủ kiến thức BKT `` `SkillCoveragePlt` `` và điểm kỷ luật `` `ConsistencyScore` `` phục vụ Cổng Phụ huynh.
+- **Cấu Hình Tầng Hạ Tầng & Dữ Liệu (`PracticeDbContext.cs`)**:
+  - Đăng ký 4 `DbSet` mới: `ClassSkillHeatmaps`, `ClassHeatmapSummaries`, `StudentDailyActivities`, `StudentReadinessMetrics`.
+  - Cấu hình Fluent API chi tiết trong schema `v_eval_practice`:
+    - Ràng buộc khóa chính, độ dài chuỗi tối đa (`HasMaxLength`).
+    - Chỉ mục độc nhất: `uq_class_student_skill`, `uq_class_skill_summary`, `uq_student_activity_date`, `idx_readiness_student_id`.
+    - Thiết lập quan hệ khóa ngoại `Cascade Delete` liên kết đến bảng `Classes`.
+- **Tự Động Hóa DDL Khởi Tạo & Script Di Trú CSDL**:
+  - Cập nhật pipeline khởi động [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs): Bổ sung các lệnh SQL `CREATE TABLE IF NOT EXISTS` và `CREATE INDEX IF NOT EXISTS` đảm bảo bảng được tự động provision trên PostgreSQL Supabase khi ứng dụng khởi chạy.
+  - Tạo script DDL độc lập [`SQL_Migration_Flow5_Analytics.sql`](../../docs/SQL/SQL_Migration_Flow5_Analytics.sql) trong thư mục `docs/SQL`.
+- **Kiểm Thử Biên Dịch**:
+  - Chạy `dotnet build` toàn bộ solution `V-Eval-Practice_Service.sln` thành công 100% (**0 Error, 0 Warning**).
+
+---
+
 ## [17/10/2026] - Đặc Tả Kỹ Thuật & Kế Hoạch Kiến Trúc Core Flow 5: Phân Tích Tiến Độ & Bản Đồ Nhiệt Lớp Học (Learning Analytics & Class Heatmap)
 
 - **Ban Hành Bản Đặc Tả Kỹ Thuật Core Flow 5**:
