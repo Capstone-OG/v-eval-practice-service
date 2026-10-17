@@ -1,12 +1,10 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [16/10/2026] - Hợp Nhất Kiến Trúc Nhánh Develop: Tích Hợp Core Flow 4 (GraphRAG AI Tutor) & Core Flow 3 (Proctored Mock Exam)
+## [17/10/2026] - Đặc Tả Kỹ Thuật & Kế Hoạch Kiến Trúc Core Flow 5 (Learning Analytics & Class Heatmap)
 
-- **Hợp Nhất Codebase & Giải Quyết Xung Đột Tích Hợp**:
-  - Hợp nhất thành công các cập nhật mới nhất từ `origin/develop` vào nhánh `feature/core-flow-3-interactive-learning`.
-  - Tích hợp liền mạch phân hệ **Graph-RAG Socratic AI Tutor** (Core Flow 4: `AiTutorController`, `IAiTutorClient`, `AiTutorClient`, Rate Limiting `StrictTutorPolicy`) cùng phân hệ **Thi Thử Có Giám Sát Chuẩn Hóa** (Core Flow 3 Module 3: `MockExamsController`, `IMockExamRepository`, `MockExamRepository`, `ProctoringSnapshots`).
-  - Đồng bộ `Program.cs` và `DependencyInjection.cs` đảm bảo khởi tạo đầy đủ các pipeline và DI container.
-  - Cập nhật và đồng bộ tài liệu kiến trúc, bảng theo dõi tiến độ (`docs/process.md`), nhật ký hàng ngày (`docs/daily.md`) và nghiệm thu kiến trúc (`docs/architecture_acceptance.md`).
-- **Kiểm Thử & Biên Dịch Toàn Cục**:
-  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
-  - Chuẩn bị sẵn sàng hoàn tất merge vào nhánh `develop`.
+- **Quy Hoạch Kiến Trúc & Thiết Kế Triển Khai Core Flow 5**:
+  - Thiết kế kiến trúc Hybrid Aggregation Engine: Fast-path (Write-Through Micro-update $O(1)$) kết hợp Batch-path (Background Sweep Worker $15$ phút) đảm bảo thời gian phản hồi Class Heatmap $< 300\text{ms}$.
+  - Hoàn thiện mô hình toán khảo thí định lượng: Cảnh báo đỏ 3 cấp độ ($\ge 40\%$ học sinh yếu hoặc $\overline{P(L_t)} < 0.50$), phát hiện phân hóa 2 cực (Bimodal $\sigma \ge 0.28$), công thức Exam Readiness Index ($R_{\text{exam}} = 0.50 S_\theta + 0.35 C_{\text{BKT}} + 0.15 F_{\text{consistency}}$), và tiêu chuẩn hóa Streak chuyên cần.
+  - Thiết kế 4 thực thể CSDL mới trong schema `v_eval_practice`: `ClassSkillHeatmap`, `ClassHeatmapSummary`, `StudentDailyActivity`, `StudentReadinessMetric`.
+  - Đặc tả chi tiết bộ 6 REST APIs cho Teacher Heatmap, Student Dashboard, Parent Portal và Campus Director.
+  - Cập nhật đồng bộ bộ 3 tài liệu chuẩn `docs/daily.md`, `docs/process.md` và `docs/architecture_acceptance.md`.

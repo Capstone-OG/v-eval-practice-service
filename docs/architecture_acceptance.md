@@ -534,3 +534,27 @@
   - `GET /api/practice/ai-tutor/interactions`: Fetches paginated interaction logs with `reportedOnly` filtering for mentor review.
 - **Fail-Safe Operation**:
   - Downstream communication failures fallback to local logging ensuring the student experience is never disrupted.
+
+---
+
+## 14. CORE FLOW 5 — LEARNING ANALYTICS & CLASS HEATMAP ARCHITECTURE ACCEPTANCE
+
+### 14.1 Architecture Overview & Hybrid Aggregation Strategy
+- **Service Responsibility**: High-throughput multi-stakeholder progress monitoring and 2D matrix heatmap visualization across Student, Teacher, Parent, and Campus Director portals.
+- **Latency Target**: Sub-300ms response time for dense classroom matrices (up to 30 students x 35 skills), surpassing the initial 3-second requirement.
+- **Hybrid Aggregation Engine**:
+  - **Fast-Path (Write-Through Micro-update)**: When a student completes an adaptive quiz or submits a proctored mock exam, a lightweight event updates their respective row/cell in `practice.ClassSkillHeatmaps` and invalidates the cached class matrix in Redis (`O(1)` runtime).
+  - **Batch-Path (Background Sweep Worker)**: An `IHostedService` (`ClassHeatmapAggregationWorker`) triggers every 15 minutes to compute statistical distributions (Mean `` `\overline{P(L_t)}` ``, sample standard deviation `` `\sigma` ``, struggling rate, and bimodal polarization flags) and persists aggregate snapshots into `practice.ClassHeatmapSummaries`.
+
+### 14.2 Pedagogical Rules & Psychometric Formulations
+1. **Three-Tier Warning Threshold**:
+   - `CRITICAL_RED`: Triggered if `` `\ge 40\%` `` of students in the class have `` `P(L_t) < 0.50` `` OR class mean `` `\overline{P(L_t)} < 0.50` ``.
+   - `WARNING_AMBER`: Triggered if `` `20\% \le` `` struggling rate `` `< 40\%` `` OR `` `0.50 \le \overline{P(L_t)} < 0.70` ``.
+   - `SAFE_GREEN`: Achieved when `` `\ge 70\%` `` of students master the skill with `` `P(L_t) \ge 0.70` ``.
+2. **Bimodal Polarized Distribution Warning**:
+   - When `` `\sigma_s \ge 0.28` `` and struggling rate `` `\ge 30\%` ``, flags `is_bimodal = true` to alert the teacher against uniform lecturing, recommending micro-group partitioning instead.
+3. **Parent Exam Readiness Index (`` `R_{\text{exam}}` ``)**:
+   - Formulated as: `` `R_{\text{exam}} = 0.50 \cdot S_{\theta} + 0.35 \cdot C_{\text{BKT}} + 0.15 \cdot F_{\text{consistency}}` ``.
+   - Blends standardized IRT latent ability, comprehensive BKT skill coverage, and weekly study consistency.
+4. **Active Study Day & Anti-Vanity Streak Verification**:
+   - Requires tangible study proof (1 completed adaptive practice attempt OR `` `\ge 15` `` minutes video watching OR 1 completed mock exam) to increment daily streak counters.

@@ -26,6 +26,10 @@
 - `practice.StageProgress`: Tiến trình chặng học P-L-A-R (`id`, `student_id`, `roadmap_node_id`, `current_step`, `video_watch_percentage`, `bkt_mastery_plt`, `consecutive_advanced_correct`, `consecutive_incorrect`, `status`).
 - `practice.AdaptiveQuizAttempts`: Log trả lời thích ứng từng câu (`id`, `stage_progress_id`, `student_id`, `question_id`, `pattern_id`, `selected_option`, `is_correct`, `time_spent_seconds`, `item_difficulty_b`, `item_discrimination_a`, `is_lucky_guess`, `prior_plt`, `posterior_plt`).
 - `practice.MistakeNotebooks`: Sổ tay lỗi sai & Lặp lại ngắt quãng SM-2 (`id`, `student_id`, `question_id`, `skill_id`, `pattern_id`, `cognitive_error_tag`, `student_notes`, `next_review_date`, `review_count`, `consecutive_correct_reviews`, `interval_days`, `ease_factor`, `is_mastered`, `last_reviewed_at`).
+- `practice.ClassSkillHeatmaps`: Ma trận nhiệt từng ô P(Lt) cho học sinh và kỹ năng (`id`, `class_id`, `student_id`, `skill_id`, `plt_value`, `mastery_level`, `updated_at`).
+- `practice.ClassHeatmapSummaries`: Tổng hợp thống kê theo kỹ năng cả lớp (`id`, `class_id`, `skill_id`, `average_plt`, `struggling_count`, `struggling_rate`, `std_dev_plt`, `alert_status`, `is_bimodal`, `calculated_at`).
+- `practice.StudentDailyActivities`: Nhật ký chuyên cần và thời gian học tập hằng ngày (`id`, `student_id`, `activity_date`, `study_time_minutes`, `practice_questions_solved`, `video_minutes_watched`, `is_streak_counted`, `is_frozen`).
+- `practice.StudentReadinessMetrics`: Chỉ số sẵn sàng thi cho Phụ huynh và Học sinh (`id`, `student_id`, `normalized_theta`, `skill_coverage_plt`, `consistency_score`, `exam_readiness_index`, `readiness_tier`, `calculated_at`).
 
 ---
 
@@ -105,3 +109,9 @@
 | 70 | **Core Flow 3 (Module 3 - API 6: Thẩm Định Mentor)** | `MockExamsController.cs` & `MentorReviewCommandHandler.cs` | 🟢 Hoàn thành | 100% | `PATCH /api/practice/mock-exams/{submissionId}/mentor-review` Mentor duyệt bài (APPROVED) hoặc hủy kết quả vi phạm (DISQUALIFIED về 0 điểm) kèm lý do giải trình |
 | 71 | **Core Flow 4 (Phase 5): Tích Hợp AI Tutor Client & SSE Streaming** | `Application/Interfaces`, `Infrastructure/HttpClients`, `API/Controllers` | 🟢 Hoàn thành | 100% | `IAiTutorClient`, `AiTutorClient` SSE proxy, Rate Limiter (`StrictTutorPolicy`), `AiTutorController` (`ask-stream` & `ask`) |
 | 72 | **Core Flow 4 (Phase 6): Báo Cáo Học Sinh & Tương Tác Mentor** | `Application/Interfaces`, `Infrastructure/HttpClients`, `API/Controllers` | 🟢 Hoàn thành | 100% | API báo cáo sai `POST /api/practice/ai-tutor/report`, truy vấn tương tác `GET /api/practice/ai-tutor/interactions`, tích hợp fallback kiên cường |
+| 73 | **Core Flow 5 (Phase 1): CSDL & EF Core Entities Heatmap & Metrics** | `Domain/Entities/` & `Infrastructure/Persistence/` | 🟡 Thiết kế xong | 15% | Đã thiết kế 4 thực thể: `ClassSkillHeatmap`, `ClassHeatmapSummary`, `StudentDailyActivity`, `StudentReadinessMetric` |
+| 74 | **Core Flow 5 (Phase 2): Background Aggregation Worker & Hybrid Engine** | `Infrastructure/BackgroundJobs/` | ⏳ Đang quy hoạch | 0% | Worker quét 15 phút tính Mean, StdDev, StrugglingRate, Bimodal Flag & Real-time Write-Through |
+| 75 | **Core Flow 5 (Phase 3 - API 1): Dashboard Năng Lực Học Sinh** | `Controllers/AnalyticsController.cs` | ⏳ Đang quy hoạch | 0% | `GET /api/practice/analytics/student/{studentId}/dashboard` Radar 4 miền, DAG %, Streak & Lịch sử |
+| 76 | **Core Flow 5 (Phase 3 - API 2): Class Heatmap Matrix Cho Giáo Viên** | `Controllers/ClassesController.cs` | ⏳ Đang quy hoạch | 0% | `GET /api/practice/classes/{classId}/heatmap` Ma trận nhiệt 2D, Cảnh báo đỏ sư phạm, lọc Domain |
+| 77 | **Core Flow 5 (Phase 3 - API 3): Hành Động Sư Phạm 1-Click Tạo Live Q&A** | `Controllers/ClassesController.cs` | ⏳ Đang quy hoạch | 0% | `POST /api/practice/classes/{classId}/heatmap/trigger-live-session` Can thiệp chuyên đề trũng |
+| 78 | **Core Flow 5 (Phase 3 - API 4): Dashboard Phụ Huynh (Readiness Index)** | `Controllers/AnalyticsController.cs` | ⏳ Đang quy hoạch | 0% | `GET /api/practice/analytics/parent/{parentId}/children` Thước đo sẵn sàng thi & Giờ tự học |

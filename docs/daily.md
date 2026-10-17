@@ -1,5 +1,19 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [17/10/2026] - Đặc Tả Kỹ Thuật & Kế Hoạch Kiến Trúc Core Flow 5: Phân Tích Tiến Độ & Bản Đồ Nhiệt Lớp Học (Learning Analytics & Class Heatmap)
+
+- **Ban Hành Bản Đặc Tả Kỹ Thuật Core Flow 5**:
+  - Thiết kế kiến trúc Hybrid Analytics Engine: kết hợp **Real-time Write-Through Micro-update** (ngay khi hoàn thành chặng học/bài thi thử) và **Background Aggregation Worker** (quét định kỳ mỗi 15 phút tính toán Mean, StdDev, StrugglingRate, và phát hiện phân hóa 2 cực Bimodal Distribution).
+  - Hoàn thiện mô hình toán khảo thí định lượng:
+    - Ngưỡng cảnh báo đỏ 3 cấp độ cho Class Heatmap (khi có >= 40% học sinh yếu hoặc trung bình lớp < 0.50).
+    - Công thức chuẩn hóa Chỉ số sẵn sàng thi cho Phụ huynh (Exam Readiness Index): `` `R_{\text{exam}} = 0.50 \cdot S_{\theta} + 0.35 \cdot C_{\text{BKT}} + 0.15 \cdot F_{\text{consistency}}` ``.
+    - Tiêu chuẩn hóa định nghĩa Active Study Day & Chuỗi chuyên cần (Streak) và cơ chế đóng băng chuỗi (Streak Freeze).
+  - Thiết kế 4 bảng CSDL mới trong schema `v_eval_practice`: `ClassSkillHeatmaps`, `ClassHeatmapSummaries`, `StudentDailyActivities`, `StudentReadinessMetrics`.
+  - Đặc tả chi tiết bộ 6 REST APIs cho Teacher Heatmap, Student Dashboard, Parent Portal và Campus Director.
+  - Chuẩn bị kế hoạch triển khai Phase 1: Tạo EF Core Entities, Fluent API configuration và DDL migration script.
+
+---
+
 ## [16/10/2026] - Hợp Nhất Kiến Trúc Nhánh Develop: Tích Hợp Core Flow 4 (GraphRAG AI Tutor) & Core Flow 3 (Proctored Mock Exam)
 
 - **Hợp Nhất Codebase & Giải Quyết Xung Đột Tích Hợp**:
