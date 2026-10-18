@@ -21,9 +21,13 @@
   - Khởi tạo DTOs `SubmitPrescriptionSessionDtos.cs`, Command `SubmitPrescriptionSessionCommand.cs` và Handler `SubmitPrescriptionSessionCommandHandler.cs`.
   - Endpoint `POST /api/practice/predictions/prescriptions/{patternId}/submit-session`.
   - Nghiệp vụ: Chấm điểm tự động từng câu trả lời theo bảng khóa đáp án; nếu đạt độ chính xác $\ge 67\%$ thì đánh dấu dạng bài đã khắc phục (`is_remedied = true`), nâng xác suất thành thạo BKT $P(L_t)$ và trừ trực tiếp điểm thâm hụt (`deficit_score`) trong bảng `ScorePredictions`.
+- **Hiện Thực API 4: Kích Hoạt Tái Tính Toán Dải Điểm SEM & Toa Thuốc Bù Điểm (RecalculatePrediction)**:
+  - Khởi tạo DTOs `RecalculatePredictionDtos.cs`, Command `RecalculatePredictionCommand.cs` và Handler `RecalculatePredictionCommandHandler.cs`.
+  - Endpoint `POST /api/practice/predictions/recalculate`.
+  - Nghiệp vụ: Tái ước lượng dải điểm tin cậy $[Min, Max]$ qua sai số chuẩn đo lường SEM $95\%$, cập nhật mức độ thâm hụt so với mục tiêu, tự động giải bài toán Knapsack chọn 2–3 dạng bài bù điểm có ROI cao nhất và lưu bản ghi dự báo mới vào CSDL.
 - **Biên Dịch & Sẵn Sàng Vận Hành**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
-  - Đã kiểm thử live thành công đầy đủ cả 3 API qua port trực tiếp `5261` và cổng API Gateway YARP `5212`.
+  - Đã kiểm thử live thành công đầy đủ cả 4 API qua port trực tiếp `5261` và cổng API Gateway YARP `5212`.
 
 ---
 

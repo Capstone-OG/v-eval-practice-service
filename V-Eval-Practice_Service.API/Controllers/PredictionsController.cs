@@ -8,6 +8,7 @@ using V_Eval_Practice_Service.Application.Features.Predictions.DTOs;
 using V_Eval_Practice_Service.Application.Features.Predictions.Queries.GetMyForecast;
 using V_Eval_Practice_Service.Application.Features.Predictions.Queries.GetPrescriptionSession;
 using V_Eval_Practice_Service.Application.Features.Predictions.Commands.SubmitPrescriptionSession;
+using V_Eval_Practice_Service.Application.Features.Predictions.Commands.RecalculatePrediction;
 
 namespace V_Eval_Practice_Service.API.Controllers;
 
@@ -134,6 +135,32 @@ public class PredictionsController : ApiControllerBase
         }
 
         var command = new SubmitPrescriptionSessionCommand(effectiveStudentId, patternId, request);
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Kích hoạt tái tính toán lại dải điểm SEM và Toa thuốc bù điểm Knapsack ROI (Core Flow 6)
+    /// </summary>
+    /// <remarks>
+    /// Ước lượng lại dải điểm chuẩn hóa [Min, Max], tính toán lại mức độ thâm hụt so với mục tiêu và tối ưu lại 2-3 dạng bài bù điểm có ROI cao nhất sau khi hoàn thành bài thi thử hoặc chuỗi bài tập.
+    /// </remarks>
+    /// <param name="request">Payload yêu cầu tính toán lại (tùy chọn nguồn trigger_source và reference_submission_id)</param>
+    /// <returns>Dải điểm dự báo mới và bản ghi dự báo vừa tạo</returns>
+    [HttpPost("recalculate")]
+    [ProducesResponseType(typeof(Result<RecalculatePredictionResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<RecalculatePredictionResponseDto>), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RecalculatePrediction([FromBody] RecalculatePredictionRequestDto? request = null)
+    {
+        Guid effectiveStudentId = Guid.Empty;
+
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            effectiveStudentId = parsedId;
+        }
+
+        var effectiveRequest = request ?? new RecalculatePredictionRequestDto();
+        var command = new RecalculatePredictionCommand(effectiveStudentId, effectiveRequest);
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }

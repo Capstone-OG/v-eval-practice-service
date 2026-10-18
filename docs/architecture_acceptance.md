@@ -588,3 +588,17 @@
   5. If accuracy $< 67\%$: Retains current deficit and returns constructive feedback advising review and retry.
 - **Acceptance Status**: 100% verified live with successful deficit decrement (Happy Case) and strict threshold rejection (Unhappy Case).
 
+### 14.5 API 4 Implementation Specification (Forecast & Prescription Recalculation Engine)
+- **Endpoint**: `POST /api/practice/predictions/recalculate`
+- **Controller**: `PredictionsController.cs`
+- **CQRS Command & Handler**: `RecalculatePredictionCommand.cs` & `RecalculatePredictionCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header or request body.
+  2. Queries existing prediction history and extracts current target score (defaults to 850).
+  3. Re-estimates ability level taking into account recent stage progressions, remedied prescription items, or mock exam submissions.
+  4. Calculates 95% confidence interval $[Min, Max]$ via Standard Error of Measurement ($SEM = 24.5$).
+  5. Computes new deficit against target score and classifies status (`ON_TRACK`, `AT_RISK`, `CRITICAL`).
+  6. Re-executes the Knapsack ROI selection engine, prioritizing top 2–3 question patterns that yield highest score gain per study hour ($ROI = \Delta Score / H$).
+  7. Inserts new `ScorePrediction` audit record into PostgreSQL `v_eval_practice."ScorePredictions"`.
+- **Acceptance Status**: 100% verified live via unit endpoints and Gateway proxy.
+
