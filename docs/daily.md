@@ -13,8 +13,13 @@
   - Khởi tạo chuỗi CQRS: `PrescriptionItemDto.cs`, `MyForecastResponseDto.cs`, `GetMyForecastQuery.cs` và `GetMyForecastQueryHandler.cs`.
   - Khởi tạo controller `PredictionsController.cs` với endpoint `GET /api/practice/predictions/my-forecast`.
   - Hỗ trợ linh hoạt định danh `X-User-Id` (Gateway/JWT) hoặc query param `studentId`, tự động phân loại trạng thái cân đối điểm (`ON_TRACK`, `AT_RISK`, `CRITICAL`).
+- **Hiện Thực API 2: Lấy Đề Ôn Tập Biến Thể Cho Dạng Bài Bù Điểm (GetPrescriptionPracticeSession)**:
+  - Khởi tạo chuỗi CQRS: `PrescriptionSessionResponseDto.cs`, `GetPrescriptionSessionQuery.cs` và `GetPrescriptionSessionQueryHandler.cs`.
+  - Endpoint `GET /api/practice/predictions/prescriptions/{patternId}/practice-session`.
+  - Nghiệp vụ: Bốc 3–5 câu hỏi biến thể từ Ngân hàng đề của Content Service thông qua `IContentGrpcClient`, ẩn đáp án đúng để học sinh làm bài thi, tích hợp cơ chế fallback sinh câu hỏi biến thể tự động.
 - **Biên Dịch & Sẵn Sàng Vận Hành**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Đã kiểm thử live thành công cả qua port trực tiếp `5261` và cổng API Gateway YARP `5212`.
 
 ---
 

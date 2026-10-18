@@ -560,3 +560,15 @@
   5. Returns structured JSON containing forecast interval, deficit score, and prioritized remedial item list.
 - **Acceptance Status**: 100% verified against PostgreSQL database and YARP API Gateway proxy.
 
+### 14.3 API 2 Implementation Specification (Remedial Practice Session)
+- **Endpoint**: `GET /api/practice/predictions/prescriptions/{patternId}/practice-session`
+- **Controller**: `PredictionsController.cs`
+- **CQRS Handler**: `GetPrescriptionSessionQueryHandler.cs`
+- **Data Flow**:
+  1. Validates `patternId` against student's active prescription items in `ScorePredictions`.
+  2. If pattern not found or already remedied, returns RFC 7807 404 NotFound.
+  3. Dispatches gRPC request to Content Service (`GetMilestoneQuizAsync`) requesting 3–5 isomorphic items for `SkillId`.
+  4. Strips correct answer keys from question options to preserve test integrity.
+  5. Implements resilient fallback generator (`GenerateFallbackQuestions`) ensuring the practice session remains accessible even during downstream service restarts.
+- **Acceptance Status**: 100% verified live via unit endpoints and YARP API Gateway proxy.
+
