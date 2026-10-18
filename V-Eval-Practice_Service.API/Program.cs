@@ -341,32 +341,32 @@ using (var scope = app.Services.CreateScope())
 
         // Đảm bảo có dữ liệu mẫu ScorePrediction phục vụ kiểm thử Core Flow 6
         var testStudentId = Guid.Parse("b0a218d2-1111-4000-8000-000000000001");
-        var predictionExists = await dbContext.ScorePredictions.AnyAsync(p => p.StudentId == testStudentId);
-        if (!predictionExists)
-        {
-            var samplePrescriptionsJson = @"[
-                {
-                    ""pattern_id"": ""PAT_TOAN_LOGIC_01"",
-                    ""pattern_name"": ""Quy nạp logic mệnh đề điều kiện"",
-                    ""skill_id"": ""b3e1a8a2-2222-4000-8000-000000000001"",
-                    ""delta_score"": 25.5,
-                    ""study_hours_needed"": 1.8,
-                    ""roi_score"": 14.16,
-                    ""priority_rank"": 1,
-                    ""is_remedied"": false
-                },
-                {
-                    ""pattern_id"": ""PAT_HOA_PH_03"",
-                    ""pattern_name"": ""Tính pH dung dịch đệm axit yếu"",
-                    ""skill_id"": ""c4f2b9b3-3333-4000-8000-000000000002"",
-                    ""delta_score"": 20.0,
-                    ""study_hours_needed"": 1.5,
-                    ""roi_score"": 13.33,
-                    ""priority_rank"": 2,
-                    ""is_remedied"": false
-                }
-            ]";
+        var samplePrescriptionsJson = @"[
+            {
+                ""pattern_id"": ""PAT_TOAN_LOGIC_01"",
+                ""pattern_name"": ""Quy nạp logic mệnh đề điều kiện"",
+                ""skill_id"": ""a0000001-0000-0000-0000-000000000007"",
+                ""delta_score"": 25.5,
+                ""study_hours_needed"": 1.8,
+                ""roi_score"": 14.16,
+                ""priority_rank"": 1,
+                ""is_remedied"": false
+            },
+            {
+                ""pattern_id"": ""PAT_HOA_PH_03"",
+                ""pattern_name"": ""Tính pH dung dịch đệm axit yếu"",
+                ""skill_id"": ""a0000001-0000-0000-0000-000000000010"",
+                ""delta_score"": 20.0,
+                ""study_hours_needed"": 1.5,
+                ""roi_score"": 13.33,
+                ""priority_rank"": 2,
+                ""is_remedied"": false
+            }
+        ]";
 
+        var existingPrediction = await dbContext.ScorePredictions.FirstOrDefaultAsync(p => p.StudentId == testStudentId);
+        if (existingPrediction == null)
+        {
             await dbContext.ScorePredictions.AddAsync(new ScorePrediction
             {
                 PredictionId = Guid.NewGuid(),
@@ -385,6 +385,12 @@ using (var scope = app.Services.CreateScope())
 
             await dbContext.SaveChangesAsync();
             logger.LogInformation("Đã khởi tạo bản ghi ScorePrediction mẫu cho học sinh {StudentId} phục vụ kiểm thử Core Flow 6.", testStudentId);
+        }
+        else
+        {
+            existingPrediction.PrescriptionItems = samplePrescriptionsJson;
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Đã làm mới PrescriptionItems chuẩn cho học sinh {StudentId}.", testStudentId);
         }
     }
     catch (Exception ex)
