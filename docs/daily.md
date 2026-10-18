@@ -4,10 +4,15 @@
 
 - **Khởi Tạo Nhánh Phát Triển Độc Lập**:
   - Nhánh `feature/core-flow-6-score-prediction-early-warning` được tạo từ codebase tích hợp mới nhất của Practice Service (đã tích hợp đầy đủ Module 1, 2, 3 của Core Flow 3 và Core Flow 4 Graph-RAG).
-- **Chuẩn Bị Kiến Trúc Core Flow 6**:
-  - Lập kế hoạch mở rộng thực thể `ScorePrediction` (dải điểm SEM, thâm hụt điểm, Toa thuốc bù điểm Knapsack ROI trong `prescription_items` JSONB).
-  - Lập kế hoạch bổ sung thực thể `SystemAlert` (Cảnh báo sớm 3 cấp BR-04, phân quyền can thiệp sư phạm Mentor tại lớp).
-  - Chuẩn bị pipeline 9 RESTful APIs cho phân hệ Predictions & EarlyWarnings.
+- **Nền Tảng Mô Hình Thực Thể & CSDL Core Flow 6**:
+  - Tạo entity `ScorePrediction.cs` lưu trữ dải điểm tin cậy `[PredictedScoreMin, PredictedScoreMax]`, sai số chuẩn `SemScore`, điểm thâm hụt `DeficitScore` và cột `PrescriptionItems` (JSONB) chứa danh sách các dạng bài bù điểm Knapsack ROI.
+  - Tạo entity `SystemAlert.cs` phục vụ hệ thống cảnh báo sớm 3 cấp BR-04 và nhật ký can thiệp sư phạm của Mentor tại lớp.
+  - Cập nhật `PracticeDbContext.cs` đăng ký 2 `DbSet` và cấu hình Fluent API mapping tương thích PostgreSQL Schema.
+  - Tạo bộ Repository `IScorePredictionRepository.cs`, `ScorePredictionRepository.cs`, `ISystemAlertRepository.cs`, `SystemAlertRepository.cs` và đăng ký vào DI Container trong `DependencyInjection.cs`.
+- **Hiện Thực API 1: Tra Cứu Dải Điểm Dự Báo & Toa Thuốc Bù Điểm (GetMyForecast)**:
+  - Khởi tạo chuỗi CQRS: `PrescriptionItemDto.cs`, `MyForecastResponseDto.cs`, `GetMyForecastQuery.cs` và `GetMyForecastQueryHandler.cs`.
+  - Khởi tạo controller `PredictionsController.cs` với endpoint `GET /api/practice/predictions/my-forecast`.
+  - Hỗ trợ linh hoạt định danh `X-User-Id` (Gateway/JWT) hoặc query param `studentId`, tự động phân loại trạng thái cân đối điểm (`ON_TRACK`, `AT_RISK`, `CRITICAL`).
 - **Biên Dịch & Sẵn Sàng Vận Hành**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
 

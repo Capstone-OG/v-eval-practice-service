@@ -26,6 +26,8 @@
 - `practice.StageProgress`: Tiến trình chặng học P-L-A-R (`id`, `student_id`, `roadmap_node_id`, `current_step`, `video_watch_percentage`, `bkt_mastery_plt`, `consecutive_advanced_correct`, `consecutive_incorrect`, `status`).
 - `practice.AdaptiveQuizAttempts`: Log trả lời thích ứng từng câu (`id`, `stage_progress_id`, `student_id`, `question_id`, `pattern_id`, `selected_option`, `is_correct`, `time_spent_seconds`, `item_difficulty_b`, `item_discrimination_a`, `is_lucky_guess`, `prior_plt`, `posterior_plt`).
 - `practice.MistakeNotebooks`: Sổ tay lỗi sai & Lặp lại ngắt quãng SM-2 (`id`, `student_id`, `question_id`, `skill_id`, `pattern_id`, `cognitive_error_tag`, `student_notes`, `next_review_date`, `review_count`, `consecutive_correct_reviews`, `interval_days`, `ease_factor`, `is_mastered`, `last_reviewed_at`).
+- `practice.ScorePredictions`: Dự báo khoảng điểm SEM, bảng cân đối thâm hụt & Toa thuốc Knapsack ROI (`prediction_id`, `student_id`, `predicted_score`, `predicted_score_min`, `predicted_score_max`, `confidence_rate`, `target_score`, `deficit_score`, `sem_score`, `prescription_items`, `calculation_source`, `created_at`).
+- `practice.SystemAlerts`: Hệ thống cảnh báo sớm 3 cấp BR-04 & Can thiệp sư phạm Mentor (`alert_id`, `student_id`, `alert_type`, `message`, `is_read`, `handled_by`, `resolution_notes`, `resolved_at`, `created_at`).
 
 ---
 
@@ -105,3 +107,4 @@
 | 70 | **Core Flow 3 (Module 3 - API 6: Thẩm Định Mentor)** | `MockExamsController.cs` & `MentorReviewCommandHandler.cs` | 🟢 Hoàn thành | 100% | `PATCH /api/practice/mock-exams/{submissionId}/mentor-review` Mentor duyệt bài (APPROVED) hoặc hủy kết quả vi phạm (DISQUALIFIED về 0 điểm) kèm lý do giải trình |
 | 71 | **Core Flow 4 (Phase 5): Tích Hợp AI Tutor Client & SSE Streaming** | `Application/Interfaces`, `Infrastructure/HttpClients`, `API/Controllers` | 🟢 Hoàn thành | 100% | `IAiTutorClient`, `AiTutorClient` SSE proxy, Rate Limiter (`StrictTutorPolicy`), `AiTutorController` (`ask-stream` & `ask`) |
 | 72 | **Core Flow 4 (Phase 6): Báo Cáo Học Sinh & Tương Tác Mentor** | `Application/Interfaces`, `Infrastructure/HttpClients`, `API/Controllers` | 🟢 Hoàn thành | 100% | API báo cáo sai `POST /api/practice/ai-tutor/report`, truy vấn tương tác `GET /api/practice/ai-tutor/interactions`, tích hợp fallback kiên cường |
+| 73 | **Core Flow 6 (API 1): Tra Cứu Dải Điểm SEM & Toa Thuốc Bù Điểm (GetMyForecast)** | `PredictionsController.cs` & `GetMyForecastQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/predictions/my-forecast` dải điểm tin cậy `[Min, Max]`, thâm hụt so với mục tiêu và 2–3 dạng bài Knapsack ROI cao nhất |

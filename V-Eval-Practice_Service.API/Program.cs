@@ -263,6 +263,40 @@ using (var scope = app.Services.CreateScope())
 
             CREATE INDEX IF NOT EXISTS idx_proctoring_snapshots_sub 
             ON v_eval_practice.""ProctoringSnapshots"" (submission_id, captured_at);
+
+            -- Core Flow 6: ScorePredictions & SystemAlerts
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""ScorePredictions"" (
+                prediction_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                student_id UUID NOT NULL,
+                predicted_score INT,
+                predicted_score_min INT,
+                predicted_score_max INT,
+                confidence_rate DOUBLE PRECISION DEFAULT 0.95,
+                target_score INT,
+                deficit_score INT,
+                sem_score DOUBLE PRECISION,
+                prescription_items JSONB,
+                calculation_source VARCHAR(50) DEFAULT 'MOCK_EXAM',
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
+            );
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""SystemAlerts"" (
+                alert_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                student_id UUID NOT NULL,
+                alert_type VARCHAR(50) NOT NULL,
+                message TEXT NOT NULL,
+                is_read BOOLEAN DEFAULT FALSE,
+                handled_by UUID,
+                resolution_notes TEXT,
+                resolved_at TIMESTAMP WITH TIME ZONE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_score_predictions_student 
+            ON v_eval_practice.""ScorePredictions"" (student_id);
+
+            CREATE INDEX IF NOT EXISTS idx_system_alerts_student 
+            ON v_eval_practice.""SystemAlerts"" (student_id);
         ");
         logger.LogInformation("Đã xác thực và khởi tạo thành công CSDL schema practice trên Supabase.");
 
@@ -303,6 +337,54 @@ using (var scope = app.Services.CreateScope())
 
             await dbContext.SaveChangesAsync();
             logger.LogInformation("Đã khởi tạo chặng học mẫu RoadmapNode {NodeId} phục vụ kiểm thử Core Flow 3.", sampleNodeId);
+        }
+
+        // Đảm bảo có dữ liệu mẫu ScorePrediction phục vụ kiểm thử Core Flow 6
+        var testStudentId = Guid.Parse("b0a218d2-1111-4000-8000-000000000001");
+        var predictionExists = await dbContext.ScorePredictions.AnyAsync(p => p.StudentId == testStudentId);
+        if (!predictionExists)
+        {
+            var samplePrescriptionsJson = @"[
+                {
+                    ""pattern_id"": ""PAT_TOAN_LOGIC_01"",
+                    ""pattern_name"": ""Quy nạp logic mệnh đề điều kiện"",
+                    ""skill_id"": ""b3e1a8a2-2222-4000-8000-000000000001"",
+                    ""delta_score"": 25.5,
+                    ""study_hours_needed"": 1.8,
+                    ""roi_score"": 14.16,
+                    ""priority_rank"": 1,
+                    ""is_remedied"": false
+                },
+                {
+                    ""pattern_id"": ""PAT_HOA_PH_03"",
+                    ""pattern_name"": ""Tính pH dung dịch đệm axit yếu"",
+                    ""skill_id"": ""c4f2b9b3-3333-4000-8000-000000000002"",
+                    ""delta_score"": 20.0,
+                    ""study_hours_needed"": 1.5,
+                    ""roi_score"": 13.33,
+                    ""priority_rank"": 2,
+                    ""is_remedied"": false
+                }
+            ]";
+
+            await dbContext.ScorePredictions.AddAsync(new ScorePrediction
+            {
+                PredictionId = Guid.NewGuid(),
+                StudentId = testStudentId,
+                PredictedScore = 805,
+                PredictedScoreMin = 780,
+                PredictedScoreMax = 830,
+                ConfidenceRate = 0.95,
+                TargetScore = 850,
+                DeficitScore = 45,
+                SemScore = 25.5,
+                PrescriptionItems = samplePrescriptionsJson,
+                CalculationSource = "MOCK_EXAM",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Đã khởi tạo bản ghi ScorePrediction mẫu cho học sinh {StudentId} phục vụ kiểm thử Core Flow 6.", testStudentId);
         }
     }
     catch (Exception ex)

@@ -534,3 +534,29 @@
   - `GET /api/practice/ai-tutor/interactions`: Fetches paginated interaction logs with `reportedOnly` filtering for mentor review.
 - **Fail-Safe Operation**:
   - Downstream communication failures fallback to local logging ensuring the student experience is never disrupted.
+
+---
+
+## 14. CORE FLOW 6 — SCORE PREDICTION & EARLY WARNING ACCEPTANCE (PHASE 1)
+
+### 14.1 Architectural Overview
+- **Domain Responsibilities**: Provides continuous standardized score forecasting with Standard Error of Measurement (SEM 95% confidence intervals), score deficit balancing, and Greedy Knapsack Remedial Prescription optimization.
+- **Key Entities**:
+  - `ScorePrediction`: Maps to table `v_eval_practice."ScorePredictions"`. Stores `PredictedScore`, `PredictedScoreMin`, `PredictedScoreMax`, `SemScore`, `TargetScore`, `DeficitScore`, and JSONB `PrescriptionItems`.
+  - `SystemAlert`: Maps to table `v_eval_practice."SystemAlerts"` for 3-tier disciplinary and academic early warnings (BR-04).
+- **Core Principles**:
+  - Noise Cancellation: Confidence interval $[Min, Max]$ calculated via psychometric SEM prevents student panic from single-quiz deviations.
+  - Micro-Prescription Layer: Selects top 2–3 question patterns optimizing Return On Investment ($ROI = \Delta Score / StudyHoursNeeded$) without restructuring the entire macro learning roadmap.
+
+### 14.2 API 1 Implementation Specification
+- **Endpoint**: `GET /api/practice/predictions/my-forecast`
+- **Controller**: `PredictionsController.cs`
+- **CQRS Handler**: `GetMyForecastQueryHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header with query parameter fallback.
+  2. Queries `IScorePredictionRepository.GetLatestByStudentIdAsync`.
+  3. Deserializes `PrescriptionItems` JSONB using `JsonNamingPolicy.SnakeCaseLower`.
+  4. Classifies balance status (`ON_TRACK` for deficit $\le 0$, `AT_RISK` for $\le 30$, `CRITICAL` for $> 30$).
+  5. Returns structured JSON containing forecast interval, deficit score, and prioritized remedial item list.
+- **Acceptance Status**: 100% verified against PostgreSQL database and YARP API Gateway proxy.
+
