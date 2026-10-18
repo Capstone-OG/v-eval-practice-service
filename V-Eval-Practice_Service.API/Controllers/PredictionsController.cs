@@ -7,6 +7,7 @@ using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.Predictions.DTOs;
 using V_Eval_Practice_Service.Application.Features.Predictions.Queries.GetMyForecast;
 using V_Eval_Practice_Service.Application.Features.Predictions.Queries.GetPrescriptionSession;
+using V_Eval_Practice_Service.Application.Features.Predictions.Commands.SubmitPrescriptionSession;
 
 namespace V_Eval_Practice_Service.API.Controllers;
 
@@ -91,6 +92,49 @@ public class PredictionsController : ApiControllerBase
 
         var query = new GetPrescriptionSessionQuery(effectiveStudentId, patternId);
         var result = await Mediator.Send(query);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Nộp bài làm ôn tập vi mô, chấm điểm và xóa thâm hụt điểm (Knapsack Deficit Recovery)
+    /// </summary>
+    /// <remarks>
+    /// Chấm điểm các câu trả lời của học sinh. Nếu đạt tỷ lệ chính xác &gt;= 67%, hệ thống đánh dấu dạng bài đã hoàn thành (is_remedied = true), nâng xác suất thành thạo BKT P(L_t) và tự động trừ bớt điểm thâm hụt trong Toa thuốc.
+    /// </remarks>
+    /// <param name="patternId">Mã dạng bài trong toa thuốc (ví dụ: PAT_TOAN_LOGIC_01)</param>
+    /// <param name="request">Payload danh sách câu trả lời của học sinh</param>
+    /// <param name="studentId">Mã định danh học sinh (tùy chọn nếu đã truyền qua header X-User-Id)</param>
+    /// <returns>Kết quả chấm điểm, điểm thâm hụt còn lại và tỷ lệ thành thạo mới</returns>
+    [HttpPost("prescriptions/{patternId}/submit-session")]
+    [ProducesResponseType(typeof(Result<SubmitPrescriptionSessionResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<SubmitPrescriptionSessionResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<SubmitPrescriptionSessionResponseDto>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Result<SubmitPrescriptionSessionResponseDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SubmitPrescriptionPracticeSession(
+        [FromRoute] string patternId,
+        [FromBody] SubmitPrescriptionSessionRequestDto request,
+        [FromQuery] Guid? studentId = null)
+    {
+        Guid effectiveStudentId = Guid.Empty;
+
+        // Ưu tiên trích xuất StudentId từ Gateway Header (X-User-Id)
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            effectiveStudentId = parsedId;
+        }
+        else if (studentId.HasValue && studentId.Value != Guid.Empty)
+        {
+            effectiveStudentId = studentId.Value;
+        }
+
+        if (effectiveStudentId == Guid.Empty)
+        {
+            return HandleResult(Result<SubmitPrescriptionSessionResponseDto>.Failure(
+                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (cần truyền X-User-Id header hoặc query param studentId).")));
+        }
+
+        var command = new SubmitPrescriptionSessionCommand(effectiveStudentId, patternId, request);
+        var result = await Mediator.Send(command);
         return HandleResult(result);
     }
 }

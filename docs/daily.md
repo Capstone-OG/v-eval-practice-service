@@ -17,9 +17,13 @@
   - Khởi tạo chuỗi CQRS: `PrescriptionSessionResponseDto.cs`, `GetPrescriptionSessionQuery.cs` và `GetPrescriptionSessionQueryHandler.cs`.
   - Endpoint `GET /api/practice/predictions/prescriptions/{patternId}/practice-session`.
   - Nghiệp vụ: Bốc 3–5 câu hỏi biến thể từ Ngân hàng đề của Content Service thông qua `IContentGrpcClient`, ẩn đáp án đúng để học sinh làm bài thi, tích hợp cơ chế fallback sinh câu hỏi biến thể tự động.
+- **Hiện Thực API 3: Nộp Bài Ôn Tập Vi Mô, Chấm Điểm & Xóa Nợ Điểm Thâm Hụt (SubmitPrescriptionSession)**:
+  - Khởi tạo DTOs `SubmitPrescriptionSessionDtos.cs`, Command `SubmitPrescriptionSessionCommand.cs` và Handler `SubmitPrescriptionSessionCommandHandler.cs`.
+  - Endpoint `POST /api/practice/predictions/prescriptions/{patternId}/submit-session`.
+  - Nghiệp vụ: Chấm điểm tự động từng câu trả lời theo bảng khóa đáp án; nếu đạt độ chính xác $\ge 67\%$ thì đánh dấu dạng bài đã khắc phục (`is_remedied = true`), nâng xác suất thành thạo BKT $P(L_t)$ và trừ trực tiếp điểm thâm hụt (`deficit_score`) trong bảng `ScorePredictions`.
 - **Biên Dịch & Sẵn Sàng Vận Hành**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
-  - Đã kiểm thử live thành công cả qua port trực tiếp `5261` và cổng API Gateway YARP `5212`.
+  - Đã kiểm thử live thành công đầy đủ cả 3 API qua port trực tiếp `5261` và cổng API Gateway YARP `5212`.
 
 ---
 

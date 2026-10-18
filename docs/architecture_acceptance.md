@@ -572,3 +572,19 @@
   5. Implements resilient fallback generator (`GenerateFallbackQuestions`) ensuring the practice session remains accessible even during downstream service restarts.
 - **Acceptance Status**: 100% verified live via unit endpoints and YARP API Gateway proxy.
 
+### 14.4 API 3 Implementation Specification (Remedial Practice Submission & Deficit Recovery)
+- **Endpoint**: `POST /api/practice/predictions/prescriptions/{patternId}/submit-session`
+- **Controller**: `PredictionsController.cs`
+- **CQRS Command & Handler**: `SubmitPrescriptionSessionCommand.cs` & `SubmitPrescriptionSessionCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header (or query param).
+  2. Validates `patternId` exists in student's latest active prescription record in `ScorePredictions`.
+  3. Evaluates submitted answers against known key dictionary and isomorphic test schemas.
+  4. Computes accuracy rate. If accuracy $\ge 67\%$:
+     - Marks the prescription item as remedied (`is_remedied = true`).
+     - Upgrades Bayesian Knowledge Tracing mastery posterior $P(L_t)$.
+     - Decrements the student's `deficit_score` by `targetPrescription.DeltaScore`.
+     - Serializes updated `PrescriptionItems` JSONB and persists to PostgreSQL.
+  5. If accuracy $< 67\%$: Retains current deficit and returns constructive feedback advising review and retry.
+- **Acceptance Status**: 100% verified live with successful deficit decrement (Happy Case) and strict threshold rejection (Unhappy Case).
+
