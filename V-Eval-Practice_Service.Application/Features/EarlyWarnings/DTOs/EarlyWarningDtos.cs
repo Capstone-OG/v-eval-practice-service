@@ -86,5 +86,36 @@ public class ResolveAlertResponseDto
     public string Message { get; set; } = string.Empty;
 }
 
+public class ScheduleCounselingRequestDto
+{
+    [System.Text.Json.Serialization.JsonPropertyName("mentor_id")]
+    public Guid? MentorId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("counseling_date")]
+    public DateTime CounselingDate { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("counseling_location")]
+    public string CounselingLocation { get; set; } = "Phòng Tư Vấn Học Đường - Cơ sở chính";
+
+    [System.Text.Json.Serialization.JsonPropertyName("proposed_target_score")]
+    public int ProposedTargetScore { get; set; } = 850;
+
+    [System.Text.Json.Serialization.JsonPropertyName("mentor_notes")]
+    public string MentorNotes { get; set; } = string.Empty;
+}
+
+public class ScheduleCounselingResponseDto
+{
+    public Guid AlertId { get; set; }
+    public Guid StudentId { get; set; }
+    public DateTime CounselingDate { get; set; }
+    public string CounselingLocation { get; set; } = string.Empty;
+    public int ProposedTargetScore { get; set; }
+    public Guid MentorId { get; set; }
+    public string Status { get; set; } = "SCHEDULED";
+    public string Message { get; set; } = string.Empty;
+}
+
+
 
 

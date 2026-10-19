@@ -115,6 +115,8 @@
 | 78 | **Core Flow 6 (API 6): Đánh Dấu Đã Đọc Cảnh Báo (MarkAlertAsRead)** | `EarlyWarningsController.cs` & `MarkAlertAsReadCommandHandler.cs` | 🟢 Hoàn thành | 100% | `PATCH /api/practice/early-warnings/{alertId}/read` cập nhật cờ `is_read = true`, chống ghi đè chéo học sinh, đồng bộ badge chuông thông báo |
 | 79 | **Core Flow 6 (API 7): Dashboard Cảnh Báo Sớm Học Sinh Cho Mentor (GetAlertsDashboard)** | `EarlyWarningsController.cs` & `GetAlertsDashboardQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/early-warnings/dashboard` tổng hợp số ca đỏ/vàng/nguy cơ, lọc theo lớp và làm giàu điểm dự báo, thâm hụt điểm từng học sinh |
 | 80 | **Core Flow 6 (API 8): Mentor Ghi Chú Giải Quyết Can Thiệp Sư Phạm (ResolveAlert)** | `EarlyWarningsController.cs` & `ResolveAlertCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/early-warnings/{alertId}/resolve` cập nhật trạng thái đã xử lý, lưu vết mã Mentor, thời điểm và nội dung giải trình can thiệp |
+| 81 | **Core Flow 6 (API 9): Hẹn Lịch Tư Vấn 3 Bên Định Hướng Lại Mục Tiêu (ScheduleCounseling)** | `EarlyWarningsController.cs` & `ScheduleCounselingCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/early-warnings/{alertId}/schedule-counseling` lên lịch hẹn tư vấn Phụ huynh - Học sinh - Mentor khi gặp cảnh báo `UNREALISTIC_GOAL`, đề xuất mục tiêu khả thi và giải quyết cảnh báo |
+
 
 
 

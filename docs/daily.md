@@ -42,10 +42,21 @@
   - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
     - Định tuyến chuẩn: `POST /api/practice/early-warnings/{alertId}/resolve`.
     - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `400 BadRequest`, `401 Unauthorized`, `404 NotFound`.
+- **Hiện Thực API 9: Mentor Lên Lịch Hẹn Tư Vấn 3 Bên Định Hướng Lại Mục Tiêu (ScheduleCounseling)**:
+  - Bổ sung DTOs `ScheduleCounselingRequestDto` và `ScheduleCounselingResponseDto` trong [`EarlyWarningDtos.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
+  - Xây dựng Command `ScheduleCounselingCommand.cs` và Handler [`ScheduleCounselingCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/Commands/ScheduleCounseling/ScheduleCounselingCommandHandler.cs):
+    - Kiểm tra điều kiện hợp lệ: thời gian hẹn tư vấn `counseling_date` phải ở tương lai, điểm số mục tiêu đề xuất `proposed_target_score` phải nằm trong thang điểm ĐGNL chuẩn (0–1200 điểm), định danh Mentor hợp lệ.
+    - Kiểm tra tồn tại bản ghi cảnh báo trong CSDL; cập nhật nội dung giải trình can thiệp sư phạm chứa thông tin cuộc hẹn 3 bên (Phụ huynh - Học sinh - Mentor), địa điểm và mục tiêu đề xuất, đồng thời chuyển trạng thái cảnh báo sang đã xử lý (`is_resolved = true`).
+  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `POST /api/practice/early-warnings/{alertId}/schedule-counseling`.
+    - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `400 BadRequest`, `401 Unauthorized`, `404 NotFound`.
+- **Hoàn Tất Triển Khai Toàn Diện 9/9 API Của Core Flow 6**:
+  - Toàn bộ 9 API thuộc Core Flow 6 (Dự báo khoảng điểm SEM, Toa thuốc bù điểm Knapsack ROI & Hệ thống cảnh báo sớm 3 cấp BR-04) đã được hiện thực đầy đủ, kiểm thử vận hành thành công và hoàn thiện tài liệu theo tiêu chuẩn kiến trúc sạch.
 - **Biên Dịch & Sẵn Sàng Vận Hành**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
 
 ---
+
 
 ## [18/10/2026] - Khởi Tạo Nhánh Tính Năng Core Flow 6: Dự Báo Khoảng Điểm SEM & Cảnh Báo Sớm BR-04
 

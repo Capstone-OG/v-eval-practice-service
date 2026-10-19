@@ -652,6 +652,21 @@
   6. Returns structured audit response confirming closure of the intervention ticket.
 - **Acceptance Status**: 100% verified live with input validation and audit logging.
 
+### 14.10 API 9 Implementation Specification (Tripartite Counseling Scheduling for Unrealistic Goals)
+- **Endpoint**: `POST /api/practice/early-warnings/{alertId}/schedule-counseling`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Command & Handler**: `ScheduleCounselingCommand.cs` & `ScheduleCounselingCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `MentorId` from Gateway `X-User-Id` header or request body (`mentor_id`).
+  2. Validates request parameters: ensures `counseling_date` is scheduled in the future, and `proposed_target_score` is within standard V-Eval examination range (0–1200 points).
+  3. Queries target alert record by `alertId` from `ISystemAlertRepository.GetByIdAsync`.
+  4. Formulates a tripartite meeting record (Parent - Student - Mentor) containing location, proposed feasible score, and pedagogical guidance notes.
+  5. Marks the alert status as resolved (`IsResolved = true`, `HandledBy = MentorId`, `ResolvedAt = DateTime.UtcNow`, `IsRead = true`).
+  6. Updates PostgreSQL database via `ISystemAlertRepository.UpdateAsync`.
+  7. Returns confirmation payload containing meeting coordinates, proposed score, and confirmation status `SCHEDULED`.
+- **Acceptance Status**: 100% verified live with RFC 7807 validation (future date checks, score range constraints, unauthorized mentor fallback, and not-found guards).
+
+
 
 
 

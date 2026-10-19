@@ -1,6 +1,6 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [19/10/2026] - Hiện Thực Core Flow 6: Bộ 4 APIs Cảnh Báo Sớm Cá Nhân (GetMyAlerts), Đánh Dấu Đã Đọc (MarkAlertAsRead), Dashboard Mentor (GetAlertsDashboard) & Ghi Chú Can Thiệp Sư Phạm (ResolveAlert)
+## [19/10/2026] - Hoàn Tất Core Flow 6: Bộ 5 APIs Cảnh Báo Sớm Cá Nhân (GetMyAlerts), Đánh Dấu Đã Đọc (MarkAlertAsRead), Dashboard Mentor (GetAlertsDashboard), Ghi Chú Can Thiệp Sư Phạm (ResolveAlert) & Hẹn Lịch Tư Vấn 3 Bên (ScheduleCounseling)
 
 - **Hiện Thực API 5: Học Sinh Tra Cứu Danh Sách Cảnh Báo Cá Nhân (GetMyAlerts)**:
   - Khởi tạo bộ DTOs [`EarlyWarningDtos.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs):
@@ -42,6 +42,16 @@
   - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](./V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
     - Định tuyến chuẩn: `POST /api/practice/early-warnings/{alertId}/resolve`.
     - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `400 BadRequest`, `401 Unauthorized`, `404 NotFound`.
+- **Hiện Thực API 9: Mentor Lên Lịch Hẹn Tư Vấn 3 Bên Định Hướng Lại Mục Tiêu (ScheduleCounseling)**:
+  - Bổ sung DTOs `ScheduleCounselingRequestDto` và `ScheduleCounselingResponseDto` trong [`EarlyWarningDtos.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
+  - Xây dựng Command `ScheduleCounselingCommand.cs` và Handler [`ScheduleCounselingCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/Commands/ScheduleCounseling/ScheduleCounselingCommandHandler.cs):
+    - Ràng buộc hợp lệ: thời gian hẹn tư vấn phải ở tương lai, điểm mục tiêu đề xuất nằm trong khoảng 0–1200 điểm, bắt buộc có Mentor phụ trách.
+    - Cập nhật nhật ký can thiệp sư phạm chứa tọa độ cuộc hẹn 3 bên (Phụ huynh - Học sinh - Mentor), đề xuất điểm số thực tế và tự động đóng ca cảnh báo `is_resolved = true`.
+    - Lưu cập nhật xuống PostgreSQL qua `ISystemAlertRepository.UpdateAsync`.
+  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](./V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `POST /api/practice/early-warnings/{alertId}/schedule-counseling`.
+    - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `400 BadRequest`, `401 Unauthorized`, `404 NotFound`.
 - **Kiểm Thử & Biên Dịch**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
-  - Đã kiểm thử live thành công 100% toàn bộ kịch bản giải quyết can thiệp trực tiếp và qua API Gateway YARP.
+  - Đã kiểm thử live thành công 100% toàn bộ 9/9 APIs của Core Flow 6 trực tiếp và qua API Gateway YARP.
+

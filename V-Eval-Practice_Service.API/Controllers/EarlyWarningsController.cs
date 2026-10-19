@@ -9,6 +9,7 @@ using V_Eval_Practice_Service.Application.Features.EarlyWarnings.Queries.GetMyAl
 using V_Eval_Practice_Service.Application.Features.EarlyWarnings.Commands.MarkAlertAsRead;
 using V_Eval_Practice_Service.Application.Features.EarlyWarnings.Queries.GetAlertsDashboard;
 using V_Eval_Practice_Service.Application.Features.EarlyWarnings.Commands.ResolveAlert;
+using V_Eval_Practice_Service.Application.Features.EarlyWarnings.Commands.ScheduleCounseling;
 
 namespace V_Eval_Practice_Service.API.Controllers;
 
@@ -157,6 +158,36 @@ public class EarlyWarningsController : ApiControllerBase
         }
 
         var command = new ResolveAlertCommand(alertId, effectiveMentorId, request);
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Hẹn lịch tư vấn 3 bên định hướng lại mục tiêu khi học sinh gặp cảnh báo UNREALISTIC_GOAL (Core Flow 6)
+    /// </summary>
+    /// <remarks>
+    /// Thiết lập lịch hẹn tư vấn giữa Phụ huynh - Học sinh - Mentor, đề xuất mức điểm mục tiêu khả thi dựa trên phổ điểm ĐGNL thực tế và lưu vết vào hệ thống cảnh báo sớm.
+    /// </remarks>
+    /// <param name="alertId">Mã định danh cảnh báo</param>
+    /// <param name="request">Payload thông tin buổi hẹn (thời gian, địa điểm, điểm mục tiêu đề xuất, ghi chú)</param>
+    /// <returns>Kết quả lên lịch hẹn tư vấn</returns>
+    [HttpPost("{alertId}/schedule-counseling")]
+    [ProducesResponseType(typeof(Result<ScheduleCounselingResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<ScheduleCounselingResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<ScheduleCounselingResponseDto>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Result<ScheduleCounselingResponseDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ScheduleCounseling(
+        [FromRoute] Guid alertId,
+        [FromBody] ScheduleCounselingRequestDto request)
+    {
+        Guid effectiveMentorId = Guid.Empty;
+
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            effectiveMentorId = parsedId;
+        }
+
+        var command = new ScheduleCounselingCommand(alertId, effectiveMentorId, request);
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }
