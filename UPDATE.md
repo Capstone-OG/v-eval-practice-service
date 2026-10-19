@@ -1,19 +1,18 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [18/10/2026] - Hoàn Tất Giai Đoạn 1 & 2 Core Flow 5: CSDL, Hybrid Aggregation Engine & Background Worker
+## [19/10/2026] - Triển Khai Giai Đoạn 3 (Flow 1): REST API Student Dashboard & CQRS Query Handler
 
-- **Giai Đoạn 1: Triển Khai 4 Thực Thể Domain Mới & Fluent API (`Domain/Entities/` & `Infrastructure/Persistence/`)**:
-  - `ClassSkillHeatmap`: Lưu trữ từng ô ma trận nhiệt $P(L_t)$ cho học sinh và kỹ năng.
-  - `ClassHeatmapSummary`: Tổng hợp thống kê cột kỹ năng toàn lớp (Mean, StdDev, StrugglingRate, Bimodal Flag, AlertStatus).
-  - `StudentDailyActivity`: Ghi nhận chuyên cần và thời gian học tập hằng ngày theo chuẩn Active Study Day (Streak & Streak Freeze).
-  - `StudentReadinessMetric`: Chỉ số sẵn sàng thi tổng hợp $R_{\text{exam}}$ cho Cổng Phụ huynh & Học sinh.
-  - Cấu hình Fluent API trong `PracticeDbContext`, tự động hóa DDL khởi tạo trong `Program.cs` và file di trú `SQL_Migration_Flow5_Analytics.sql`.
-- **Giai Đoạn 2: Xây Dựng Động Cơ Hybrid Aggregation Engine & Background Worker 15 Phút**:
-  - `IClassHeatmapRepository` & `ClassHeatmapRepository`: Truy vấn ma trận nhiệt, lọc phân môn, batch upsert các bản ghi tóm tắt.
-  - `IStudentActivityRepository` & `StudentActivityRepository`: Thuật toán tính Streak lùi ngày, tổng giờ học tuần và lưu metric.
-  - `IClassHeatmapCacheService` & `ClassHeatmapCacheService`: Bộ đệm trong bộ nhớ `IMemoryCache` (< 300ms) kèm cơ chế xóa cache theo lớp `InvalidateClassHeatmapAsync`.
-  - `IClassHeatmapAggregatorService` & `ClassHeatmapAggregatorService`: Tính toán thống kê khảo thí (Mean, StdDev, StrugglingRate, Bimodal Flag, 3 cấp độ cảnh báo) và chỉ số $R_{\text{exam}} = 0.50 S_\theta + 0.35 C_{\text{BKT}} + 0.15 F_{\text{consistency}}$.
-  - `ClassHeatmapAggregationWorker`: Hosted Service chạy ngầm định kỳ 15 phút quét toàn bộ các lớp `ACTIVE`.
-  - Tích hợp Write-Through O(1) vào các use case nộp bài thực tế: `SubmitAnswerCommandHandler`, `SubmitMockExamCommandHandler`, và `TrackVideoCommandHandler`.
-- **Kiểm Thử & Biên Dịch**:
-  - Biên dịch `dotnet build` toàn bộ solution `V-Eval-Practice_Service.sln` thành công 100% (**0 Warning, 0 Error**).
+- **Giai Đoạn 3 (Flow 1: Student Learning Analytics Dashboard)**:
+  - **DTOs (`StudentDashboardDtos.cs`)**: Tạo các DTO phục vụ biểu đồ Radar 4 miền năng lực, tiến độ lộ trình DAG %, chuỗi ngày chuyên cần Streak Analytics và lịch sử thi thử gần nhất.
+  - **CQRS Query & Handler**:
+    - `GetStudentDashboardQuery`: Nhận `StudentId` và trả về `Result<StudentDashboardResponseDto>`.
+    - `GetStudentDashboardQueryHandler`:
+      - Gọi `IIdentityGrpcClient.GetStudentProfileAsync` lấy target score và thông tin học sinh với cơ chế fallback kiên cường.
+      - Phân tích dữ liệu làm bài qua `IExamSubmissionRepository`, `IStudentActivityRepository` để tự động kích hoạt cờ Onboarding UI (`needsOnboarding = true`).
+      - Tính toán Biểu đồ Radar 4 miền năng lực ĐGNL dựa trên dữ liệu ma trận nhiệt thực tế `IClassHeatmapRepository.GetHeatmapsByStudentIdAsync`.
+      - Tổng hợp tiến độ lộ trình học tập thích ứng (DAG Milestones %) từ `ILearningRoadmapRepository.GetActiveByStudentIdAsync`.
+      - Thống kê chuỗi ngày chuyên cần (Streak Analytics) gồm số ngày hiện tại, kỷ lục chuỗi dài nhất, cờ bảo vệ chuỗi (Freeze) và mảng hoạt động 7 ngày gần nhất.
+  - **REST API Endpoint**:
+    - Tạo `AnalyticsController.cs` kế thừa `ApiControllerBase` với endpoint `GET /api/practice/analytics/student/{studentId:guid}/dashboard`.
+  - **Kiểm Thử & Biên Dịch**:
+    - Chạy `dotnet build` toàn bộ solution `V-Eval-Practice_Service.sln` thành công 100% (**0 Error, 0 Warning**).

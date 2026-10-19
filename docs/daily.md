@@ -1,5 +1,27 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [19/10/2026] - Triển Khai Giai Đoạn 3 (Flow 1): REST API Student Dashboard & CQRS Query Handler
+
+- **Giai Đoạn 3 (Flow 1: Student Learning Analytics Dashboard)**:
+  - **DTOs**: Tạo [`StudentDashboardDtos.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/DTOs/StudentDashboardDtos.cs) gồm `RadarCompetencyDto`, `RoadmapProgressDto`, `StreakAnalyticsDto`, `RecentMockExamDto` và `StudentDashboardResponseDto`.
+  - **Query & Handler CQRS**:
+    - [`GetStudentDashboardQuery.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetStudentDashboard/GetStudentDashboardQuery.cs): Nhận `StudentId` và trả về `Result<StudentDashboardResponseDto>`.
+    - [`GetStudentDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetStudentDashboard/GetStudentDashboardQueryHandler.cs):
+      - Gọi `IIdentityGrpcClient.GetStudentProfileAsync` lấy mục tiêu điểm số và thông tin học sinh với cơ chế fallback kiên cường.
+      - Phân tích lịch sử làm bài qua `IExamSubmissionRepository`, `IStudentActivityRepository` để tự động xác định trạng thái Onboarding UI (`needsOnboarding = true` khi chưa có dữ liệu làm bài).
+      - Tính toán Biểu đồ Radar 4 miền năng lực ĐGNL (Sử dụng Ngôn ngữ, Toán & Tư duy Logic, Khoa học Tự nhiên, Khoa học Xã hội) dựa trên dữ liệu ma trận nhiệt thực tế `IClassHeatmapRepository.GetHeatmapsByStudentIdAsync`.
+      - Tổng hợp tiến độ lộ trình học tập thích ứng (DAG Milestones %) từ `ILearningRoadmapRepository.GetActiveByStudentIdAsync`.
+      - Thống kê chuỗi ngày chuyên cần (Streak Analytics) gồm số ngày liên tiếp hiện tại, chuỗi dài nhất, cờ bảo vệ chuỗi (Freeze) và mảng hoạt động 7 ngày gần nhất.
+      - Lấy danh sách bài thi thử ĐGNL chuẩn hóa hoàn thành gần nhất kèm điểm số và tỷ lệ đúng.
+  - **Controller REST API**:
+    - [`AnalyticsController.cs`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs): Khởi tạo Controller kế thừa `ApiControllerBase` với route `api/practice/analytics` và endpoint `GET /api/practice/analytics/student/{studentId:guid}/dashboard`.
+  - **Mở Rộng Repository**:
+    - [`IClassHeatmapRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassHeatmapRepository.cs) & [`ClassHeatmapRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassHeatmapRepository.cs): Bổ sung phương thức `GetHeatmapsByStudentIdAsync` truy vấn tất cả các ô năng lực của một học sinh.
+- **Kiểm Thử & Biên Dịch**:
+  - Biên dịch `dotnet build` toàn bộ solution `V-Eval-Practice_Service.sln` đạt **0 Error, 0 Warning**.
+
+---
+
 ## [18/10/2026] - Hoàn Tất Giai Đoạn 1 & Giai Đoạn 2 Core Flow 5: Khởi Tạo CSDL & Động Cơ Hybrid Aggregation Engine
 
 - **Giai Đoạn 1: Khởi Tạo 4 Thực Thể Domain CSDL & Cấu Hình Fluent API (`Domain/Entities/` & `Infrastructure/Persistence/`)**:

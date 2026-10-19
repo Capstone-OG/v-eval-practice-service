@@ -589,4 +589,19 @@
 5. **Real-time Write-Through Integration**:
    - Integrated into [`SubmitAnswerCommandHandler`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/SubmitAnswer/SubmitAnswerCommandHandler.cs) (step 10), [`SubmitMockExamCommandHandler`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/SubmitMockExam/SubmitMockExamCommandHandler.cs) (step 7), and [`TrackVideoCommandHandler`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/TrackVideo/TrackVideoCommandHandler.cs) to deliver instant zero-lag updates to student streak and class heatmap.
 
+### 14.5 Phase 3 Flow 1: Student Dashboard API & CQRS Handler Acceptance
+1. **REST Controller**:
+   - [`AnalyticsController`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs) exposed under route `api/practice/analytics`.
+   - Endpoint: `GET /api/practice/analytics/student/{studentId:guid}/dashboard`.
+2. **CQRS Architecture**:
+   - Query: [`GetStudentDashboardQuery`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetStudentDashboard/GetStudentDashboardQuery.cs).
+   - Handler: [`GetStudentDashboardQueryHandler`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetStudentDashboard/GetStudentDashboardQueryHandler.cs).
+   - Zero direct DbContext dependency in Application layer; fully abstracted via `IExamSubmissionRepository`, `ILearningRoadmapRepository`, `IStudentActivityRepository`, `IClassHeatmapRepository`, and `IIdentityGrpcClient`.
+3. **Core Features Verified**:
+   - 4-Domain Radar Competency aggregation from real-time heatmaps.
+   - DAG Roadmap milestone completion percentage and current milestone tracking.
+   - Comprehensive streak analytics (current streak, longest streak, freeze status, 7-day visual history).
+   - Resilient onboarding detection (`needsOnboarding = true`) for new students with insufficient historical data.
+
+
 

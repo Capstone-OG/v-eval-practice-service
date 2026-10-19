@@ -33,6 +33,14 @@ public class ClassHeatmapRepository : IClassHeatmapRepository
         return await query.ToListAsync(ct);
     }
 
+    public async Task<List<ClassSkillHeatmap>> GetHeatmapsByStudentIdAsync(Guid studentId, CancellationToken ct = default)
+    {
+        return await _context.ClassSkillHeatmaps
+            .AsNoTracking()
+            .Where(h => h.StudentId == studentId)
+            .ToListAsync(ct);
+    }
+
     public async Task<ClassSkillHeatmap?> GetHeatmapCellAsync(Guid classId, Guid studentId, Guid skillId, CancellationToken ct = default)
     {
         return await _context.ClassSkillHeatmaps

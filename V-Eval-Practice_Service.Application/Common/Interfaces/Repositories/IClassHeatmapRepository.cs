@@ -12,6 +12,7 @@ namespace V_Eval_Practice_Service.Application.Common.Interfaces.Repositories;
 public interface IClassHeatmapRepository
 {
     Task<List<ClassSkillHeatmap>> GetHeatmapsByClassIdAsync(Guid classId, string? domainCode = null, CancellationToken ct = default);
+    Task<List<ClassSkillHeatmap>> GetHeatmapsByStudentIdAsync(Guid studentId, CancellationToken ct = default);
     Task<ClassSkillHeatmap?> GetHeatmapCellAsync(Guid classId, Guid studentId, Guid skillId, CancellationToken ct = default);
     Task UpsertHeatmapCellAsync(ClassSkillHeatmap heatmap, CancellationToken ct = default);
     Task BatchUpsertHeatmapCellsAsync(IEnumerable<ClassSkillHeatmap> heatmaps, CancellationToken ct = default);
