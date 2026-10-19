@@ -1,6 +1,6 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [19/10/2026] - Hiện Thực Core Flow 6: Bộ 3 APIs Cảnh Báo Sớm Cá Nhân (GetMyAlerts), Đánh Dấu Đã Đọc (MarkAlertAsRead) & Dashboard Cảnh Báo Cho Mentor (GetAlertsDashboard)
+## [19/10/2026] - Hiện Thực Core Flow 6: Bộ 4 APIs Cảnh Báo Sớm Cá Nhân (GetMyAlerts), Đánh Dấu Đã Đọc (MarkAlertAsRead), Dashboard Mentor (GetAlertsDashboard) & Ghi Chú Can Thiệp Sư Phạm (ResolveAlert)
 
 - **Hiện Thực API 5: Học Sinh Tra Cứu Danh Sách Cảnh Báo Cá Nhân (GetMyAlerts)**:
   - Khởi tạo bộ DTOs [`EarlyWarningDtos.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs):
@@ -33,6 +33,15 @@
   - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](./V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
     - Định tuyến chuẩn: `GET /api/practice/early-warnings/dashboard`.
   - Seed lớp chuyên đề mẫu và ghi danh học sinh trong [`Program.cs`](./V-Eval-Practice_Service.API/Program.cs) phục vụ kiểm thử phân hệ Dashboard Mentor.
+- **Hiện Thực API 8: Mentor Ghi Chú Giải Quyết Can Thiệp Sư Phạm (ResolveAlert)**:
+  - Bổ sung DTOs `ResolveAlertRequestDto` và `ResolveAlertResponseDto` trong [`EarlyWarningDtos.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
+  - Xây dựng Command `ResolveAlertCommand.cs` và Handler [`ResolveAlertCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/Commands/ResolveAlert/ResolveAlertCommandHandler.cs):
+    - Kiểm tra hợp lệ `AlertId`, danh tính Mentor (`mentor_id` hoặc header `X-User-Id`), và bắt buộc có nội dung giải trình `resolution_notes`.
+    - Cập nhật bản ghi `SystemAlert`: gán `HandledBy`, `ResolutionNotes`, đóng dấu `ResolvedAt = DateTime.UtcNow` và `IsRead = true`.
+    - Lưu cập nhật xuống PostgreSQL qua `ISystemAlertRepository.UpdateAsync`.
+  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](./V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `POST /api/practice/early-warnings/{alertId}/resolve`.
+    - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `400 BadRequest`, `401 Unauthorized`, `404 NotFound`.
 - **Kiểm Thử & Biên Dịch**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
-  - Đã kiểm thử live thành công 100% toàn bộ kịch bản tra cứu dashboard trực tiếp và qua API Gateway YARP.
+  - Đã kiểm thử live thành công 100% toàn bộ kịch bản giải quyết can thiệp trực tiếp và qua API Gateway YARP.

@@ -639,6 +639,20 @@
   6. Computes aggregate KPI counters: `TotalAlerts`, `ActiveAlertsCount`, `RedAlertsCount`, `YellowAlertsCount`, `UnrealisticGoalCount`, `ResolvedAlertsCount`.
 - **Acceptance Status**: 100% verified live via unit endpoints and Gateway proxy.
 
+### 14.9 API 8 Implementation Specification (Mentor Pedagogical Intervention Resolution)
+- **Endpoint**: `POST /api/practice/early-warnings/{alertId}/resolve`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Command & Handler**: `ResolveAlertCommand.cs` & `ResolveAlertCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `MentorId` from Gateway `X-User-Id` header or request body.
+  2. Validates `ResolutionNotes` payload is provided and non-empty.
+  3. Queries target alert record via `ISystemAlertRepository.GetByIdAsync`.
+  4. Updates record: assigns `HandledBy = MentorId`, `ResolutionNotes`, stamps `ResolvedAt = DateTime.UtcNow`, and marks `IsRead = true`.
+  5. Persists update to PostgreSQL via `ISystemAlertRepository.UpdateAsync`.
+  6. Returns structured audit response confirming closure of the intervention ticket.
+- **Acceptance Status**: 100% verified live with input validation and audit logging.
+
+
 
 
 

@@ -65,4 +65,26 @@ public class EarlyWarningsDashboardResponseDto
     public List<AlertDashboardItemDto> Alerts { get; set; } = new();
 }
 
+public class ResolveAlertRequestDto
+{
+    [System.Text.Json.Serialization.JsonPropertyName("mentor_id")]
+    public Guid? MentorId { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("resolution_notes")]
+    public string ResolutionNotes { get; set; } = string.Empty;
+}
+
+public class ResolveAlertResponseDto
+{
+    public Guid AlertId { get; set; }
+    public Guid StudentId { get; set; }
+    public string AlertType { get; set; } = string.Empty;
+    public bool IsResolved { get; set; }
+    public Guid? HandledBy { get; set; }
+    public string? ResolutionNotes { get; set; }
+    public DateTime? ResolvedAt { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+
+
 

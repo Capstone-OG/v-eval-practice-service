@@ -8,6 +8,7 @@ using V_Eval_Practice_Service.Application.Features.EarlyWarnings.DTOs;
 using V_Eval_Practice_Service.Application.Features.EarlyWarnings.Queries.GetMyAlerts;
 using V_Eval_Practice_Service.Application.Features.EarlyWarnings.Commands.MarkAlertAsRead;
 using V_Eval_Practice_Service.Application.Features.EarlyWarnings.Queries.GetAlertsDashboard;
+using V_Eval_Practice_Service.Application.Features.EarlyWarnings.Commands.ResolveAlert;
 
 namespace V_Eval_Practice_Service.API.Controllers;
 
@@ -127,6 +128,36 @@ public class EarlyWarningsController : ApiControllerBase
 
         var query = new GetAlertsDashboardQuery(classId, effectiveMentorId, alertType, isResolved);
         var result = await Mediator.Send(query);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Mentor/Giáo viên ghi chú giải quyết can thiệp sư phạm cho một cảnh báo sớm (Core Flow 6)
+    /// </summary>
+    /// <remarks>
+    /// Cập nhật trạng thái cảnh báo sang đã xử lý (is_resolved = true), ghi nhận mã định danh Mentor (handled_by), thời điểm xử lý (resolved_at) và nội dung giải trình can thiệp sư phạm (resolution_notes).
+    /// </remarks>
+    /// <param name="alertId">Mã định danh cảnh báo</param>
+    /// <param name="request">Payload ghi chú can thiệp và mã Mentor</param>
+    /// <returns>Kết quả cập nhật giải quyết cảnh báo</returns>
+    [HttpPost("{alertId}/resolve")]
+    [ProducesResponseType(typeof(Result<ResolveAlertResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<ResolveAlertResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<ResolveAlertResponseDto>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Result<ResolveAlertResponseDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ResolveAlert(
+        [FromRoute] Guid alertId,
+        [FromBody] ResolveAlertRequestDto request)
+    {
+        Guid effectiveMentorId = Guid.Empty;
+
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            effectiveMentorId = parsedId;
+        }
+
+        var command = new ResolveAlertCommand(alertId, effectiveMentorId, request);
+        var result = await Mediator.Send(command);
         return HandleResult(result);
     }
 }
