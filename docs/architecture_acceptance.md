@@ -620,6 +620,20 @@
    - 3-tier student risk segmentation: `HIGH_RISK` (`` `\ge 2` `` weak skills), `MEDIUM_RISK` (1 weak skill), and `SAFE`.
    - Manual override endpoint allowing teachers/administrators to force immediate re-computation and cache refresh.
 
+### 14.7 Phase 3 Flow 3: 1-Click Pedagogical Action Live Session Acceptance
+1. **REST Controller**:
+   - Exposed endpoint in [`ClassesController`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs):
+     - `POST /api/practice/classes/{classId:guid}/heatmap/trigger-live-session`.
+2. **CQRS Architecture**:
+   - Command: [`TriggerHeatmapLiveSessionCommand`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/TriggerHeatmapLiveSession/TriggerHeatmapLiveSessionCommand.cs).
+   - Handler: [`TriggerHeatmapLiveSessionCommandHandler`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/TriggerHeatmapLiveSession/TriggerHeatmapLiveSessionCommandHandler.cs).
+   - Repository Extensions: Added `AddLiveSessionAsync` and `GetNodesBySkillAndStudentIdsAsync` in [`ILearningRoadmapRepository`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILearningRoadmapRepository.cs) and [`LearningRoadmapRepository`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LearningRoadmapRepository.cs).
+3. **Core Features Verified**:
+   - Dynamic identification of struggling students (`` `P(L_t) < 0.50` ``) directly from class heatmaps.
+   - Atomic creation of scheduled `LiveSession` instances linked to the assigned teacher.
+   - Automated propagation to active DAG `RoadmapNodes`, binding targeted students to the newly scheduled session without requiring manual page navigation.
+
+
 
 
 

@@ -31,6 +31,18 @@
     - [`ForceAggregateHeatmapCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/ForceAggregateHeatmap/ForceAggregateHeatmapCommandHandler.cs): Cưỡng chế tính toán lại ma trận nhiệt, lưu bảng `ClassHeatmapSummaries` và làm mới bộ đệm Cache.
   - **Mở Rộng Controller**:
     - [`ClassesController.cs`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs): Thêm 2 endpoints `GET /api/practice/classes/{classId:guid}/heatmap` và `POST /api/practice/classes/{classId:guid}/heatmap/force-aggregate`.
+- **Giai Đoạn 3 (Flow 3: 1-Click Pedagogical Action Live Session - API 3)**:
+  - **DTOs**: Tạo [`TriggerLiveSessionDtos.cs`](../V-Eval-Practice_Service.Application/Features/Classes/DTOs/TriggerLiveSessionDtos.cs) gồm `TriggerLiveSessionRequestDto` và `TriggerLiveSessionResponseDto`.
+  - **Command & Handler CQRS (API 3)**:
+    - [`TriggerHeatmapLiveSessionCommand.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/TriggerHeatmapLiveSession/TriggerHeatmapLiveSessionCommand.cs): Nhận `ClassId`, `SkillId`, `SessionTitle`, `ScheduledAt`, `DurationMinutes`, `MeetingUrl`.
+    - [`TriggerHeatmapLiveSessionCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/TriggerHeatmapLiveSession/TriggerHeatmapLiveSessionCommandHandler.cs):
+      - Quét danh sách học sinh đang có $P(L_t) < 0.50$ tại kỹ năng cảnh báo trên Heatmap.
+      - Tạo bản ghi `LiveSession` mới với trạng thái `SCHEDULED`.
+      - Tự động liên kết `LiveSessionId` vào các chặng học `RoadmapNodes` của các học sinh thuộc diện can thiệp sư phạm.
+  - **Mở Rộng Repository**:
+    - [`ILearningRoadmapRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILearningRoadmapRepository.cs) & [`LearningRoadmapRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LearningRoadmapRepository.cs): Bổ sung `AddLiveSessionAsync` và `GetNodesBySkillAndStudentIdsAsync`.
+  - **Mở Rộng Controller**:
+    - [`ClassesController.cs`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs): Thêm endpoint `POST /api/practice/classes/{classId:guid}/heatmap/trigger-live-session`.
 - **Kiểm Thử & Biên Dịch**:
   - Biên dịch `dotnet build` toàn bộ solution `V-Eval-Practice_Service.sln` đạt **0 Error, 0 Warning**.
 

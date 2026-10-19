@@ -22,5 +22,7 @@ public interface ILearningRoadmapRepository
     Task<RoadmapNode?> GetNextLockedNodeAsync(Guid roadmapId, int currentStepOrder, CancellationToken ct = default);
     Task<LiveSessionAttendance?> GetAttendanceAsync(Guid liveSessionId, Guid studentId, CancellationToken ct = default);
     Task AddAttendanceAsync(LiveSessionAttendance attendance, CancellationToken ct = default);
+    Task AddLiveSessionAsync(LiveSession liveSession, CancellationToken ct = default);
+    Task<List<RoadmapNode>> GetNodesBySkillAndStudentIdsAsync(Guid skillId, IEnumerable<Guid> studentIds, CancellationToken ct = default);
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

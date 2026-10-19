@@ -10,6 +10,7 @@ using V_Eval_Practice_Service.Application.Features.Classes.Commands.AssignTeache
 using V_Eval_Practice_Service.Application.Features.Classes.Commands.AutoClusterThematicClasses;
 using V_Eval_Practice_Service.Application.Features.Classes.Commands.AutoPartitionMicroGroups;
 using V_Eval_Practice_Service.Application.Features.Classes.Commands.ForceAggregateHeatmap;
+using V_Eval_Practice_Service.Application.Features.Classes.Commands.TriggerHeatmapLiveSession;
 using V_Eval_Practice_Service.Application.Features.Classes.DTOs;
 using V_Eval_Practice_Service.Application.Features.Classes.Queries.GetClassHeatmap;
 using V_Eval_Practice_Service.Application.Features.Classes.Queries.GetClassMicroGroups;
@@ -181,6 +182,37 @@ public class ClassesController : ApiControllerBase
     public async Task<IActionResult> ForceAggregateHeatmap(Guid classId)
     {
         var command = new ForceAggregateHeatmapCommand(classId);
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 5 - API 3: Tạo Buổi Live Q&amp;A Chuyên Đề 1-Click Từ Heatmap (Pedagogical Action)
+    /// </summary>
+    /// <param name="classId">ID định danh lớp học</param>
+    /// <param name="request">Thông tin kỹ năng cần cứu trợ, tiêu đề và lịch buổi học trực tuyến</param>
+    /// <remarks>
+    /// - Cho phép giảng viên nhấn nút can thiệp trực tiếp từ cảnh báo đỏ của kỹ năng trên Heatmap.
+    /// - Khởi tạo buổi học LiveSession mới trong CSDL.
+    /// - Tự động cập nhật lịch học và liên kết LiveSession vào các chặng học (RoadmapNodes) của các học sinh yếu (P(Lt) &lt; 0.50).
+    /// </remarks>
+    [HttpPost("{classId:guid}/heatmap/trigger-live-session")]
+    [ProducesResponseType(typeof(TriggerLiveSessionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> TriggerLiveSession(
+        Guid classId,
+        [FromBody] TriggerLiveSessionRequestDto request)
+    {
+        var command = new TriggerHeatmapLiveSessionCommand(
+            ClassId: classId,
+            SkillId: request.SkillId,
+            SessionTitle: request.SessionTitle,
+            ScheduledAt: request.ScheduledAt,
+            DurationMinutes: request.DurationMinutes,
+            MeetingUrl: request.MeetingUrl
+        );
+
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }
