@@ -1,6 +1,6 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [19/10/2026] - Hiện Thực Core Flow 6: Bộ Đôi APIs Cảnh Báo Sớm Cá Nhân (GetMyAlerts) & Đánh Dấu Đã Đọc (MarkAlertAsRead)
+## [19/10/2026] - Hiện Thực Core Flow 6: Bộ 3 APIs Cảnh Báo Sớm Cá Nhân (GetMyAlerts), Đánh Dấu Đã Đọc (MarkAlertAsRead) & Dashboard Cảnh Báo Cho Mentor (GetAlertsDashboard)
 
 - **Hiện Thực API 5: Học Sinh Tra Cứu Danh Sách Cảnh Báo Cá Nhân (GetMyAlerts)**:
   - Khởi tạo bộ DTOs [`EarlyWarningDtos.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs):
@@ -23,6 +23,16 @@
   - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](./V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
     - Định tuyến chuẩn: `PATCH /api/practice/early-warnings/{alertId}/read`.
     - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `401 Unauthorized`, `403 Forbidden`, `404 NotFound`.
+- **Hiện Thực API 7: Mentor Tra Cứu Dashboard Cảnh Báo Sớm Học Sinh (GetAlertsDashboard)**:
+  - Bổ sung DTOs `AlertDashboardItemDto` và `EarlyWarningsDashboardResponseDto` trong [`EarlyWarningDtos.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
+  - Mở rộng Repository [`ISystemAlertRepository.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ISystemAlertRepository.cs) và [`SystemAlertRepository.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/SystemAlertRepository.cs) với `GetAlertsByClassAsync` và `GetAllAlertsAsync`.
+  - Xây dựng Query `GetAlertsDashboardQuery.cs` và Handler [`GetAlertsDashboardQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/Queries/GetAlertsDashboard/GetAlertsDashboardQueryHandler.cs):
+    - Tổng hợp toàn diện các chỉ số cảnh báo: `TotalAlerts`, `ActiveAlertsCount`, `RedAlertsCount`, `YellowAlertsCount`, `UnrealisticGoalCount`, `ResolvedAlertsCount`.
+    - Tự động làm giàu dữ liệu từng cảnh báo với điểm dự báo mới nhất `CurrentPredictedScore`, mục tiêu `TargetScore` và độ thâm hụt `DeficitScore` từ `IScorePredictionRepository`.
+    - Hỗ trợ đa dạng bộ lọc: theo lớp `classId`, theo loại cảnh báo `alertType`, theo trạng thái xử lý `isResolved` (đang cần can thiệp vs đã giải quyết).
+  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](./V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `GET /api/practice/early-warnings/dashboard`.
+  - Seed lớp chuyên đề mẫu và ghi danh học sinh trong [`Program.cs`](./V-Eval-Practice_Service.API/Program.cs) phục vụ kiểm thử phân hệ Dashboard Mentor.
 - **Kiểm Thử & Biên Dịch**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
-  - Đã kiểm thử live thành công 100% toàn bộ kịch bản thành công và ngoại lệ qua Gateway và port trực tiếp `5261`.
+  - Đã kiểm thử live thành công 100% toàn bộ kịch bản tra cứu dashboard trực tiếp và qua API Gateway YARP.

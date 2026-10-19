@@ -7,6 +7,7 @@ using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.EarlyWarnings.DTOs;
 using V_Eval_Practice_Service.Application.Features.EarlyWarnings.Queries.GetMyAlerts;
 using V_Eval_Practice_Service.Application.Features.EarlyWarnings.Commands.MarkAlertAsRead;
+using V_Eval_Practice_Service.Application.Features.EarlyWarnings.Queries.GetAlertsDashboard;
 
 namespace V_Eval_Practice_Service.API.Controllers;
 
@@ -95,6 +96,37 @@ public class EarlyWarningsController : ApiControllerBase
 
         var command = new MarkAlertAsReadCommand(alertId, effectiveStudentId);
         var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Mentor/Giáo viên tra cứu dashboard cảnh báo sớm học sinh thuộc lớp phụ trách (Core Flow 6)
+    /// </summary>
+    /// <remarks>
+    /// Trả về số liệu thống kê cảnh báo tổng thể (cảnh báo đỏ, cảnh báo vàng, mục tiêu không tưởng, số ca đã giải quyết) và danh sách chi tiết học sinh kèm điểm dự báo, thâm hụt điểm để lên phương án can thiệp sư phạm.
+    /// </remarks>
+    /// <param name="classId">Mã định danh lớp học cần lọc (tùy chọn)</param>
+    /// <param name="alertType">Lọc theo cấp độ cảnh báo ('RED', 'YELLOW', 'UNREALISTIC_GOAL')</param>
+    /// <param name="isResolved">Lọc theo trạng thái xử lý: false (đang cần can thiệp), true (đã xử lý), null (tất cả)</param>
+    /// <param name="mentorId">Mã định danh Mentor (tùy chọn nếu đã truyền qua header X-User-Id)</param>
+    /// <returns>Dashboard thống kê cảnh báo và danh sách chi tiết</returns>
+    [HttpGet("dashboard")]
+    [ProducesResponseType(typeof(Result<EarlyWarningsDashboardResponseDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAlertsDashboard(
+        [FromQuery] Guid? classId = null,
+        [FromQuery] string? alertType = null,
+        [FromQuery] bool? isResolved = false,
+        [FromQuery] Guid? mentorId = null)
+    {
+        Guid? effectiveMentorId = mentorId;
+
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            effectiveMentorId = parsedId;
+        }
+
+        var query = new GetAlertsDashboardQuery(classId, effectiveMentorId, alertType, isResolved);
+        var result = await Mediator.Send(query);
         return HandleResult(result);
     }
 }

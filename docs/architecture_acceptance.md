@@ -626,5 +626,19 @@
   5. Returns idempotent confirmation payload containing updated `AlertId`, `IsRead: true`, and `ReadAt` timestamp.
 - **Acceptance Status**: 100% verified live with validation handling, ownership security checks, and badge synchronization.
 
+### 14.8 API 7 Implementation Specification (Mentor Early Warnings Dashboard)
+- **Endpoint**: `GET /api/practice/early-warnings/dashboard`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Query & Handler**: `GetAlertsDashboardQuery.cs` & `GetAlertsDashboardQueryHandler.cs`
+- **Data Flow**:
+  1. Resolves `MentorId` from Gateway `X-User-Id` header and optional `classId` query parameter.
+  2. Queries class context and associated student enrollments via `IClassEnrollmentRepository`.
+  3. Queries alerts via `ISystemAlertRepository.GetAlertsByClassAsync` (or system-wide via `GetAllAlertsAsync`).
+  4. Applies status filter: active pending cases (`isResolved = false`), resolved cases (`isResolved = true`), or all cases (`isResolved = null`), along with `alertType` categorization.
+  5. Enriches each student alert with real-time ability projections: latest `PredictedScore`, `TargetScore`, and `DeficitScore` from `IScorePredictionRepository`.
+  6. Computes aggregate KPI counters: `TotalAlerts`, `ActiveAlertsCount`, `RedAlertsCount`, `YellowAlertsCount`, `UnrealisticGoalCount`, `ResolvedAlertsCount`.
+- **Acceptance Status**: 100% verified live via unit endpoints and Gateway proxy.
+
+
 
 

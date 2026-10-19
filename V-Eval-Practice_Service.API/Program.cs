@@ -438,6 +438,45 @@ using (var scope = app.Services.CreateScope())
                 logger.LogInformation("Đã khởi tạo bộ cảnh báo sớm mẫu cho học sinh {StudentId}.", sid);
             }
         }
+
+        // Khởi tạo lớp mẫu cho Mentor nếu chưa có
+        var sampleClassId = Guid.Parse("c0000000-0000-0000-0000-000000000001");
+        var sampleTeacherId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+        var classObj = await dbContext.Classes.FirstOrDefaultAsync(c => c.ClassId == sampleClassId);
+        if (classObj == null)
+        {
+            classObj = new Class
+            {
+                ClassId = sampleClassId,
+                CampusId = Guid.Parse("11111111-0000-0000-0000-000000000001"),
+                TeacherId = sampleTeacherId,
+                Name = "Lớp Chuyên Đề ĐGNL Tăng Tốc 01",
+                Status = "ACTIVE",
+                ClassType = 1,
+                DomainCode = "DOM_MATH",
+                CreatedAt = DateTime.UtcNow
+            };
+            await dbContext.Classes.AddAsync(classObj);
+            await dbContext.SaveChangesAsync();
+
+            foreach (var sid in testStudentIds)
+            {
+                var enrolled = await dbContext.ClassEnrollments.AnyAsync(ce => ce.ClassId == sampleClassId && ce.StudentId == sid);
+                if (!enrolled)
+                {
+                    await dbContext.ClassEnrollments.AddAsync(new ClassEnrollment
+                    {
+                        EnrollmentId = Guid.NewGuid(),
+                        ClassId = sampleClassId,
+                        StudentId = sid,
+                        Status = "ENROLLED",
+                        EnrolledAt = DateTime.UtcNow
+                    });
+                }
+            }
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Đã khởi tạo lớp mẫu {ClassId} và ghi danh học sinh phục vụ Mentor Dashboard.", sampleClassId);
+        }
     }
     catch (Exception ex)
     {

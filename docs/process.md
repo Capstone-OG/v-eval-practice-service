@@ -113,5 +113,7 @@
 | 76 | **Core Flow 6 (API 4): Kích Hoạt Tái Tính Toán Dải Điểm SEM & Toa Thuốc Bù Điểm (RecalculatePrediction)** | `PredictionsController.cs` & `RecalculatePredictionCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/predictions/recalculate` tái tính dải điểm SEM $95\%$, cập nhật thâm hụt và tối ưu hóa Toa thuốc bù điểm Knapsack ROI |
 | 77 | **Core Flow 6 (API 5): Tra Cứu Danh Sách Cảnh Báo Sớm Cá Nhân (GetMyAlerts)** | `EarlyWarningsController.cs` & `GetMyAlertsQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/early-warnings/my-alerts` tra cứu cảnh báo 3 cấp (YELLOW, RED, UNREALISTIC_GOAL), bộ lọc unreadOnly & alertType, thống kê tổng hợp |
 | 78 | **Core Flow 6 (API 6): Đánh Dấu Đã Đọc Cảnh Báo (MarkAlertAsRead)** | `EarlyWarningsController.cs` & `MarkAlertAsReadCommandHandler.cs` | 🟢 Hoàn thành | 100% | `PATCH /api/practice/early-warnings/{alertId}/read` cập nhật cờ `is_read = true`, chống ghi đè chéo học sinh, đồng bộ badge chuông thông báo |
+| 79 | **Core Flow 6 (API 7): Dashboard Cảnh Báo Sớm Học Sinh Cho Mentor (GetAlertsDashboard)** | `EarlyWarningsController.cs` & `GetAlertsDashboardQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/early-warnings/dashboard` tổng hợp số ca đỏ/vàng/nguy cơ, lọc theo lớp và làm giàu điểm dự báo, thâm hụt điểm từng học sinh |
+
 
 

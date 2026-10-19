@@ -45,18 +45,65 @@ public class SystemAlertRepository : ISystemAlertRepository
 
     public async Task<List<SystemAlert>> GetActiveAlertsByClassAsync(Guid classId, string? alertType = null, CancellationToken ct = default)
     {
-        // Join với ClassEnrollments để lấy danh sách học sinh thuộc lớp
+        return await GetAlertsByClassAsync(classId, alertType, isResolved: false, ct);
+    }
+
+    public async Task<List<SystemAlert>> GetAlertsByClassAsync(
+        Guid classId,
+        string? alertType = null,
+        bool? isResolved = false,
+        CancellationToken ct = default)
+    {
         var studentIds = await _context.ClassEnrollments
             .Where(ce => ce.ClassId == classId)
             .Select(ce => ce.StudentId)
             .ToListAsync(ct);
 
-        var query = _context.SystemAlerts
-            .Where(a => studentIds.Contains(a.StudentId) && a.ResolvedAt == null);
-
-        if (!string.IsNullOrEmpty(alertType))
+        if (studentIds.Count == 0)
         {
-            query = query.Where(a => a.AlertType == alertType);
+            return new List<SystemAlert>();
+        }
+
+        var query = _context.SystemAlerts.Where(a => studentIds.Contains(a.StudentId));
+
+        if (isResolved == true)
+        {
+            query = query.Where(a => a.ResolvedAt != null);
+        }
+        else if (isResolved == false)
+        {
+            query = query.Where(a => a.ResolvedAt == null);
+        }
+
+        if (!string.IsNullOrWhiteSpace(alertType))
+        {
+            var normType = alertType.Trim().ToUpperInvariant();
+            query = query.Where(a => a.AlertType.ToUpper() == normType);
+        }
+
+        return await query.OrderByDescending(a => a.CreatedAt).ToListAsync(ct);
+    }
+
+    public async Task<List<SystemAlert>> GetAllAlertsAsync(
+        string? alertType = null,
+        bool? isResolved = false,
+        CancellationToken ct = default)
+    {
+        var query = _context.SystemAlerts.AsQueryable();
+
+        if (isResolved == true)
+        {
+            query = query.Where(a => a.ResolvedAt != null);
+        }
+        else if (isResolved == false)
+        {
+            query = query.Where(a => a.ResolvedAt == null);
+        }
+
+        if (!string.IsNullOrWhiteSpace(alertType))
+        {
+            var normType = alertType.Trim().ToUpperInvariant();
+            query = query.Where(a => a.AlertType.ToUpper() == normType);
         }
 
         return await query.OrderByDescending(a => a.CreatedAt).ToListAsync(ct);
