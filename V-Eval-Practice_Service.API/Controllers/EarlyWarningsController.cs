@@ -6,6 +6,7 @@ using V_Eval_Practice_Service.API.Controllers.Base;
 using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.EarlyWarnings.DTOs;
 using V_Eval_Practice_Service.Application.Features.EarlyWarnings.Queries.GetMyAlerts;
+using V_Eval_Practice_Service.Application.Features.EarlyWarnings.Commands.MarkAlertAsRead;
 
 namespace V_Eval_Practice_Service.API.Controllers;
 
@@ -53,6 +54,47 @@ public class EarlyWarningsController : ApiControllerBase
 
         var query = new GetMyAlertsQuery(effectiveStudentId, unreadOnly, alertType);
         var result = await Mediator.Send(query);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Học sinh đánh dấu đã đọc một thông báo cảnh báo sớm
+    /// </summary>
+    /// <remarks>
+    /// Chuyển cờ is_read của thông báo thành true, hỗ trợ đồng bộ badge chuông thông báo trên giao diện học sinh.
+    /// </remarks>
+    /// <param name="alertId">Mã định danh cảnh báo</param>
+    /// <param name="studentId">Mã định danh học sinh (tùy chọn nếu đã truyền qua header X-User-Id)</param>
+    /// <returns>Kết quả cập nhật trạng thái đã đọc</returns>
+    [HttpPatch("{alertId}/read")]
+    [ProducesResponseType(typeof(Result<MarkAlertAsReadResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Result<MarkAlertAsReadResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<MarkAlertAsReadResponseDto>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Result<MarkAlertAsReadResponseDto>), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(Result<MarkAlertAsReadResponseDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> MarkAlertAsRead(
+        [FromRoute] Guid alertId,
+        [FromQuery] Guid? studentId = null)
+    {
+        Guid effectiveStudentId = Guid.Empty;
+
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            effectiveStudentId = parsedId;
+        }
+        else if (studentId.HasValue && studentId.Value != Guid.Empty)
+        {
+            effectiveStudentId = studentId.Value;
+        }
+
+        if (effectiveStudentId == Guid.Empty)
+        {
+            return HandleResult(Result<MarkAlertAsReadResponseDto>.Failure(
+                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (cần truyền header X-User-Id hoặc query param studentId).")));
+        }
+
+        var command = new MarkAlertAsReadCommand(alertId, effectiveStudentId);
+        var result = await Mediator.Send(command);
         return HandleResult(result);
     }
 }

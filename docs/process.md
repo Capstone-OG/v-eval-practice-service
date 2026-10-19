@@ -112,4 +112,6 @@
 | 75 | **Core Flow 6 (API 3): Nộp Bài Ôn Tập Vi Mô & Xóa Nợ Điểm Thâm Hụt (SubmitPrescriptionSession)** | `PredictionsController.cs` & `SubmitPrescriptionSessionCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/predictions/prescriptions/{patternId}/submit-session` chấm điểm tự động, cập nhật BKT $P(L_t)$, trừ nợ `deficit_score` và đánh dấu `is_remedied = true` |
 | 76 | **Core Flow 6 (API 4): Kích Hoạt Tái Tính Toán Dải Điểm SEM & Toa Thuốc Bù Điểm (RecalculatePrediction)** | `PredictionsController.cs` & `RecalculatePredictionCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/predictions/recalculate` tái tính dải điểm SEM $95\%$, cập nhật thâm hụt và tối ưu hóa Toa thuốc bù điểm Knapsack ROI |
 | 77 | **Core Flow 6 (API 5): Tra Cứu Danh Sách Cảnh Báo Sớm Cá Nhân (GetMyAlerts)** | `EarlyWarningsController.cs` & `GetMyAlertsQueryHandler.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/early-warnings/my-alerts` tra cứu cảnh báo 3 cấp (YELLOW, RED, UNREALISTIC_GOAL), bộ lọc unreadOnly & alertType, thống kê tổng hợp |
+| 78 | **Core Flow 6 (API 6): Đánh Dấu Đã Đọc Cảnh Báo (MarkAlertAsRead)** | `EarlyWarningsController.cs` & `MarkAlertAsReadCommandHandler.cs` | 🟢 Hoàn thành | 100% | `PATCH /api/practice/early-warnings/{alertId}/read` cập nhật cờ `is_read = true`, chống ghi đè chéo học sinh, đồng bộ badge chuông thông báo |
+
 

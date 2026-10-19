@@ -25,3 +25,13 @@ public class MyAlertsResponseDto
     public int YellowAlertsCount { get; set; }
     public List<SystemAlertDto> Alerts { get; set; } = new();
 }
+
+public class MarkAlertAsReadResponseDto
+{
+    public Guid AlertId { get; set; }
+    public Guid StudentId { get; set; }
+    public bool IsRead { get; set; }
+    public DateTime? ReadAt { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+

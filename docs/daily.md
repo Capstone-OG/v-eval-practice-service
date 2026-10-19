@@ -15,6 +15,14 @@
     - Định tuyến chuẩn: `GET /api/practice/early-warnings/my-alerts`.
     - Cơ chế xác thực an toàn: ưu tiên bốc `StudentId` từ Gateway Header `X-User-Id`, fallback query parameter `studentId` hỗ trợ kiểm thử tiện lợi trên Swagger.
   - Bổ sung Seed Data mẫu cho hệ thống cảnh báo sớm trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs) với đầy đủ 3 cấp độ `RED`, `YELLOW`, `UNREALISTIC_GOAL` kèm nhật ký can thiệp của Mentor.
+- **Hiện Thực API 6: Đánh Dấu Đã Đọc Thông Báo Cảnh Báo (MarkAlertAsRead)**:
+  - Bổ sung DTO `MarkAlertAsReadResponseDto` trong [`EarlyWarningDtos.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
+  - Xây dựng Command `MarkAlertAsReadCommand.cs` và Handler [`MarkAlertAsReadCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/Commands/MarkAlertAsRead/MarkAlertAsReadCommandHandler.cs):
+    - Kiểm tra tính hợp lệ và thẩm quyền sở hữu: cấm học sinh này cập nhật cảnh báo của học sinh khác (trả về 403 Forbidden).
+    - Cập nhật trường `IsRead = true` và lưu vết vào CSDL PostgreSQL qua `ISystemAlertRepository.UpdateAsync`.
+  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `PATCH /api/practice/early-warnings/{alertId}/read`.
+    - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `401 Unauthorized`, `403 Forbidden`, `404 NotFound`.
 - **Biên Dịch & Sẵn Sàng Vận Hành**:
   - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
 

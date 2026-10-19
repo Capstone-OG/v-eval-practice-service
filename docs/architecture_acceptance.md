@@ -614,4 +614,17 @@
   5. Maps domain entities to `SystemAlertDto` and returns a comprehensive `MyAlertsResponseDto`.
 - **Acceptance Status**: 100% verified live with full support for unread/read flags, alert category segmentation, and Mentor intervention metadata.
 
+### 14.7 API 6 Implementation Specification (Mark Alert As Read)
+- **Endpoint**: `PATCH /api/practice/early-warnings/{alertId}/read`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Command & Handler**: `MarkAlertAsReadCommand.cs` & `MarkAlertAsReadCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header with query parameter fallback.
+  2. Queries alert record by `alertId` from `ISystemAlertRepository.GetByIdAsync`.
+  3. Enforces multi-tenant ownership guard: returns RFC 7807 403 Forbidden if the requesting student attempts to update another student's notification.
+  4. Flips `IsRead = true` and updates database record via `ISystemAlertRepository.UpdateAsync`.
+  5. Returns idempotent confirmation payload containing updated `AlertId`, `IsRead: true`, and `ReadAt` timestamp.
+- **Acceptance Status**: 100% verified live with validation handling, ownership security checks, and badge synchronization.
+
+
 
