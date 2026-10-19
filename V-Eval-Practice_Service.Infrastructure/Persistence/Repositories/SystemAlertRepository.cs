@@ -24,12 +24,21 @@ public class SystemAlertRepository : ISystemAlertRepository
             .FirstOrDefaultAsync(a => a.AlertId == alertId, ct);
     }
 
-    public async Task<List<SystemAlert>> GetByStudentIdAsync(Guid studentId, bool? unreadOnly = false, CancellationToken ct = default)
+    public async Task<List<SystemAlert>> GetByStudentIdAsync(
+        Guid studentId,
+        bool? unreadOnly = false,
+        string? alertType = null,
+        CancellationToken ct = default)
     {
         var query = _context.SystemAlerts.Where(a => a.StudentId == studentId);
         if (unreadOnly == true)
         {
             query = query.Where(a => !a.IsRead);
+        }
+        if (!string.IsNullOrWhiteSpace(alertType))
+        {
+            var normalizedType = alertType.Trim().ToUpperInvariant();
+            query = query.Where(a => a.AlertType.ToUpper() == normalizedType);
         }
         return await query.OrderByDescending(a => a.CreatedAt).ToListAsync(ct);
     }

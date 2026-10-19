@@ -392,6 +392,52 @@ using (var scope = app.Services.CreateScope())
             await dbContext.SaveChangesAsync();
             logger.LogInformation("Đã làm mới PrescriptionItems chuẩn cho học sinh {StudentId}.", testStudentId);
         }
+
+        // Khởi tạo các cảnh báo mẫu 3 cấp BR-04 phục vụ kiểm thử Core Flow 6
+        var testStudentIds = new[] { testStudentId, Guid.Parse("00000000-0000-0000-0000-000000000001") };
+        foreach (var sid in testStudentIds)
+        {
+            var hasAlerts = await dbContext.SystemAlerts.AnyAsync(a => a.StudentId == sid);
+            if (!hasAlerts)
+            {
+                await dbContext.SystemAlerts.AddRangeAsync(
+                    new SystemAlert
+                    {
+                        AlertId = Guid.NewGuid(),
+                        StudentId = sid,
+                        AlertType = "RED",
+                        Message = "Cảnh báo nguy cơ cao: Điểm dự báo hiện tại (805) đang thâm hụt 45 điểm so với mục tiêu (850). Mentor đề xuất làm ngay bài tập bù điểm trong Toa thuốc.",
+                        IsRead = false,
+                        HandledBy = null,
+                        CreatedAt = DateTime.UtcNow.AddHours(-12)
+                    },
+                    new SystemAlert
+                    {
+                        AlertId = Guid.NewGuid(),
+                        StudentId = sid,
+                        AlertType = "YELLOW",
+                        Message = "Nhắc nhở học tập: Bạn đang có bài tập vi mô chuyên đề 'Tính pH dung dịch đệm' chưa hoàn thành sau 3 ngày.",
+                        IsRead = false,
+                        HandledBy = null,
+                        CreatedAt = DateTime.UtcNow.AddDays(-2)
+                    },
+                    new SystemAlert
+                    {
+                        AlertId = Guid.NewGuid(),
+                        StudentId = sid,
+                        AlertType = "UNREALISTIC_GOAL",
+                        Message = "Mục tiêu điểm số (950) có độ dốc tăng trưởng quá gấp (+250 điểm trong 3 tuần). Mentor đã lên lịch tư vấn định hướng lại lộ trình.",
+                        IsRead = true,
+                        HandledBy = Guid.Parse("77777777-7777-7777-7777-777777777777"),
+                        ResolutionNotes = "Đã tư vấn trực tiếp tại lớp, học sinh đồng thuận điều chỉnh mục tiêu giai đoạn 1 về 850 điểm.",
+                        ResolvedAt = DateTime.UtcNow.AddDays(-1),
+                        CreatedAt = DateTime.UtcNow.AddDays(-3)
+                    }
+                );
+                await dbContext.SaveChangesAsync();
+                logger.LogInformation("Đã khởi tạo bộ cảnh báo sớm mẫu cho học sinh {StudentId}.", sid);
+            }
+        }
     }
     catch (Exception ex)
     {

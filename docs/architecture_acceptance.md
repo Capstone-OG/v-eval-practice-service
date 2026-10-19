@@ -602,3 +602,16 @@
   7. Inserts new `ScorePrediction` audit record into PostgreSQL `v_eval_practice."ScorePredictions"`.
 - **Acceptance Status**: 100% verified live via unit endpoints and Gateway proxy.
 
+### 14.6 API 5 Implementation Specification (Personal Early Warnings Query)
+- **Endpoint**: `GET /api/practice/early-warnings/my-alerts`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Query & Handler**: `GetMyAlertsQuery.cs` & `GetMyAlertsQueryHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header with query parameter fallback.
+  2. Queries `ISystemAlertRepository.GetByStudentIdAsync` to fetch all alerts for the student.
+  3. Applies client-specified filtering: `unreadOnly` (boolean) and `alertType` (`YELLOW`, `RED`, `UNREALISTIC_GOAL`, `GREEN`).
+  4. Computes invariant high-level summary counters: `TotalAlerts`, `UnreadCount`, `RedAlertsCount`, `YellowAlertsCount`.
+  5. Maps domain entities to `SystemAlertDto` and returns a comprehensive `MyAlertsResponseDto`.
+- **Acceptance Status**: 100% verified live with full support for unread/read flags, alert category segmentation, and Mentor intervention metadata.
+
+

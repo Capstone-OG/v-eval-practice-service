@@ -12,7 +12,7 @@ namespace V_Eval_Practice_Service.Application.Common.Interfaces.Repositories;
 public interface ISystemAlertRepository
 {
     Task<SystemAlert?> GetByIdAsync(Guid alertId, CancellationToken ct = default);
-    Task<List<SystemAlert>> GetByStudentIdAsync(Guid studentId, bool? unreadOnly = false, CancellationToken ct = default);
+    Task<List<SystemAlert>> GetByStudentIdAsync(Guid studentId, bool? unreadOnly = false, string? alertType = null, CancellationToken ct = default);
     Task<List<SystemAlert>> GetActiveAlertsByClassAsync(Guid classId, string? alertType = null, CancellationToken ct = default);
     Task AddAsync(SystemAlert alert, CancellationToken ct = default);
     Task UpdateAsync(SystemAlert alert, CancellationToken ct = default);
