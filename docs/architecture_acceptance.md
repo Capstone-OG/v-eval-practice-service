@@ -534,3 +534,140 @@
   - `GET /api/practice/ai-tutor/interactions`: Fetches paginated interaction logs with `reportedOnly` filtering for mentor review.
 - **Fail-Safe Operation**:
   - Downstream communication failures fallback to local logging ensuring the student experience is never disrupted.
+
+---
+
+## 14. CORE FLOW 6 — SCORE PREDICTION & EARLY WARNING ACCEPTANCE (PHASE 1)
+
+### 14.1 Architectural Overview
+- **Domain Responsibilities**: Provides continuous standardized score forecasting with Standard Error of Measurement (SEM 95% confidence intervals), score deficit balancing, and Greedy Knapsack Remedial Prescription optimization.
+- **Key Entities**:
+  - `ScorePrediction`: Maps to table `v_eval_practice."ScorePredictions"`. Stores `PredictedScore`, `PredictedScoreMin`, `PredictedScoreMax`, `SemScore`, `TargetScore`, `DeficitScore`, and JSONB `PrescriptionItems`.
+  - `SystemAlert`: Maps to table `v_eval_practice."SystemAlerts"` for 3-tier disciplinary and academic early warnings (BR-04).
+- **Core Principles**:
+  - Noise Cancellation: Confidence interval $[Min, Max]$ calculated via psychometric SEM prevents student panic from single-quiz deviations.
+  - Micro-Prescription Layer: Selects top 2–3 question patterns optimizing Return On Investment ($ROI = \Delta Score / StudyHoursNeeded$) without restructuring the entire macro learning roadmap.
+
+### 14.2 API 1 Implementation Specification
+- **Endpoint**: `GET /api/practice/predictions/my-forecast`
+- **Controller**: `PredictionsController.cs`
+- **CQRS Handler**: `GetMyForecastQueryHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header with query parameter fallback.
+  2. Queries `IScorePredictionRepository.GetLatestByStudentIdAsync`.
+  3. Deserializes `PrescriptionItems` JSONB using `JsonNamingPolicy.SnakeCaseLower`.
+  4. Classifies balance status (`ON_TRACK` for deficit $\le 0$, `AT_RISK` for $\le 30$, `CRITICAL` for $> 30$).
+  5. Returns structured JSON containing forecast interval, deficit score, and prioritized remedial item list.
+- **Acceptance Status**: 100% verified against PostgreSQL database and YARP API Gateway proxy.
+
+### 14.3 API 2 Implementation Specification (Remedial Practice Session)
+- **Endpoint**: `GET /api/practice/predictions/prescriptions/{patternId}/practice-session`
+- **Controller**: `PredictionsController.cs`
+- **CQRS Handler**: `GetPrescriptionSessionQueryHandler.cs`
+- **Data Flow**:
+  1. Validates `patternId` against student's active prescription items in `ScorePredictions`.
+  2. If pattern not found or already remedied, returns RFC 7807 404 NotFound.
+  3. Dispatches gRPC request to Content Service (`GetMilestoneQuizAsync`) requesting 3–5 isomorphic items for `SkillId`.
+  4. Strips correct answer keys from question options to preserve test integrity.
+  5. Implements resilient fallback generator (`GenerateFallbackQuestions`) ensuring the practice session remains accessible even during downstream service restarts.
+- **Acceptance Status**: 100% verified live via unit endpoints and YARP API Gateway proxy.
+
+### 14.4 API 3 Implementation Specification (Remedial Practice Submission & Deficit Recovery)
+- **Endpoint**: `POST /api/practice/predictions/prescriptions/{patternId}/submit-session`
+- **Controller**: `PredictionsController.cs`
+- **CQRS Command & Handler**: `SubmitPrescriptionSessionCommand.cs` & `SubmitPrescriptionSessionCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header (or query param).
+  2. Validates `patternId` exists in student's latest active prescription record in `ScorePredictions`.
+  3. Evaluates submitted answers against known key dictionary and isomorphic test schemas.
+  4. Computes accuracy rate. If accuracy $\ge 67\%$:
+     - Marks the prescription item as remedied (`is_remedied = true`).
+     - Upgrades Bayesian Knowledge Tracing mastery posterior $P(L_t)$.
+     - Decrements the student's `deficit_score` by `targetPrescription.DeltaScore`.
+     - Serializes updated `PrescriptionItems` JSONB and persists to PostgreSQL.
+  5. If accuracy $< 67\%$: Retains current deficit and returns constructive feedback advising review and retry.
+- **Acceptance Status**: 100% verified live with successful deficit decrement (Happy Case) and strict threshold rejection (Unhappy Case).
+
+### 14.5 API 4 Implementation Specification (Forecast & Prescription Recalculation Engine)
+- **Endpoint**: `POST /api/practice/predictions/recalculate`
+- **Controller**: `PredictionsController.cs`
+- **CQRS Command & Handler**: `RecalculatePredictionCommand.cs` & `RecalculatePredictionCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header or request body.
+  2. Queries existing prediction history and extracts current target score (defaults to 850).
+  3. Re-estimates ability level taking into account recent stage progressions, remedied prescription items, or mock exam submissions.
+  4. Calculates 95% confidence interval $[Min, Max]$ via Standard Error of Measurement ($SEM = 24.5$).
+  5. Computes new deficit against target score and classifies status (`ON_TRACK`, `AT_RISK`, `CRITICAL`).
+  6. Re-executes the Knapsack ROI selection engine, prioritizing top 2–3 question patterns that yield highest score gain per study hour ($ROI = \Delta Score / H$).
+  7. Inserts new `ScorePrediction` audit record into PostgreSQL `v_eval_practice."ScorePredictions"`.
+- **Acceptance Status**: 100% verified live via unit endpoints and Gateway proxy.
+
+### 14.6 API 5 Implementation Specification (Personal Early Warnings Query)
+- **Endpoint**: `GET /api/practice/early-warnings/my-alerts`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Query & Handler**: `GetMyAlertsQuery.cs` & `GetMyAlertsQueryHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header with query parameter fallback.
+  2. Queries `ISystemAlertRepository.GetByStudentIdAsync` to fetch all alerts for the student.
+  3. Applies client-specified filtering: `unreadOnly` (boolean) and `alertType` (`YELLOW`, `RED`, `UNREALISTIC_GOAL`, `GREEN`).
+  4. Computes invariant high-level summary counters: `TotalAlerts`, `UnreadCount`, `RedAlertsCount`, `YellowAlertsCount`.
+  5. Maps domain entities to `SystemAlertDto` and returns a comprehensive `MyAlertsResponseDto`.
+- **Acceptance Status**: 100% verified live with full support for unread/read flags, alert category segmentation, and Mentor intervention metadata.
+
+### 14.7 API 6 Implementation Specification (Mark Alert As Read)
+- **Endpoint**: `PATCH /api/practice/early-warnings/{alertId}/read`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Command & Handler**: `MarkAlertAsReadCommand.cs` & `MarkAlertAsReadCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header with query parameter fallback.
+  2. Queries alert record by `alertId` from `ISystemAlertRepository.GetByIdAsync`.
+  3. Enforces multi-tenant ownership guard: returns RFC 7807 403 Forbidden if the requesting student attempts to update another student's notification.
+  4. Flips `IsRead = true` and updates database record via `ISystemAlertRepository.UpdateAsync`.
+  5. Returns idempotent confirmation payload containing updated `AlertId`, `IsRead: true`, and `ReadAt` timestamp.
+- **Acceptance Status**: 100% verified live with validation handling, ownership security checks, and badge synchronization.
+
+### 14.8 API 7 Implementation Specification (Mentor Early Warnings Dashboard)
+- **Endpoint**: `GET /api/practice/early-warnings/dashboard`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Query & Handler**: `GetAlertsDashboardQuery.cs` & `GetAlertsDashboardQueryHandler.cs`
+- **Data Flow**:
+  1. Resolves `MentorId` from Gateway `X-User-Id` header and optional `classId` query parameter.
+  2. Queries class context and associated student enrollments via `IClassEnrollmentRepository`.
+  3. Queries alerts via `ISystemAlertRepository.GetAlertsByClassAsync` (or system-wide via `GetAllAlertsAsync`).
+  4. Applies status filter: active pending cases (`isResolved = false`), resolved cases (`isResolved = true`), or all cases (`isResolved = null`), along with `alertType` categorization.
+  5. Enriches each student alert with real-time ability projections: latest `PredictedScore`, `TargetScore`, and `DeficitScore` from `IScorePredictionRepository`.
+  6. Computes aggregate KPI counters: `TotalAlerts`, `ActiveAlertsCount`, `RedAlertsCount`, `YellowAlertsCount`, `UnrealisticGoalCount`, `ResolvedAlertsCount`.
+- **Acceptance Status**: 100% verified live via unit endpoints and Gateway proxy.
+
+### 14.9 API 8 Implementation Specification (Mentor Pedagogical Intervention Resolution)
+- **Endpoint**: `POST /api/practice/early-warnings/{alertId}/resolve`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Command & Handler**: `ResolveAlertCommand.cs` & `ResolveAlertCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `MentorId` from Gateway `X-User-Id` header or request body.
+  2. Validates `ResolutionNotes` payload is provided and non-empty.
+  3. Queries target alert record via `ISystemAlertRepository.GetByIdAsync`.
+  4. Updates record: assigns `HandledBy = MentorId`, `ResolutionNotes`, stamps `ResolvedAt = DateTime.UtcNow`, and marks `IsRead = true`.
+  5. Persists update to PostgreSQL via `ISystemAlertRepository.UpdateAsync`.
+  6. Returns structured audit response confirming closure of the intervention ticket.
+- **Acceptance Status**: 100% verified live with input validation and audit logging.
+
+### 14.10 API 9 Implementation Specification (Tripartite Counseling Scheduling for Unrealistic Goals)
+- **Endpoint**: `POST /api/practice/early-warnings/{alertId}/schedule-counseling`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Command & Handler**: `ScheduleCounselingCommand.cs` & `ScheduleCounselingCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `MentorId` from Gateway `X-User-Id` header or request body (`mentor_id`).
+  2. Validates request parameters: ensures `counseling_date` is scheduled in the future, and `proposed_target_score` is within standard V-Eval examination range (0–1200 points).
+  3. Queries target alert record by `alertId` from `ISystemAlertRepository.GetByIdAsync`.
+  4. Formulates a tripartite meeting record (Parent - Student - Mentor) containing location, proposed feasible score, and pedagogical guidance notes.
+  5. Marks the alert status as resolved (`IsResolved = true`, `HandledBy = MentorId`, `ResolvedAt = DateTime.UtcNow`, `IsRead = true`).
+  6. Updates PostgreSQL database via `ISystemAlertRepository.UpdateAsync`.
+  7. Returns confirmation payload containing meeting coordinates, proposed score, and confirmation status `SCHEDULED`.
+- **Acceptance Status**: 100% verified live with RFC 7807 validation (future date checks, score range constraints, unauthorized mentor fallback, and not-found guards).
+
+
+
+
+
+

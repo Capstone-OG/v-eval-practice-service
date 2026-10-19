@@ -263,6 +263,40 @@ using (var scope = app.Services.CreateScope())
 
             CREATE INDEX IF NOT EXISTS idx_proctoring_snapshots_sub 
             ON v_eval_practice.""ProctoringSnapshots"" (submission_id, captured_at);
+
+            -- Core Flow 6: ScorePredictions & SystemAlerts
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""ScorePredictions"" (
+                prediction_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                student_id UUID NOT NULL,
+                predicted_score INT,
+                predicted_score_min INT,
+                predicted_score_max INT,
+                confidence_rate DOUBLE PRECISION DEFAULT 0.95,
+                target_score INT,
+                deficit_score INT,
+                sem_score DOUBLE PRECISION,
+                prescription_items JSONB,
+                calculation_source VARCHAR(50) DEFAULT 'MOCK_EXAM',
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
+            );
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""SystemAlerts"" (
+                alert_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                student_id UUID NOT NULL,
+                alert_type VARCHAR(50) NOT NULL,
+                message TEXT NOT NULL,
+                is_read BOOLEAN DEFAULT FALSE,
+                handled_by UUID,
+                resolution_notes TEXT,
+                resolved_at TIMESTAMP WITH TIME ZONE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_score_predictions_student 
+            ON v_eval_practice.""ScorePredictions"" (student_id);
+
+            CREATE INDEX IF NOT EXISTS idx_system_alerts_student 
+            ON v_eval_practice.""SystemAlerts"" (student_id);
         ");
         logger.LogInformation("Đã xác thực và khởi tạo thành công CSDL schema practice trên Supabase.");
 
@@ -303,6 +337,145 @@ using (var scope = app.Services.CreateScope())
 
             await dbContext.SaveChangesAsync();
             logger.LogInformation("Đã khởi tạo chặng học mẫu RoadmapNode {NodeId} phục vụ kiểm thử Core Flow 3.", sampleNodeId);
+        }
+
+        // Đảm bảo có dữ liệu mẫu ScorePrediction phục vụ kiểm thử Core Flow 6
+        var testStudentId = Guid.Parse("b0a218d2-1111-4000-8000-000000000001");
+        var samplePrescriptionsJson = @"[
+            {
+                ""pattern_id"": ""PAT_TOAN_LOGIC_01"",
+                ""pattern_name"": ""Quy nạp logic mệnh đề điều kiện"",
+                ""skill_id"": ""a0000001-0000-0000-0000-000000000007"",
+                ""delta_score"": 25.5,
+                ""study_hours_needed"": 1.8,
+                ""roi_score"": 14.16,
+                ""priority_rank"": 1,
+                ""is_remedied"": false
+            },
+            {
+                ""pattern_id"": ""PAT_HOA_PH_03"",
+                ""pattern_name"": ""Tính pH dung dịch đệm axit yếu"",
+                ""skill_id"": ""a0000001-0000-0000-0000-000000000010"",
+                ""delta_score"": 20.0,
+                ""study_hours_needed"": 1.5,
+                ""roi_score"": 13.33,
+                ""priority_rank"": 2,
+                ""is_remedied"": false
+            }
+        ]";
+
+        var existingPrediction = await dbContext.ScorePredictions.FirstOrDefaultAsync(p => p.StudentId == testStudentId);
+        if (existingPrediction == null)
+        {
+            await dbContext.ScorePredictions.AddAsync(new ScorePrediction
+            {
+                PredictionId = Guid.NewGuid(),
+                StudentId = testStudentId,
+                PredictedScore = 805,
+                PredictedScoreMin = 780,
+                PredictedScoreMax = 830,
+                ConfidenceRate = 0.95,
+                TargetScore = 850,
+                DeficitScore = 45,
+                SemScore = 25.5,
+                PrescriptionItems = samplePrescriptionsJson,
+                CalculationSource = "MOCK_EXAM",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Đã khởi tạo bản ghi ScorePrediction mẫu cho học sinh {StudentId} phục vụ kiểm thử Core Flow 6.", testStudentId);
+        }
+        else
+        {
+            existingPrediction.PrescriptionItems = samplePrescriptionsJson;
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Đã làm mới PrescriptionItems chuẩn cho học sinh {StudentId}.", testStudentId);
+        }
+
+        // Khởi tạo các cảnh báo mẫu 3 cấp BR-04 phục vụ kiểm thử Core Flow 6
+        var testStudentIds = new[] { testStudentId, Guid.Parse("00000000-0000-0000-0000-000000000001") };
+        foreach (var sid in testStudentIds)
+        {
+            var hasAlerts = await dbContext.SystemAlerts.AnyAsync(a => a.StudentId == sid);
+            if (!hasAlerts)
+            {
+                await dbContext.SystemAlerts.AddRangeAsync(
+                    new SystemAlert
+                    {
+                        AlertId = Guid.NewGuid(),
+                        StudentId = sid,
+                        AlertType = "RED",
+                        Message = "Cảnh báo nguy cơ cao: Điểm dự báo hiện tại (805) đang thâm hụt 45 điểm so với mục tiêu (850). Mentor đề xuất làm ngay bài tập bù điểm trong Toa thuốc.",
+                        IsRead = false,
+                        HandledBy = null,
+                        CreatedAt = DateTime.UtcNow.AddHours(-12)
+                    },
+                    new SystemAlert
+                    {
+                        AlertId = Guid.NewGuid(),
+                        StudentId = sid,
+                        AlertType = "YELLOW",
+                        Message = "Nhắc nhở học tập: Bạn đang có bài tập vi mô chuyên đề 'Tính pH dung dịch đệm' chưa hoàn thành sau 3 ngày.",
+                        IsRead = false,
+                        HandledBy = null,
+                        CreatedAt = DateTime.UtcNow.AddDays(-2)
+                    },
+                    new SystemAlert
+                    {
+                        AlertId = Guid.NewGuid(),
+                        StudentId = sid,
+                        AlertType = "UNREALISTIC_GOAL",
+                        Message = "Mục tiêu điểm số (950) có độ dốc tăng trưởng quá gấp (+250 điểm trong 3 tuần). Mentor đã lên lịch tư vấn định hướng lại lộ trình.",
+                        IsRead = true,
+                        HandledBy = Guid.Parse("77777777-7777-7777-7777-777777777777"),
+                        ResolutionNotes = "Đã tư vấn trực tiếp tại lớp, học sinh đồng thuận điều chỉnh mục tiêu giai đoạn 1 về 850 điểm.",
+                        ResolvedAt = DateTime.UtcNow.AddDays(-1),
+                        CreatedAt = DateTime.UtcNow.AddDays(-3)
+                    }
+                );
+                await dbContext.SaveChangesAsync();
+                logger.LogInformation("Đã khởi tạo bộ cảnh báo sớm mẫu cho học sinh {StudentId}.", sid);
+            }
+        }
+
+        // Khởi tạo lớp mẫu cho Mentor nếu chưa có
+        var sampleClassId = Guid.Parse("c0000000-0000-0000-0000-000000000001");
+        var sampleTeacherId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+        var classObj = await dbContext.Classes.FirstOrDefaultAsync(c => c.ClassId == sampleClassId);
+        if (classObj == null)
+        {
+            classObj = new Class
+            {
+                ClassId = sampleClassId,
+                CampusId = Guid.Parse("11111111-0000-0000-0000-000000000001"),
+                TeacherId = sampleTeacherId,
+                Name = "Lớp Chuyên Đề ĐGNL Tăng Tốc 01",
+                Status = "ACTIVE",
+                ClassType = 1,
+                DomainCode = "DOM_MATH",
+                CreatedAt = DateTime.UtcNow
+            };
+            await dbContext.Classes.AddAsync(classObj);
+            await dbContext.SaveChangesAsync();
+
+            foreach (var sid in testStudentIds)
+            {
+                var enrolled = await dbContext.ClassEnrollments.AnyAsync(ce => ce.ClassId == sampleClassId && ce.StudentId == sid);
+                if (!enrolled)
+                {
+                    await dbContext.ClassEnrollments.AddAsync(new ClassEnrollment
+                    {
+                        EnrollmentId = Guid.NewGuid(),
+                        ClassId = sampleClassId,
+                        StudentId = sid,
+                        Status = "ENROLLED",
+                        EnrolledAt = DateTime.UtcNow
+                    });
+                }
+            }
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Đã khởi tạo lớp mẫu {ClassId} và ghi danh học sinh phục vụ Mentor Dashboard.", sampleClassId);
         }
     }
     catch (Exception ex)
