@@ -44,4 +44,41 @@ public class IdentityGrpcClient : IIdentityGrpcClient
             throw;
         }
     }
+
+    public async Task<System.Collections.Generic.List<(Guid StudentId, string Name, string Email, string CampusId)>> GetParentStudentsAsync(
+        Guid parentId,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var channel = GrpcChannel.ForAddress(_serviceUrl);
+            var client = new IdentityGrpc.IdentityGrpcClient(channel);
+
+            var request = new GetParentStudentsRequest
+            {
+                ParentId = parentId.ToString()
+            };
+
+            var response = await client.GetParentStudentsAsync(request, cancellationToken: ct);
+            var result = new System.Collections.Generic.List<(Guid StudentId, string Name, string Email, string CampusId)>();
+
+            if (response?.Students != null)
+            {
+                foreach (var item in response.Students)
+                {
+                    if (Guid.TryParse(item.StudentId, out var sId))
+                    {
+                        result.Add((sId, item.Name, item.Email, item.CampusId));
+                    }
+                }
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Identity gRPC] Không thể lấy danh sách học sinh cho Phụ huynh {ParentId}.", parentId);
+            return new System.Collections.Generic.List<(Guid StudentId, string Name, string Email, string CampusId)>();
+        }
+    }
 }

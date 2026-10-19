@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using V_Eval_Practice_Service.API.Controllers.Base;
 using V_Eval_Practice_Service.Application.Features.Analytics.DTOs;
+using V_Eval_Practice_Service.Application.Features.Analytics.Queries.GetParentDashboard;
 using V_Eval_Practice_Service.Application.Features.Analytics.Queries.GetStudentDashboard;
 
 namespace V_Eval_Practice_Service.API.Controllers;
@@ -30,6 +31,26 @@ public class AnalyticsController : ApiControllerBase
     public async Task<IActionResult> GetStudentDashboard(Guid studentId)
     {
         var query = new GetStudentDashboardQuery(studentId);
+        var result = await Mediator.Send(query);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 5 - API 4: Lấy dữ liệu giám sát học tập dành cho Phụ huynh (Parent Companion Portal)
+    /// </summary>
+    /// <param name="parentId">ID định danh của tài khoản phụ huynh</param>
+    /// <remarks>
+    /// - Truy xuất toàn bộ con cái liên kết qua Identity Service.
+    /// - Chỉ số sẵn sàng thi tổng hợp (Exam Readiness Index R_exam), phân cấp (READY, NEAR_READY, AT_RISK).
+    /// - Tổng số giờ tự học trong tuần, so sánh với định mức 12 giờ và chuỗi ngày chuyên cần.
+    /// - Hộp thông báo AI thông minh (AiParentAlerts) phản ánh các bước tiến và khuyến nghị nhắc nhở tại gia đình.
+    /// </remarks>
+    [HttpGet("parent/{parentId:guid}/children")]
+    [ProducesResponseType(typeof(ParentDashboardResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetParentDashboard(Guid parentId)
+    {
+        var query = new GetParentDashboardQuery(parentId);
         var result = await Mediator.Send(query);
         return HandleResult(result);
     }

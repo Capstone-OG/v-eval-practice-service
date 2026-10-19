@@ -43,6 +43,18 @@
     - [`ILearningRoadmapRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILearningRoadmapRepository.cs) & [`LearningRoadmapRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LearningRoadmapRepository.cs): Bổ sung `AddLiveSessionAsync` và `GetNodesBySkillAndStudentIdsAsync`.
   - **Mở Rộng Controller**:
     - [`ClassesController.cs`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs): Thêm endpoint `POST /api/practice/classes/{classId:guid}/heatmap/trigger-live-session`.
+- **Giai Đoạn 3 (Flow 4: Parent Companion Portal - API 4)**:
+  - **DTOs**: Tạo [`ParentDashboardDtos.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/DTOs/ParentDashboardDtos.cs) gồm `ExamReadinessDto`, `WeeklyDisciplinesDto`, `AiParentAlertDto`, `ChildAnalyticsDto` và `ParentDashboardResponseDto`.
+  - **Query & Handler CQRS (API 4)**:
+    - [`GetParentDashboardQuery.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQuery.cs): Nhận `ParentId` và trả về `Result<ParentDashboardResponseDto>`.
+    - [`GetParentDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs):
+      - Gọi Identity gRPC qua `IIdentityGrpcClient.GetParentStudentsAsync` lấy danh sách con cái liên kết.
+      - Tự động tính toán hoặc truy xuất Chỉ số sẵn sàng thi ($R_{\text{exam}}$) với 4 thành phần trọng số: chuẩn hóa Theta, độ phủ kỹ năng BKT, tính kiên định và phân cấp (READY, NEAR_READY, AT_RISK).
+      - Thống kê kỷ luật tự học tuần: tổng số giờ thực tế, so sánh với định mức 12 giờ, chuỗi ngày chuyên cần và trạng thái hoàn thành.
+      - Sinh các thẻ thông báo AI thông minh (AiParentAlerts: SUCCESS, WARNING) giải thích tiến bộ và đề xuất nhắc nhở kịp thời.
+  - **Mở Rộng Client & Controller**:
+    - [`IIdentityGrpcClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs) & [`IdentityGrpcClient.cs`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs): Bổ sung `GetParentStudentsAsync`.
+    - [`AnalyticsController.cs`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs): Thêm endpoint `GET /api/practice/analytics/parent/{parentId:guid}/children`.
 - **Kiểm Thử & Biên Dịch**:
   - Biên dịch `dotnet build` toàn bộ solution `V-Eval-Practice_Service.sln` đạt **0 Error, 0 Warning**.
 

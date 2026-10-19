@@ -633,6 +633,20 @@
    - Atomic creation of scheduled `LiveSession` instances linked to the assigned teacher.
    - Automated propagation to active DAG `RoadmapNodes`, binding targeted students to the newly scheduled session without requiring manual page navigation.
 
+### 14.8 Phase 3 Flow 4: Parent Companion Portal Acceptance
+1. **REST Controller**:
+   - Exposed endpoint in [`AnalyticsController`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs):
+     - `GET /api/practice/analytics/parent/{parentId:guid}/children`.
+2. **CQRS Architecture**:
+   - Query: [`GetParentDashboardQuery`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQuery.cs).
+   - Handler: [`GetParentDashboardQueryHandler`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs).
+   - Inter-Service Integration: Extended [`IIdentityGrpcClient`](../V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs) and [`IdentityGrpcClient`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs) with `GetParentStudentsAsync` calling Identity Service gRPC.
+3. **Core Features Verified**:
+   - Automatic retrieval or just-in-time computation of composite Exam Readiness Metric `` `R_{\text{exam}}` `` with multi-tier classification (`READY`, `NEAR_READY`, `AT_RISK`).
+   - Self-study discipline monitoring comparing 7-day verified study hours against the 12-hour baseline.
+   - Curated `AiParentAlerts` generating contextual success markers and parental nudges without exposing raw psychometric complexity.
+
+
 
 
 
