@@ -603,5 +603,23 @@
    - Comprehensive streak analytics (current streak, longest streak, freeze status, 7-day visual history).
    - Resilient onboarding detection (`needsOnboarding = true`) for new students with insufficient historical data.
 
+### 14.6 Phase 3 Flow 2: Class Heatmap & Force Aggregate Endpoints Acceptance
+1. **REST Controller**:
+   - Extended [`ClassesController`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs) under route `api/practice/classes`.
+   - Endpoints:
+     - `GET /api/practice/classes/{classId:guid}/heatmap` (Class Heatmap Matrix).
+     - `POST /api/practice/classes/{classId:guid}/heatmap/force-aggregate` (Manual Re-computation Sweep).
+2. **CQRS Architecture**:
+   - Query: [`GetClassHeatmapQuery`](../V-Eval-Practice_Service.Application/Features/Classes/Queries/GetClassHeatmap/GetClassHeatmapQuery.cs) & Handler [`GetClassHeatmapQueryHandler`](../V-Eval-Practice_Service.Application/Features/Classes/Queries/GetClassHeatmap/GetClassHeatmapQueryHandler.cs).
+   - Command: [`ForceAggregateHeatmapCommand`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/ForceAggregateHeatmap/ForceAggregateHeatmapCommand.cs) & Handler [`ForceAggregateHeatmapCommandHandler`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/ForceAggregateHeatmap/ForceAggregateHeatmapCommandHandler.cs).
+3. **Core Features Verified**:
+   - Sub-300ms response guarantee via Cache-First architecture backed by `IClassHeatmapCacheService`.
+   - Dynamic domain filtering (`domainCode`) and mastery thresholding (`minMastery`).
+   - Automated pedagogical alert triggers: flag skills with `` `\text{StrugglingRate} \ge 40\%` `` or `` `\overline{P(L_t)} < 0.50` `` as `CRITICAL_RED`.
+   - Bimodal polarization detection (`isBimodal = true`) delivering micro-group pedagogical recommendations.
+   - 3-tier student risk segmentation: `HIGH_RISK` (`` `\ge 2` `` weak skills), `MEDIUM_RISK` (1 weak skill), and `SAFE`.
+   - Manual override endpoint allowing teachers/administrators to force immediate re-computation and cache refresh.
+
+
 
 

@@ -17,6 +17,20 @@
     - [`AnalyticsController.cs`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs): Khởi tạo Controller kế thừa `ApiControllerBase` với route `api/practice/analytics` và endpoint `GET /api/practice/analytics/student/{studentId:guid}/dashboard`.
   - **Mở Rộng Repository**:
     - [`IClassHeatmapRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassHeatmapRepository.cs) & [`ClassHeatmapRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassHeatmapRepository.cs): Bổ sung phương thức `GetHeatmapsByStudentIdAsync` truy vấn tất cả các ô năng lực của một học sinh.
+- **Giai Đoạn 3 (Flow 2: Class Heatmap Matrix & Force Aggregate Endpoints - API 2 & API 6)**:
+  - **DTOs**: Tạo [`ClassHeatmapDtos.cs`](../V-Eval-Practice_Service.Application/Features/Classes/DTOs/ClassHeatmapDtos.cs) gồm `PedagogicalAlertDto`, `HeatmapColumnDto`, `HeatmapCellDto`, `HeatmapRowDto`, `ClassHeatmapResponseDto` và `ForceAggregateResponseDto`.
+  - **Query & Handler CQRS (API 2)**:
+    - [`GetClassHeatmapQuery.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Queries/GetClassHeatmap/GetClassHeatmapQuery.cs): Hỗ trợ lọc theo `ClassId`, `DomainCode` tùy chọn và ngưỡng thành thạo `MinMastery`.
+    - [`GetClassHeatmapQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Queries/GetClassHeatmap/GetClassHeatmapQueryHandler.cs):
+      - Cơ chế Cache-First với `IClassHeatmapCacheService` trả kết quả dưới 300ms.
+      - Tự động kích hoạt tổng hợp on-demand nếu dữ liệu tóm tắt chưa được khởi tạo.
+      - Phân tích cảnh báo sư phạm (`CRITICAL_RED` khi có >= 40% học sinh yếu hoặc `AveragePlt < 0.50`) và nhận diện phân hóa 2 cực `IsBimodal` để gợi ý chia nhóm vi mô hoặc tạo Live Q&A cứu trợ.
+      - Ma trận hàng học sinh với từng ô điểm nhiệt $P(L_t)$, phân loại rủi ro 3 mức (`SAFE`, `MEDIUM_RISK`, `HIGH_RISK`).
+  - **Command & Handler CQRS (API 6)**:
+    - [`ForceAggregateHeatmapCommand.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/ForceAggregateHeatmap/ForceAggregateHeatmapCommand.cs): Nhận `ClassId`.
+    - [`ForceAggregateHeatmapCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/ForceAggregateHeatmap/ForceAggregateHeatmapCommandHandler.cs): Cưỡng chế tính toán lại ma trận nhiệt, lưu bảng `ClassHeatmapSummaries` và làm mới bộ đệm Cache.
+  - **Mở Rộng Controller**:
+    - [`ClassesController.cs`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs): Thêm 2 endpoints `GET /api/practice/classes/{classId:guid}/heatmap` và `POST /api/practice/classes/{classId:guid}/heatmap/force-aggregate`.
 - **Kiểm Thử & Biên Dịch**:
   - Biên dịch `dotnet build` toàn bộ solution `V-Eval-Practice_Service.sln` đạt **0 Error, 0 Warning**.
 

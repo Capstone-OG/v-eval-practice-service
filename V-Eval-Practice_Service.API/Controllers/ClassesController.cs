@@ -9,7 +9,9 @@ using V_Eval_Practice_Service.Application.Features.Classes.Commands.AssignGroupW
 using V_Eval_Practice_Service.Application.Features.Classes.Commands.AssignTeacher;
 using V_Eval_Practice_Service.Application.Features.Classes.Commands.AutoClusterThematicClasses;
 using V_Eval_Practice_Service.Application.Features.Classes.Commands.AutoPartitionMicroGroups;
+using V_Eval_Practice_Service.Application.Features.Classes.Commands.ForceAggregateHeatmap;
 using V_Eval_Practice_Service.Application.Features.Classes.DTOs;
+using V_Eval_Practice_Service.Application.Features.Classes.Queries.GetClassHeatmap;
 using V_Eval_Practice_Service.Application.Features.Classes.Queries.GetClassMicroGroups;
 
 namespace V_Eval_Practice_Service.API.Controllers;
@@ -136,6 +138,49 @@ public class ClassesController : ApiControllerBase
             WorksheetTitle: request.WorksheetTitle
         );
 
+        var result = await Mediator.Send(command);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 5 - API 2: Lấy ma trận bản đồ nhiệt (Class Heatmap Matrix) dành cho Giảng viên cơ sở
+    /// </summary>
+    /// <param name="classId">ID định danh lớp học</param>
+    /// <param name="domainCode">Mã phân môn tùy chọn (DOM_MATH, DOM_LANG, DOM_NAT_SCI, DOM_SOC_SCI)</param>
+    /// <param name="minMastery">Ngưỡng lọc P(Lt) tối thiểu</param>
+    /// <remarks>
+    /// - Phản hồi siêu tốc dưới 300ms nhờ cơ chế bộ đệm phân tán / in-memory cache.
+    /// - Trả về danh sách cột kỹ năng kèm chỉ số trung bình và trạng thái cảnh báo sư phạm (CRITICAL_RED, WARNING_AMBER, SAFE_GREEN).
+    /// - Nhận diện hiện tượng phân hóa 2 cực (IsBimodal = true) để khuyến nghị chia nhóm vi mô.
+    /// - Ma trận hàng học sinh với từng ô giá trị P(Lt) và phân loại nguy cơ (SAFE, MEDIUM_RISK, HIGH_RISK).
+    /// </remarks>
+    [HttpGet("{classId:guid}/heatmap")]
+    [ProducesResponseType(typeof(ClassHeatmapResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetClassHeatmap(
+        Guid classId,
+        [FromQuery] string? domainCode = null,
+        [FromQuery] double? minMastery = null)
+    {
+        var query = new GetClassHeatmapQuery(classId, domainCode, minMastery);
+        var result = await Mediator.Send(query);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 5 - API 6: Kích hoạt cưỡng chế tính toán lại ma trận nhiệt lớp học (Force Aggregate)
+    /// </summary>
+    /// <param name="classId">ID định danh lớp học</param>
+    /// <remarks>
+    /// - Cho phép giảng viên hoặc quản trị viên tính toán lại ma trận ngay lập tức (bỏ qua chu kỳ quét 15 phút của worker).
+    /// - Cập nhật bảng ClassHeatmapSummaries và làm mới bộ đệm Cache.
+    /// </remarks>
+    [HttpPost("{classId:guid}/heatmap/force-aggregate")]
+    [ProducesResponseType(typeof(ForceAggregateResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ForceAggregateHeatmap(Guid classId)
+    {
+        var command = new ForceAggregateHeatmapCommand(classId);
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }
