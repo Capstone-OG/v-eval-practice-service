@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using V_Eval_Practice_Service.API.Controllers.Base;
 using V_Eval_Practice_Service.Application.Features.Analytics.DTOs;
+using V_Eval_Practice_Service.Application.Features.Analytics.Queries.GetCampusComparativeHeatmap;
 using V_Eval_Practice_Service.Application.Features.Analytics.Queries.GetParentDashboard;
 using V_Eval_Practice_Service.Application.Features.Analytics.Queries.GetStudentDashboard;
 
@@ -51,6 +52,24 @@ public class AnalyticsController : ApiControllerBase
     public async Task<IActionResult> GetParentDashboard(Guid parentId)
     {
         var query = new GetParentDashboardQuery(parentId);
+        var result = await Mediator.Send(query);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Core Flow 5 - API 5: Lấy Bản Đồ Nhiệt So Sánh Cấp Cơ Sở (Campus Comparative Heatmap)
+    /// </summary>
+    /// <param name="campusId">ID định danh của cơ sở đào tạo</param>
+    /// <remarks>
+    /// - Dành cho Trưởng cơ sở / Quản lý học vụ so sánh tỷ lệ làm chủ theo 4 phân môn lớn giữa các lớp tại cơ sở.
+    /// - Phát hiện lớp học nào đang bị trũng kiến thức diện rộng để điều phối nhân sự giảng dạy và tổ chức bồi dưỡng.
+    /// </remarks>
+    [HttpGet("campus/{campusId:guid}/comparative-heatmap")]
+    [ProducesResponseType(typeof(CampusComparativeHeatmapResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCampusComparativeHeatmap(Guid campusId)
+    {
+        var query = new GetCampusComparativeHeatmapQuery(campusId);
         var result = await Mediator.Send(query);
         return HandleResult(result);
     }

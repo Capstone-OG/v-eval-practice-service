@@ -1,15 +1,13 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [19/10/2026] - Triển Khai Giai Đoạn 3 (Flow 1, 2, 3 & 4): Student Dashboard, Heatmap, 1-Click Live Session & Parent Companion Portal
+## [19/10/2026] - Hoàn Tất Toàn Diện Giai Đoạn 3: Bộ 6 REST API Endpoints & CQRS Handlers Core Flow 5
 
-- **Flow 1: Student Learning Analytics Dashboard (`AnalyticsController.cs`)**:
-  - `GET /api/practice/analytics/student/{studentId:guid}/dashboard`: Tổng hợp Biểu đồ Radar 4 miền năng lực ĐGNL, tiến độ lộ trình DAG %, chuỗi chuyên cần Streak Analytics và lịch sử thi thử.
-- **Flow 2: Class Heatmap Matrix & Force Aggregate (`ClassesController.cs`)**:
-  - `GET /api/practice/classes/{classId:guid}/heatmap`: Ma trận nhiệt 2 chiều tối ưu hóa cache (< 300ms), cảnh báo sư phạm `CRITICAL_RED`, phát hiện phân hóa 2 cực `IsBimodal` và phân loại rủi ro học sinh.
-  - `POST /api/practice/classes/{classId:guid}/heatmap/force-aggregate`: Kích hoạt cưỡng chế tính toán lại ma trận nhiệt thủ công và làm mới bộ đệm Cache.
-- **Flow 3: Hành Động Sư Phạm 1-Click Tạo Live Q&A Từ Heatmap (`ClassesController.cs`)**:
-  - `POST /api/practice/classes/{classId:guid}/heatmap/trigger-live-session`: Giáo viên nhấn nút can thiệp trực tiếp từ ô kỹ năng bị đỏ, tự động tạo `LiveSession` và cập nhật lịch học vào `RoadmapNodes` của các học sinh có $P(L_t) < 0.50$.
-- **Flow 4: Cổng Giám Sát Học Tập Dành Cho Phụ Huynh (`AnalyticsController.cs`)**:
-  - `GET /api/practice/analytics/parent/{parentId:guid}/children`: Tích hợp gRPC Identity Service lấy danh sách con cái, tính toán Chỉ số sẵn sàng thi ($R_{\text{exam}}$), kỷ luật tự học tuần và các cảnh báo AI thông minh (AiParentAlerts).
+- **Bộ 6 REST API Endpoints Core Flow 5 Hoàn Tất 100%**:
+  1. `GET /api/practice/analytics/student/{studentId:guid}/dashboard`: Dashboard năng lực học sinh (Radar 4 miền, DAG %, Streak, Lịch sử thi thử).
+  2. `GET /api/practice/classes/{classId:guid}/heatmap`: Ma trận nhiệt lớp học cho giáo viên (Cache-First < 300ms, Cảnh báo đỏ sư phạm, phát hiện phân hóa 2 cực Bimodal, phân tầng rủi ro học sinh).
+  3. `POST /api/practice/classes/{classId:guid}/heatmap/trigger-live-session`: Can thiệp sư phạm 1-Click tạo LiveSession cứu trợ trực tiếp từ ô kỹ năng bị đỏ và cập nhật `RoadmapNodes` của các học sinh $P(L_t) < 0.50$.
+  4. `GET /api/practice/analytics/parent/{parentId:guid}/children`: Cổng giám sát phụ huynh (Chỉ số sẵn sàng thi $R_{\text{exam}}$, kỷ luật tự học tuần, hộp cảnh báo AI thông minh).
+  5. `GET /api/practice/analytics/campus/{campusId:guid}/comparative-heatmap`: Bản đồ nhiệt so sánh cấp cơ sở (So sánh 4 phân môn lớn giữa các lớp, phát hiện lớp trũng).
+  6. `POST /api/practice/classes/{classId:guid}/heatmap/force-aggregate`: Cưỡng chế quét tính toán lại toàn bộ chỉ số thống kê của lớp học và làm mới bộ đệm Cache.
 - **Kiểm Thử & Biên Dịch**:
   - Biên dịch `dotnet build` toàn bộ solution `V-Eval-Practice_Service.sln` thành công 100% (**0 Error, 0 Warning**).

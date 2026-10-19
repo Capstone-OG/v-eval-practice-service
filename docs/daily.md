@@ -55,6 +55,18 @@
   - **Mở Rộng Client & Controller**:
     - [`IIdentityGrpcClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs) & [`IdentityGrpcClient.cs`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs): Bổ sung `GetParentStudentsAsync`.
     - [`AnalyticsController.cs`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs): Thêm endpoint `GET /api/practice/analytics/parent/{parentId:guid}/children`.
+- **Giai Đoạn 3 (Flow 5: Campus Comparative Heatmap - API 5)**:
+  - **DTOs**: Tạo [`CampusComparativeHeatmapDtos.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/DTOs/CampusComparativeHeatmapDtos.cs) gồm `DomainAverageDto`, `ClassDomainMasteryDto`, `ClassComparisonDto` và `CampusComparativeHeatmapResponseDto`.
+  - **Query & Handler CQRS (API 5)**:
+    - [`GetCampusComparativeHeatmapQuery.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetCampusComparativeHeatmap/GetCampusComparativeHeatmapQuery.cs): Nhận `CampusId` và trả về `Result<CampusComparativeHeatmapResponseDto>`.
+    - [`GetCampusComparativeHeatmapQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetCampusComparativeHeatmap/GetCampusComparativeHeatmapQueryHandler.cs):
+      - Quét toàn bộ danh sách lớp học của cơ sở qua `IClassHeatmapRepository.GetClassesByCampusIdAsync`.
+      - Tổng hợp chỉ số làm chủ và tỷ lệ yếu kém theo 4 phân môn lớn (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`) cho từng lớp.
+      - Đánh giá phân cấp rủi ro cơ sở (`HIGH_RISK`, `MEDIUM_RISK`, `SAFE`) để ban quản lý cơ sở kịp thời điều phối nhân sự.
+      - Tính toán điểm trung bình toàn cơ sở cho từng phân môn.
+  - **Mở Rộng Repository & Controller**:
+    - [`IClassHeatmapRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassHeatmapRepository.cs) & [`ClassHeatmapRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassHeatmapRepository.cs): Bổ sung `GetClassesByCampusIdAsync`.
+    - [`AnalyticsController.cs`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs): Thêm endpoint `GET /api/practice/analytics/campus/{campusId:guid}/comparative-heatmap`.
 - **Kiểm Thử & Biên Dịch**:
   - Biên dịch `dotnet build` toàn bộ solution `V-Eval-Practice_Service.sln` đạt **0 Error, 0 Warning**.
 

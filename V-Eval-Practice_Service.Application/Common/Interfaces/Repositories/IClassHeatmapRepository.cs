@@ -22,6 +22,7 @@ public interface IClassHeatmapRepository
     Task BatchUpsertSummariesAsync(IEnumerable<ClassHeatmapSummary> summaries, CancellationToken ct = default);
 
     Task<List<Guid>> GetActiveClassesAsync(CancellationToken ct = default);
+    Task<List<Class>> GetClassesByCampusIdAsync(Guid campusId, CancellationToken ct = default);
     Task<int> GetClassStudentCountAsync(Guid classId, CancellationToken ct = default);
     Task<List<ClassEnrollment>> GetClassEnrollmentsAsync(Guid classId, CancellationToken ct = default);
     Task<Class?> GetClassByIdAsync(Guid classId, CancellationToken ct = default);

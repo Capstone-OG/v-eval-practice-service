@@ -165,6 +165,14 @@ public class ClassHeatmapRepository : IClassHeatmapRepository
             .ToListAsync(ct);
     }
 
+    public async Task<List<Class>> GetClassesByCampusIdAsync(Guid campusId, CancellationToken ct = default)
+    {
+        return await _context.Classes
+            .AsNoTracking()
+            .Where(c => c.CampusId == campusId && c.Status == "ACTIVE")
+            .ToListAsync(ct);
+    }
+
     public async Task<int> GetClassStudentCountAsync(Guid classId, CancellationToken ct = default)
     {
         return await _context.ClassEnrollments

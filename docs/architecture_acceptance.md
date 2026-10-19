@@ -646,6 +646,19 @@
    - Self-study discipline monitoring comparing 7-day verified study hours against the 12-hour baseline.
    - Curated `AiParentAlerts` generating contextual success markers and parental nudges without exposing raw psychometric complexity.
 
+### 14.9 Phase 3 Flow 5: Campus Comparative Heatmap Acceptance
+1. **REST Controller**:
+   - Exposed endpoint in [`AnalyticsController`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs):
+     - `GET /api/practice/analytics/campus/{campusId:guid}/comparative-heatmap`.
+2. **CQRS Architecture**:
+   - Query: [`GetCampusComparativeHeatmapQuery`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetCampusComparativeHeatmap/GetCampusComparativeHeatmapQuery.cs).
+   - Handler: [`GetCampusComparativeHeatmapQueryHandler`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetCampusComparativeHeatmap/GetCampusComparativeHeatmapQueryHandler.cs).
+   - Repository Extensions: Added `GetClassesByCampusIdAsync` in [`IClassHeatmapRepository`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassHeatmapRepository.cs) and [`ClassHeatmapRepository`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassHeatmapRepository.cs).
+3. **Core Features Verified**:
+   - Aggregated campus-wide mastery comparison across 4 foundational domains (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`).
+   - Class-by-class vulnerability detection with 3-tier overall risk evaluation (`SAFE`, `MEDIUM_RISK`, `HIGH_RISK`) enabling academic managers to dispatch pedagogical interventions.
+
+
 
 
 
