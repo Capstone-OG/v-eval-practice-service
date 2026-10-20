@@ -267,7 +267,7 @@ using (var scope = app.Services.CreateScope())
             -- Core Flow 5: Analytics & Class Heatmap
             CREATE TABLE IF NOT EXISTS v_eval_practice.""ClassSkillHeatmaps"" (
                 id UUID PRIMARY KEY,
-                class_id UUID NOT NULL REFERENCES ""Classes""(class_id) ON DELETE CASCADE,
+                class_id UUID NOT NULL REFERENCES v_eval_practice.""Classes""(class_id) ON DELETE CASCADE,
                 student_id UUID NOT NULL,
                 skill_id UUID NOT NULL,
                 skill_name VARCHAR(255) NOT NULL,
@@ -284,7 +284,7 @@ using (var scope = app.Services.CreateScope())
 
             CREATE TABLE IF NOT EXISTS v_eval_practice.""ClassHeatmapSummaries"" (
                 id UUID PRIMARY KEY,
-                class_id UUID NOT NULL REFERENCES ""Classes""(class_id) ON DELETE CASCADE,
+                class_id UUID NOT NULL REFERENCES v_eval_practice.""Classes""(class_id) ON DELETE CASCADE,
                 skill_id UUID NOT NULL,
                 skill_name VARCHAR(255) NOT NULL,
                 domain_code VARCHAR(50) NOT NULL,
@@ -301,6 +301,18 @@ using (var scope = app.Services.CreateScope())
 
             CREATE INDEX IF NOT EXISTS idx_heatmap_summaries_class_status 
             ON v_eval_practice.""ClassHeatmapSummaries""(class_id, alert_status);
+
+            DO $$
+            BEGIN
+                IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ClassSkillHeatmaps_class_id_fkey' AND table_schema = 'v_eval_practice') THEN
+                    ALTER TABLE v_eval_practice.""ClassSkillHeatmaps"" DROP CONSTRAINT ""ClassSkillHeatmaps_class_id_fkey"";
+                    ALTER TABLE v_eval_practice.""ClassSkillHeatmaps"" ADD CONSTRAINT ""ClassSkillHeatmaps_class_id_fkey"" FOREIGN KEY (class_id) REFERENCES v_eval_practice.""Classes""(class_id) ON DELETE CASCADE;
+                END IF;
+                IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ClassHeatmapSummaries_class_id_fkey' AND table_schema = 'v_eval_practice') THEN
+                    ALTER TABLE v_eval_practice.""ClassHeatmapSummaries"" DROP CONSTRAINT ""ClassHeatmapSummaries_class_id_fkey"";
+                    ALTER TABLE v_eval_practice.""ClassHeatmapSummaries"" ADD CONSTRAINT ""ClassHeatmapSummaries_class_id_fkey"" FOREIGN KEY (class_id) REFERENCES v_eval_practice.""Classes""(class_id) ON DELETE CASCADE;
+                END IF;
+            END $$;
 
             CREATE TABLE IF NOT EXISTS v_eval_practice.""StudentDailyActivities"" (
                 id UUID PRIMARY KEY,
@@ -380,11 +392,11 @@ using (var scope = app.Services.CreateScope())
 
         // Đảm bảo có dữ liệu mẫu Class & Heatmap phục vụ kiểm thử Core Flow 5
         var sampleClassId = Guid.Parse("11111111-2222-3333-4444-555555555555");
-        var classExists = await dbContext.Classes.AnyAsync(c => c.ClassId == sampleClassId);
-        if (!classExists)
+        var sampleClass = await dbContext.Classes.FirstOrDefaultAsync(c => c.ClassId == sampleClassId);
+        if (sampleClass == null)
         {
             var sampleCampusId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
-            var sampleClass = new Class
+            sampleClass = new Class
             {
                 ClassId = sampleClassId,
                 CampusId = sampleCampusId,
@@ -393,6 +405,12 @@ using (var scope = app.Services.CreateScope())
                 CreatedAt = DateTime.UtcNow
             };
             await dbContext.Classes.AddAsync(sampleClass);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var heatmapExists = await dbContext.ClassSkillHeatmaps.AnyAsync(h => h.ClassId == sampleClassId);
+        if (!heatmapExists)
+        {
 
             // 5 học sinh mẫu
             var demoStudents = new[]
