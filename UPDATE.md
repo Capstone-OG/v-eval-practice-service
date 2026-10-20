@@ -1,13 +1,13 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [19/10/2026] - Hoàn Tất Toàn Diện Giai Đoạn 3: Bộ 6 REST API Endpoints & CQRS Handlers Core Flow 5
+## [20/10/2026] - Hoàn Thiện Toàn Diện Backend Core Flow 5: Khởi Tạo Dữ Liệu Mẫu & Đồng Bộ gRPC
 
-- **Bộ 6 REST API Endpoints Core Flow 5 Hoàn Tất 100%**:
-  1. `GET /api/practice/analytics/student/{studentId:guid}/dashboard`: Dashboard năng lực học sinh (Radar 4 miền, DAG %, Streak, Lịch sử thi thử).
-  2. `GET /api/practice/classes/{classId:guid}/heatmap`: Ma trận nhiệt lớp học cho giáo viên (Cache-First < 300ms, Cảnh báo đỏ sư phạm, phát hiện phân hóa 2 cực Bimodal, phân tầng rủi ro học sinh).
-  3. `POST /api/practice/classes/{classId:guid}/heatmap/trigger-live-session`: Can thiệp sư phạm 1-Click tạo LiveSession cứu trợ trực tiếp từ ô kỹ năng bị đỏ và cập nhật `RoadmapNodes` của các học sinh $P(L_t) < 0.50$.
-  4. `GET /api/practice/analytics/parent/{parentId:guid}/children`: Cổng giám sát phụ huynh (Chỉ số sẵn sàng thi $R_{\text{exam}}$, kỷ luật tự học tuần, hộp cảnh báo AI thông minh).
-  5. `GET /api/practice/analytics/campus/{campusId:guid}/comparative-heatmap`: Bản đồ nhiệt so sánh cấp cơ sở (So sánh 4 phân môn lớn giữa các lớp, phát hiện lớp trũng).
-  6. `POST /api/practice/classes/{classId:guid}/heatmap/force-aggregate`: Cưỡng chế quét tính toán lại toàn bộ chỉ số thống kê của lớp học và làm mới bộ đệm Cache.
+- **Khởi Tạo Dữ Liệu Mẫu Lớp Học & Ma Trận Nhiệt (`Program.cs`)**:
+  - Tự động gieo dữ liệu kiểm thử thực tế cho lớp mẫu `11111111-2222-3333-4444-555555555555` tại cơ sở `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee`.
+  - Khởi tạo 5 học sinh mẫu liên kết bảng `ClassEnrollments`.
+  - Khởi tạo 4 kỹ năng chuẩn thuộc 4 phân môn lớn với ma trận nhiệt thực tế: cố tình tạo tỷ lệ yếu 60% (3/5 học sinh có `` `P(L_t) < 0.50` ``) tại kỹ năng "Toán logic mệnh đề & suy luận kéo theo" (`88888888-9999-aaaa-bbbb-cccccccccccc`) nhằm kích hoạt trực quan cảnh báo đỏ `CRITICAL_RED` trên Teacher Heatmap.
+  - Khởi tạo 7 ngày hoạt động tự học liên tiếp (`StudentDailyActivities`) và chỉ số sẵn sàng thi `` `R_{\text{exam}} = 82.4` `` (`READY`) cho học sinh Hoàng (`3fa85f64-5717-4562-b3fc-2c963f66afa6`).
+- **Đồng Bộ gRPC Liên Dịch Vụ**:
+  - Kết nối hoàn hảo phương thức `GetParentStudents` và `LinkParentStudent` qua gRPC Identity Service phục vụ phân hệ giám sát phụ huynh (Parent Companion Portal).
 - **Kiểm Thử & Biên Dịch**:
-  - Biên dịch `dotnet build` toàn bộ solution `V-Eval-Practice_Service.sln` thành công 100% (**0 Error, 0 Warning**).
+  - Toàn bộ solution biên dịch thành công 100% (**0 Error, 0 Warning**).

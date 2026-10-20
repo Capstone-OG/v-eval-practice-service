@@ -377,6 +377,121 @@ using (var scope = app.Services.CreateScope())
             await dbContext.SaveChangesAsync();
             logger.LogInformation("Đã khởi tạo chặng học mẫu RoadmapNode {NodeId} phục vụ kiểm thử Core Flow 3.", sampleNodeId);
         }
+
+        // Đảm bảo có dữ liệu mẫu Class & Heatmap phục vụ kiểm thử Core Flow 5
+        var sampleClassId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        var classExists = await dbContext.Classes.AnyAsync(c => c.ClassId == sampleClassId);
+        if (!classExists)
+        {
+            var sampleCampusId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+            var sampleClass = new Class
+            {
+                ClassId = sampleClassId,
+                CampusId = sampleCampusId,
+                Name = "Lớp ĐGNL Cơ sở 1 - ĐHQG TP.HCM",
+                Status = "ACTIVE",
+                CreatedAt = DateTime.UtcNow
+            };
+            await dbContext.Classes.AddAsync(sampleClass);
+
+            // 5 học sinh mẫu
+            var demoStudents = new[]
+            {
+                Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6"), // Phạm Minh Hoàng
+                Guid.Parse("4fa85f64-5717-4562-b3fc-2c963f66afa6"), // Lê Bảo Trâm
+                Guid.Parse("5fa85f64-5717-4562-b3fc-2c963f66afa6"), // Trần Tuấn Kiệt
+                Guid.Parse("6fa85f64-5717-4562-b3fc-2c963f66afa6"), // Nguyễn Hà My
+                Guid.Parse("7fa85f64-5717-4562-b3fc-2c963f66afa6")  // Vũ Hoàng Long
+            };
+
+            foreach (var stId in demoStudents)
+            {
+                await dbContext.ClassEnrollments.AddAsync(new ClassEnrollment
+                {
+                    EnrollmentId = Guid.NewGuid(),
+                    ClassId = sampleClassId,
+                    StudentId = stId,
+                    Status = "ENROLLED",
+                    EnrolledAt = DateTime.UtcNow
+                });
+            }
+
+            // 4 Kỹ năng mẫu đại diện 4 phân môn lớn
+            var demoSkills = new[]
+            {
+                (Guid.Parse("88888888-9999-aaaa-bbbb-cccccccccccc"), "Toán logic mệnh đề & suy luận kéo theo", "DOM_MATH", 0.42),
+                (Guid.Parse("99999999-0000-bbbb-cccc-dddddddddddd"), "Đọc hiểu phân tích biểu đồ & bảng biểu", "DOM_MATH", 0.74),
+                (Guid.Parse("aaaaaaaa-1111-bbbb-cccc-dddddddddddd"), "Sử dụng từ Hán Việt & Phong cách văn bản", "DOM_LANG", 0.78),
+                (Guid.Parse("bbbbbbbb-2222-cccc-dddd-eeeeeeeeeeee"), "Đọc hiểu văn bản Khoa học Tự nhiên", "DOM_NAT_SCI", 0.65)
+            };
+
+            // Gieo các ô điểm nhiệt P(Lt). Cố tình để kỹ năng 1 có 3/5 em < 0.50 (tỷ lệ yếu 60%) để kích hoạt cảnh báo đỏ CRITICAL_RED!
+            foreach (var (skId, skName, domCode, basePlt) in demoSkills)
+            {
+                for (int idx = 0; idx < demoStudents.Length; idx++)
+                {
+                    var stId = demoStudents[idx];
+                    double plt = basePlt;
+                    if (skId == Guid.Parse("88888888-9999-aaaa-bbbb-cccccccccccc"))
+                    {
+                        plt = idx < 3 ? 0.35 + idx * 0.05 : 0.75 + idx * 0.05;
+                    }
+
+                    await dbContext.ClassSkillHeatmaps.AddAsync(new ClassSkillHeatmap
+                    {
+                        Id = Guid.NewGuid(),
+                        ClassId = sampleClassId,
+                        StudentId = stId,
+                        SkillId = skId,
+                        SkillName = skName,
+                        DomainCode = domCode,
+                        PltValue = Math.Round(plt, 2),
+                        MasteryLevel = plt < 0.50 ? "WEAK" : "MASTERED",
+                        LastAssessmentType = "DIAGNOSTIC",
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            // Seed dữ liệu chuyên cần và chỉ số sẵn sàng thi cho học sinh Hoàng (3fa85f64-5717-4562-b3fc-2c963f66afa6)
+            var primaryStudentId = demoStudents[0];
+            var today = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+            for (int d = 6; d >= 0; d--)
+            {
+                var actDate = today.AddDays(-d);
+                await dbContext.StudentDailyActivities.AddAsync(new StudentDailyActivity
+                {
+                    Id = Guid.NewGuid(),
+                    StudentId = primaryStudentId,
+                    ActivityDate = actDate,
+                    StudyTimeMinutes = 120,
+                    PracticeQuestionsSolved = 15,
+                    VideoMinutesWatched = 25,
+                    MockExamsTaken = d == 1 ? 1 : 0,
+                    IsStreakCounted = true,
+                    IsFrozen = false,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            await dbContext.StudentReadinessMetrics.AddAsync(new StudentReadinessMetric
+            {
+                Id = Guid.NewGuid(),
+                StudentId = primaryStudentId,
+                NormalizedTheta = 81.2,
+                SkillCoveragePlt = 79.5,
+                ConsistencyScore = 95.0,
+                ExamReadinessIndex = 82.4,
+                ReadinessTier = "READY",
+                StudyHoursThisWeek = 14.5,
+                CurrentStreakDays = 12,
+                CalculatedAt = DateTime.UtcNow
+            });
+
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Đã khởi tạo thành công Lớp học mẫu {ClassId} và ma trận nhiệt phục vụ Core Flow 5.", sampleClassId);
+        }
     }
     catch (Exception ex)
     {

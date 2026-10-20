@@ -658,6 +658,16 @@
    - Aggregated campus-wide mastery comparison across 4 foundational domains (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`).
    - Class-by-class vulnerability detection with 3-tier overall risk evaluation (`SAFE`, `MEDIUM_RISK`, `HIGH_RISK`) enabling academic managers to dispatch pedagogical interventions.
 
+### 14.10 Phase 3 Backend Polish & Seed Data Acceptance
+1. **Realistic Seed Data Provisioning**:
+   - Class `11111111-2222-3333-4444-555555555555` ("Lớp ĐGNL Cơ sở 1 - ĐHQG TP.HCM") with 5 enrolled demo students (`3fa85f64-...` Hoàng, `4fa85f64-...` Trâm, `5fa85f64-...` Kiệt, `6fa85f64-...` My, `7fa85f64-...` Long).
+   - 4 representative competence skills across core domains.
+   - Purposeful 60% struggling rate (3/5 students with `` `P(L_t) < 0.50` ``) on "Toán logic mệnh đề & suy luận kéo theo" (`88888888-9999-aaaa-bbbb-cccccccccccc`) triggering immediate visual `CRITICAL_RED` alert on Teacher Heatmap.
+   - 7 consecutive active study days (`StudentDailyActivities`) and exam readiness metric `` `R_{\text{exam}} = 82.4` `` (`READY`) with 12-day current streak.
+2. **Inter-Service gRPC Contract Fulfillment**:
+   - Identity Service gRPC server now implements `GetParentStudents` and `LinkParentStudent` directly backed by `ParentStudentRelations`, `Students`, and `Users` entities, eliminating client-side fallback necessity.
+
+
 
 
 
