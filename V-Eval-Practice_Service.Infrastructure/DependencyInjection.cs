@@ -33,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<IContentGrpcClient, ContentGrpcClient>();
         services.AddScoped<IAiDiagnosticClient, HttpClients.AiDiagnosticClient>();
         services.AddScoped<IAiTutorClient, HttpClients.AiTutorClient>();
+        services.AddScoped<IContentHttpClient, HttpClients.ContentHttpClient>();
 
         // Core Flow 5: Analytics & Class Heatmap
         services.AddMemoryCache();

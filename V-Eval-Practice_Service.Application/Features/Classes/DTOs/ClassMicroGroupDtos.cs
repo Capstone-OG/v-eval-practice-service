@@ -38,8 +38,9 @@ public record AutoPartitionMicroGroupsResponseDto(
 );
 
 public record AssignWorksheetRequestDto(
-    string WorksheetId,
-    string WorksheetTitle
+    string? WorksheetId = null,
+    string? WorksheetTitle = null,
+    int? QuestionCount = 5
 );
 
 public record AssignWorksheetResponseDto(

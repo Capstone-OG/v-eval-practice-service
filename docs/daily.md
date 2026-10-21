@@ -232,6 +232,27 @@
 
 ---
 
+## [14/10/2026] - Triển Khai Liên Thông Tự Động Gán Đề Thích Ứng Cho Nhóm Học Tập Vi Mô (Practice <-> Content Service API 19)
+
+- **Hiện Thực Hóa Client Liên Thông REST API Content Service (`Application/Common/Interfaces/IContentHttpClient.cs`)**:
+  - Thiết kế interface `IContentHttpClient` với phương thức `CreateAdaptiveQuizAsync(CreateAdaptiveQuizRequest request, CancellationToken ct)`.
+  - Định nghĩa DTOs `CreateAdaptiveQuizRequest` (Title, SkillIds, QuestionCount, MinBloomLevel, MaxBloomLevel) và `CreateAdaptiveQuizResponse` (ExamId, Title, DurationMinutes, TotalQuestions, ExamCategory, TargetSkillIds, Message).
+- **Hiện Thực Hóa HTTP Client Phục Hồi Cao (`Infrastructure/HttpClients/ContentHttpClient.cs`)**:
+  - Tự động phân giải endpoint từ cấu hình `ContentSettings:ServiceUrl` hoặc `GrpcSettings:ContentServiceUrl` (`http://localhost:5250`).
+  - Gửi request `POST /api/content/exams/quiz` tới Content Service để đóng gói đề thi thích ứng chuẩn Bloom Levels 1-3.
+  - Đăng ký scoped vào DI Container tại `Infrastructure/DependencyInjection.cs`.
+- **Nâng Cấp Hợp Đồng Giao Tiếp API Gán Đề (`Features/Classes/DTOs/ClassMicroGroupDtos.cs` & `Commands/AssignGroupWorksheet`)**:
+  - Chuyển `WorksheetId` và `WorksheetTitle` thành tham số tùy chọn (`string? WorksheetId = null, string? WorksheetTitle = null, int? QuestionCount = 5`).
+  - Nâng cấp `AssignGroupWorksheetCommand` và `ClassesController` để tiếp nhận `QuestionCount`.
+- **Hoàn Thiện Bộ Xử Lý Tự Động Đóng Gói Đề Cho Nhóm (`AssignGroupWorksheetCommandHandler.cs`)**:
+  - Nếu giáo viên không chỉ định `WorksheetId` thủ công: Handler tự động phân tích cú pháp JSON `CommonWeakSkillIds` của nhóm học tập đã được K-Means phân cụm trước đó.
+  - Chuyển danh sách ID vùng trũng kiến thức sang Content Service API 19 để sinh ngay bộ đề Quiz củng cố 5 câu hỏi có lời giải bước một KaTeX.
+  - Nhận `ExamId` trả về và gán làm `AssignedWorksheetId` cùng `AssignedWorksheetTitle` trực tiếp cho nhóm học tập.
+- **Kiểm Thử & Biên Dịch**:
+  - Toàn bộ solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
 ## [12/10/2026] - Khởi Động Core Flow 3 (Module 3): Nền Tảng CSDL Giám Sát & API Khởi Tạo Bài Thi Thử Chuẩn Hóa (StartMockExam)
 
 - **Mở Rộng Mô Hình CSDL & Thực Thể Giám Sát Liêm Chính Học Thuật (Proctoring & Mock Exam)**:
@@ -355,7 +376,7 @@
   - Toàn bộ solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
 
 ---
->>>>>>> origin/develop
+
 ## [09/10/2026] - Nâng Cấp Mô Hình Giảng Dạy Offline: Giới Hạn Sĩ Số Lớp 20 Người, Đánh Số Thứ Tự Tăng Dần & Phân Nhóm Học Tập Vi Mô (3 - 5 Học Sinh)
 
 - **Giới Hạn Sĩ Số Lớp 20 Học Sinh & Tự Động Đánh Số Thứ Tự Lớp Tăng Dần**:
@@ -553,7 +574,6 @@
 ---
 
 ## [07/10/2026] - Chuẩn Hóa Cấu Hình gRPC Settings, AI Subsystem & Kết Nối CSDL Tập Trung
->>>>>>> origin/develop
 - **Chuẩn Hóa File Cấu Hình Mẫu (`appsettings.example.json`)**:
   - Bổ sung khối cấu hình `GrpcSettings` (IdentityServiceUrl: `http://localhost:5156`, ContentServiceUrl: `http://localhost:5250`).
   - Bổ sung cấu hình `AiSettings` (ServiceUrl: `http://localhost:8000`).

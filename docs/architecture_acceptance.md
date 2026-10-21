@@ -436,9 +436,12 @@
   - `DomainFeatures` (`double[4]`): Macro 4-domain vector representing overall student strength across `[Lang, Math, NatSci, SocSci]`. Used in K-Means distance calculations to place students in compatible learning contexts.
   - `SkillScores` (`Dictionary<Guid, double>`): Micro-level granular mastery scores per competency node from `LearningProfiles.MasteryScore`.
   - **Weak Skill Identification**: Skills where `` `MasteryScore < 0.60` `` across a majority of group members are aggregated into `CommonWeakSkillIds`.
-- **Automated Worksheet Generation Handshake (Future Phase with Content Service API 19)**:
-  - Currently: Teachers manually assign an existing `WorksheetId` via `AssignGroupWorksheetCommand`.
-  - Next Evolution: Practice Service invokes Content Service API 19 (`POST /api/content/exams/quiz`) providing `CommonWeakSkillIds`. Content Service extracts 5 to 10 questions calibrated to Bloom Levels 1-3 (Remember, Understand, Apply) with step-by-step LaTeX derivations, wraps them into a new `MockExam` of type `QUIZ`, and returns `worksheetId` + `worksheetTitle` for immediate table assignment.
+- **Automated Worksheet Generation Handshake with Content Service API 19 (Completed)**:
+  - When teacher submits `POST /api/practice/classes/{classId}/micro-groups/{groupId}/assign-worksheet` with empty or omitted `WorksheetId`:
+  - `AssignGroupWorksheetCommandHandler` extracts `CommonWeakSkillIds` from the `ClassGroup` record.
+  - The handler invokes Content Service via `IContentHttpClient` (`POST /api/content/exams/quiz`), passing the target skill IDs and requesting 5 Bloom L1-L3 questions.
+  - Content Service dynamically packages an on-the-fly `MockExam` (`ExamCategory = "QUIZ"`), stores linked `ExamQuestion` items, and returns the generated `ExamId` and `Title`.
+  - Practice Service registers the `ExamId` as `AssignedWorksheetId` and assigns it directly to all members of the micro-group.
 
 ---
 

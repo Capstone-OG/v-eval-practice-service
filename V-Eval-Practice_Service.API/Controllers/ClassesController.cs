@@ -136,7 +136,8 @@ public class ClassesController : ApiControllerBase
             ClassId: classId,
             GroupId: groupId,
             WorksheetId: request.WorksheetId,
-            WorksheetTitle: request.WorksheetTitle
+            WorksheetTitle: request.WorksheetTitle,
+            QuestionCount: request.QuestionCount ?? 5
         );
 
         var result = await Mediator.Send(command);
