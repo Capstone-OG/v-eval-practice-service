@@ -131,6 +131,95 @@
 
 ---
 
+## [19/10/2026] - Hiện Thực Core Flow 6: API 5 Tra Cứu Cảnh Báo Sớm Cá Nhân (GetMyAlerts)
+
+- **Hiện Thực API 5: Học Sinh Tra Cứu Danh Sách Cảnh Báo Cá Nhân (GetMyAlerts)**:
+  - Khởi tạo bộ DTOs [`EarlyWarningDtos.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs):
+    - `SystemAlertDto`: Chi tiết từng thông báo cảnh báo 3 cấp (`AlertId`, `StudentId`, `AlertType`, `Message`, `IsRead`, `HandledBy`, `ResolutionNotes`, `ResolvedAt`, `CreatedAt`).
+    - `MyAlertsResponseDto`: Phản hồi thống kê toàn diện (`TotalAlerts`, `UnreadCount`, `RedAlertsCount`, `YellowAlertsCount`, `Alerts`).
+  - Xây dựng Query CQRS `GetMyAlertsQuery.cs` và Handler [`GetMyAlertsQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/Queries/GetMyAlerts/GetMyAlertsQueryHandler.cs):
+    - Truy xuất danh sách cảnh báo cá nhân từ `ISystemAlertRepository`.
+    - Hỗ trợ đa dạng bộ lọc: lọc cảnh báo chưa đọc (`unreadOnly = true/false`), lọc theo cấp độ cảnh báo (`alertType = 'YELLOW' | 'RED' | 'UNREALISTIC_GOAL' | 'GREEN'`).
+    - Tính toán chính xác các chỉ số tổng hợp độc lập với bộ lọc để giao diện học sinh luôn hiển thị badge cảnh báo chuẩn xác.
+  - Mở rộng Repository [`ISystemAlertRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ISystemAlertRepository.cs) và [`SystemAlertRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/SystemAlertRepository.cs) hỗ trợ lọc linh hoạt theo `alertType`.
+  - Khởi tạo Controller [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `GET /api/practice/early-warnings/my-alerts`.
+    - Cơ chế xác thực an toàn: ưu tiên bốc `StudentId` từ Gateway Header `X-User-Id`, fallback query parameter `studentId` hỗ trợ kiểm thử tiện lợi trên Swagger.
+  - Bổ sung Seed Data mẫu cho hệ thống cảnh báo sớm trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs) với đầy đủ 3 cấp độ `RED`, `YELLOW`, `UNREALISTIC_GOAL` kèm nhật ký can thiệp của Mentor.
+- **Hiện Thực API 6: Đánh Dấu Đã Đọc Thông Báo Cảnh Báo (MarkAlertAsRead)**:
+  - Bổ sung DTO `MarkAlertAsReadResponseDto` trong [`EarlyWarningDtos.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
+  - Xây dựng Command `MarkAlertAsReadCommand.cs` và Handler [`MarkAlertAsReadCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/Commands/MarkAlertAsRead/MarkAlertAsReadCommandHandler.cs):
+    - Kiểm tra tính hợp lệ và thẩm quyền sở hữu: cấm học sinh này cập nhật cảnh báo của học sinh khác (trả về 403 Forbidden).
+    - Cập nhật trường `IsRead = true` và lưu vết vào CSDL PostgreSQL qua `ISystemAlertRepository.UpdateAsync`.
+  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `PATCH /api/practice/early-warnings/{alertId}/read`.
+    - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `401 Unauthorized`, `403 Forbidden`, `404 NotFound`.
+- **Hiện Thực API 7: Mentor Tra Cứu Dashboard Cảnh Báo Sớm Học Sinh (GetAlertsDashboard)**:
+  - Bổ sung DTOs `AlertDashboardItemDto` và `EarlyWarningsDashboardResponseDto` trong [`EarlyWarningDtos.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
+  - Mở rộng Repository [`ISystemAlertRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ISystemAlertRepository.cs) và [`SystemAlertRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/SystemAlertRepository.cs) với `GetAlertsByClassAsync` và `GetAllAlertsAsync`.
+  - Xây dựng Query `GetAlertsDashboardQuery.cs` và Handler [`GetAlertsDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/Queries/GetAlertsDashboard/GetAlertsDashboardQueryHandler.cs):
+    - Tổng hợp toàn diện các chỉ số cảnh báo: `TotalAlerts`, `ActiveAlertsCount`, `RedAlertsCount`, `YellowAlertsCount`, `UnrealisticGoalCount`, `ResolvedAlertsCount`.
+    - Tự động làm giàu dữ liệu từng cảnh báo với điểm dự báo mới nhất `CurrentPredictedScore`, mục tiêu `TargetScore` và độ thâm hụt `DeficitScore` từ `IScorePredictionRepository`.
+    - Hỗ trợ đa dạng bộ lọc: theo lớp `classId`, theo loại cảnh báo `alertType`, theo trạng thái xử lý `isResolved` (đang cần can thiệp vs đã giải quyết).
+  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `GET /api/practice/early-warnings/dashboard`.
+  - Seed lớp chuyên đề mẫu và ghi danh học sinh trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs) phục vụ kiểm thử phân hệ Dashboard Mentor.
+- **Hiện Thực API 8: Mentor Ghi Chú Giải Quyết Can Thiệp Sư Phạm (ResolveAlert)**:
+  - Bổ sung DTOs `ResolveAlertRequestDto` và `ResolveAlertResponseDto` trong [`EarlyWarningDtos.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
+  - Xây dựng Command `ResolveAlertCommand.cs` và Handler [`ResolveAlertCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/Commands/ResolveAlert/ResolveAlertCommandHandler.cs):
+    - Kiểm tra hợp lệ `AlertId`, danh tính Mentor (`mentor_id` hoặc header `X-User-Id`), và bắt buộc có nội dung giải trình `resolution_notes`.
+    - Cập nhật bản ghi `SystemAlert`: gán `HandledBy`, `ResolutionNotes`, đóng dấu `ResolvedAt = DateTime.UtcNow` và `IsRead = true`.
+    - Lưu cập nhật xuống PostgreSQL qua `ISystemAlertRepository.UpdateAsync`.
+  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `POST /api/practice/early-warnings/{alertId}/resolve`.
+    - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `400 BadRequest`, `401 Unauthorized`, `404 NotFound`.
+- **Hiện Thực API 9: Mentor Lên Lịch Hẹn Tư Vấn 3 Bên Định Hướng Lại Mục Tiêu (ScheduleCounseling)**:
+  - Bổ sung DTOs `ScheduleCounselingRequestDto` và `ScheduleCounselingResponseDto` trong [`EarlyWarningDtos.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
+  - Xây dựng Command `ScheduleCounselingCommand.cs` và Handler [`ScheduleCounselingCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/Commands/ScheduleCounseling/ScheduleCounselingCommandHandler.cs):
+    - Kiểm tra điều kiện hợp lệ: thời gian hẹn tư vấn `counseling_date` phải ở tương lai, điểm số mục tiêu đề xuất `proposed_target_score` phải nằm trong thang điểm ĐGNL chuẩn (0–1200 điểm), định danh Mentor hợp lệ.
+    - Kiểm tra tồn tại bản ghi cảnh báo trong CSDL; cập nhật nội dung giải trình can thiệp sư phạm chứa thông tin cuộc hẹn 3 bên (Phụ huynh - Học sinh - Mentor), địa điểm và mục tiêu đề xuất, đồng thời chuyển trạng thái cảnh báo sang đã xử lý (`is_resolved = true`).
+  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `POST /api/practice/early-warnings/{alertId}/schedule-counseling`.
+    - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `400 BadRequest`, `401 Unauthorized`, `404 NotFound`.
+- **Hoàn Tất Triển Khai Toàn Diện 9/9 API Của Core Flow 6**:
+  - Toàn bộ 9 API thuộc Core Flow 6 (Dự báo khoảng điểm SEM, Toa thuốc bù điểm Knapsack ROI & Hệ thống cảnh báo sớm 3 cấp BR-04) đã được hiện thực đầy đủ, kiểm thử vận hành thành công và hoàn thiện tài liệu theo tiêu chuẩn kiến trúc sạch.
+- **Biên Dịch & Sẵn Sàng Vận Hành**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
+
+## [18/10/2026] - Khởi Tạo Nhánh Tính Năng Core Flow 6: Dự Báo Khoảng Điểm SEM & Cảnh Báo Sớm BR-04
+
+- **Khởi Tạo Nhánh Phát Triển Độc Lập**:
+  - Nhánh `feature/core-flow-6-score-prediction-early-warning` được tạo từ codebase tích hợp mới nhất của Practice Service (đã tích hợp đầy đủ Module 1, 2, 3 của Core Flow 3 và Core Flow 4 Graph-RAG).
+- **Nền Tảng Mô Hình Thực Thể & CSDL Core Flow 6**:
+  - Tạo entity `ScorePrediction.cs` lưu trữ dải điểm tin cậy `[PredictedScoreMin, PredictedScoreMax]`, sai số chuẩn `SemScore`, điểm thâm hụt `DeficitScore` và cột `PrescriptionItems` (JSONB) chứa danh sách các dạng bài bù điểm Knapsack ROI.
+  - Tạo entity `SystemAlert.cs` phục vụ hệ thống cảnh báo sớm 3 cấp BR-04 và nhật ký can thiệp sư phạm của Mentor tại lớp.
+  - Cập nhật `PracticeDbContext.cs` đăng ký 2 `DbSet` và cấu hình Fluent API mapping tương thích PostgreSQL Schema.
+  - Tạo bộ Repository `IScorePredictionRepository.cs`, `ScorePredictionRepository.cs`, `ISystemAlertRepository.cs`, `SystemAlertRepository.cs` và đăng ký vào DI Container trong `DependencyInjection.cs`.
+- **Hiện Thực API 1: Tra Cứu Dải Điểm Dự Báo & Toa Thuốc Bù Điểm (GetMyForecast)**:
+  - Khởi tạo chuỗi CQRS: `PrescriptionItemDto.cs`, `MyForecastResponseDto.cs`, `GetMyForecastQuery.cs` và `GetMyForecastQueryHandler.cs`.
+  - Khởi tạo controller `PredictionsController.cs` với endpoint `GET /api/practice/predictions/my-forecast`.
+  - Hỗ trợ linh hoạt định danh `X-User-Id` (Gateway/JWT) hoặc query param `studentId`, tự động phân loại trạng thái cân đối điểm (`ON_TRACK`, `AT_RISK`, `CRITICAL`).
+- **Hiện Thực API 2: Lấy Đề Ôn Tập Biến Thể Cho Dạng Bài Bù Điểm (GetPrescriptionPracticeSession)**:
+  - Khởi tạo chuỗi CQRS: `PrescriptionSessionResponseDto.cs`, `GetPrescriptionSessionQuery.cs` và `GetPrescriptionSessionQueryHandler.cs`.
+  - Endpoint `GET /api/practice/predictions/prescriptions/{patternId}/practice-session`.
+  - Nghiệp vụ: Bốc 3–5 câu hỏi biến thể từ Ngân hàng đề của Content Service thông qua `IContentGrpcClient`, ẩn đáp án đúng để học sinh làm bài thi, tích hợp cơ chế fallback sinh câu hỏi biến thể tự động.
+- **Hiện Thực API 3: Nộp Bài Ôn Tập Vi Mô, Chấm Điểm & Xóa Nợ Điểm Thâm Hụt (SubmitPrescriptionSession)**:
+  - Khởi tạo DTOs `SubmitPrescriptionSessionDtos.cs`, Command `SubmitPrescriptionSessionCommand.cs` và Handler `SubmitPrescriptionSessionCommandHandler.cs`.
+  - Endpoint `POST /api/practice/predictions/prescriptions/{patternId}/submit-session`.
+  - Nghiệp vụ: Chấm điểm tự động từng câu trả lời theo bảng khóa đáp án; nếu đạt độ chính xác $\ge 67\%$ thì đánh dấu dạng bài đã khắc phục (`is_remedied = true`), nâng xác suất thành thạo BKT $P(L_t)$ và trừ trực tiếp điểm thâm hụt (`deficit_score`) trong bảng `ScorePredictions`.
+- **Hiện Thực API 4: Kích Hoạt Tái Tính Toán Dải Điểm SEM & Toa Thuốc Bù Điểm (RecalculatePrediction)**:
+  - Khởi tạo DTOs `RecalculatePredictionDtos.cs`, Command `RecalculatePredictionCommand.cs` và Handler `RecalculatePredictionCommandHandler.cs`.
+  - Endpoint `POST /api/practice/predictions/recalculate`.
+  - Nghiệp vụ: Tái ước lượng dải điểm tin cậy $[Min, Max]$ qua sai số chuẩn đo lường SEM $95\%$, cập nhật mức độ thâm hụt so với mục tiêu, tự động giải bài toán Knapsack chọn 2–3 dạng bài bù điểm có ROI cao nhất và lưu bản ghi dự báo mới vào CSDL.
+- **Biên Dịch & Sẵn Sàng Vận Hành**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Đã kiểm thử live thành công đầy đủ cả 4 API qua port trực tiếp `5261` và cổng API Gateway YARP `5212`.
+
+---
+
 ## [16/10/2026] - Hợp Nhất Kiến Trúc Nhánh Develop: Tích Hợp Core Flow 4 (GraphRAG AI Tutor) & Core Flow 3 (Proctored Mock Exam)
 
 - **Hợp Nhất Codebase & Giải Quyết Xung Đột Tích Hợp**:

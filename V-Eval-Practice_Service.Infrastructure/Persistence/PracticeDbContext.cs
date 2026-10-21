@@ -25,6 +25,8 @@ public class PracticeDbContext : DbContext
     public DbSet<ClassGroupMember> ClassGroupMembers => Set<ClassGroupMember>();
     public DbSet<MistakeNotebook> MistakeNotebooks => Set<MistakeNotebook>();
     public DbSet<ProctoringSnapshot> ProctoringSnapshots => Set<ProctoringSnapshot>();
+    public DbSet<ScorePrediction> ScorePredictions => Set<ScorePrediction>();
+    public DbSet<SystemAlert> SystemAlerts => Set<SystemAlert>();
 
     // Core Flow 5: Analytics & Class Heatmap
     public DbSet<ClassSkillHeatmap> ClassSkillHeatmaps => Set<ClassSkillHeatmap>();
@@ -489,6 +491,43 @@ public class PracticeDbContext : DbContext
             entity.HasIndex(e => e.StudentId)
                   .IsUnique()
                   .HasDatabaseName("idx_readiness_student_id");
+        });
+
+        // Cấu hình bảng ScorePredictions (Core Flow 6: Dự báo khoảng điểm & Toa thuốc Knapsack)
+        modelBuilder.Entity<ScorePrediction>(entity =>
+        {
+            entity.ToTable("ScorePredictions");
+            entity.HasKey(e => e.PredictionId);
+
+            entity.Property(e => e.PredictionId).HasColumnName("prediction_id");
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.PredictedScore).HasColumnName("predicted_score");
+            entity.Property(e => e.PredictedScoreMin).HasColumnName("predicted_score_min");
+            entity.Property(e => e.PredictedScoreMax).HasColumnName("predicted_score_max");
+            entity.Property(e => e.ConfidenceRate).HasColumnName("confidence_rate");
+            entity.Property(e => e.TargetScore).HasColumnName("target_score");
+            entity.Property(e => e.DeficitScore).HasColumnName("deficit_score");
+            entity.Property(e => e.SemScore).HasColumnName("sem_score");
+            entity.Property(e => e.PrescriptionItems).HasColumnName("prescription_items").HasColumnType("jsonb");
+            entity.Property(e => e.CalculationSource).HasColumnName("calculation_source").HasMaxLength(50);
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+        });
+
+        // Cấu hình bảng SystemAlerts (Core Flow 6: Hệ thống cảnh báo sớm 3 cấp BR-04)
+        modelBuilder.Entity<SystemAlert>(entity =>
+        {
+            entity.ToTable("SystemAlerts");
+            entity.HasKey(e => e.AlertId);
+
+            entity.Property(e => e.AlertId).HasColumnName("alert_id");
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.AlertType).HasColumnName("alert_type").HasMaxLength(50).IsRequired();
+            entity.Property(e => e.Message).HasColumnName("message").IsRequired();
+            entity.Property(e => e.IsRead).HasColumnName("is_read");
+            entity.Property(e => e.HandledBy).HasColumnName("handled_by");
+            entity.Property(e => e.ResolutionNotes).HasColumnName("resolution_notes");
+            entity.Property(e => e.ResolvedAt).HasColumnName("resolved_at");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
         });
     }
 }
