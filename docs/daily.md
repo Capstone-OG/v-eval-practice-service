@@ -1,5 +1,237 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [20/10/2026] - Hoàn Thiện Toàn Diện Backend Core Flow 5: Khởi Tạo Dữ Liệu Mẫu & Đồng Bộ gRPC
+- **Khởi Tạo Dữ Liệu Mẫu Lớp Học & Ma Trận Nhiệt (`Program.cs`)**:
+  - Tự động gieo dữ liệu kiểm thử thực tế cho lớp mẫu `11111111-2222-3333-4444-555555555555` tại cơ sở `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee`.
+  - Khởi tạo 5 học sinh mẫu liên kết bảng `ClassEnrollments`.
+  - Khởi tạo 4 kỹ năng chuẩn thuộc 4 phân môn lớn với ma trận nhiệt thực tế: thiết lập tỷ lệ yếu 60% (3/5 học sinh có `` `P(L_t) < 0.50` ``) tại kỹ năng "Toán logic mệnh đề & suy luận kéo theo" (`88888888-9999-aaaa-bbbb-cccccccccccc`) nhằm kích hoạt trực quan cảnh báo đỏ `CRITICAL_RED` trên Teacher Heatmap.
+  - Khởi tạo 7 ngày hoạt động tự học liên tiếp (`StudentDailyActivities`) và chỉ số sẵn sàng thi `` `R_{\text{exam}} = 82.4` `` (`READY`) cho học sinh Hoàng (`3fa85f64-5717-4562-b3fc-2c963f66afa6`).
+- **Đồng Bộ gRPC Liên Dịch Vụ**:
+  - Hoàn thiện `GetParentStudents` và `LinkParentStudent` tại Identity Service gRPC, đảm bảo phân hệ Parent Companion Portal hoạt động trơn tru không cần fallback.
+- **Kiểm Thử & Biên Dịch**:
+  - Toàn bộ solution `V-Eval-Practice_Service.sln` biên dịch thành công 100% (**0 Error, 0 Warning**).
+
+---
+
+## [19/10/2026] - Triển Khai Giai Đoạn 3 (Flow 1): REST API Student Dashboard & CQRS Query Handler
+
+- **Giai Đoạn 3 (Flow 1: Student Learning Analytics Dashboard)**:
+  - **DTOs**: Tạo [`StudentDashboardDtos.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/DTOs/StudentDashboardDtos.cs) gồm `RadarCompetencyDto`, `RoadmapProgressDto`, `StreakAnalyticsDto`, `RecentMockExamDto` và `StudentDashboardResponseDto`.
+  - **Query & Handler CQRS**:
+    - [`GetStudentDashboardQuery.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetStudentDashboard/GetStudentDashboardQuery.cs): Nhận `StudentId` và trả về `Result<StudentDashboardResponseDto>`.
+    - [`GetStudentDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetStudentDashboard/GetStudentDashboardQueryHandler.cs):
+      - Gọi `IIdentityGrpcClient.GetStudentProfileAsync` lấy mục tiêu điểm số và thông tin học sinh với cơ chế fallback kiên cường.
+      - Phân tích lịch sử làm bài qua `IExamSubmissionRepository`, `IStudentActivityRepository` để tự động xác định trạng thái Onboarding UI (`needsOnboarding = true` khi chưa có dữ liệu làm bài).
+      - Tính toán Biểu đồ Radar 4 miền năng lực ĐGNL (Sử dụng Ngôn ngữ, Toán & Tư duy Logic, Khoa học Tự nhiên, Khoa học Xã hội) dựa trên dữ liệu ma trận nhiệt thực tế `IClassHeatmapRepository.GetHeatmapsByStudentIdAsync`.
+      - Tổng hợp tiến độ lộ trình học tập thích ứng (DAG Milestones %) từ `ILearningRoadmapRepository.GetActiveByStudentIdAsync`.
+      - Thống kê chuỗi ngày chuyên cần (Streak Analytics) gồm số ngày liên tiếp hiện tại, chuỗi dài nhất, cờ bảo vệ chuỗi (Freeze) và mảng hoạt động 7 ngày gần nhất.
+      - Lấy danh sách bài thi thử ĐGNL chuẩn hóa hoàn thành gần nhất kèm điểm số và tỷ lệ đúng.
+  - **Controller REST API**:
+    - [`AnalyticsController.cs`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs): Khởi tạo Controller kế thừa `ApiControllerBase` với route `api/practice/analytics` và endpoint `GET /api/practice/analytics/student/{studentId:guid}/dashboard`.
+  - **Mở Rộng Repository**:
+    - [`IClassHeatmapRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassHeatmapRepository.cs) & [`ClassHeatmapRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassHeatmapRepository.cs): Bổ sung phương thức `GetHeatmapsByStudentIdAsync` truy vấn tất cả các ô năng lực của một học sinh.
+- **Giai Đoạn 3 (Flow 2: Class Heatmap Matrix & Force Aggregate Endpoints - API 2 & API 6)**:
+  - **DTOs**: Tạo [`ClassHeatmapDtos.cs`](../V-Eval-Practice_Service.Application/Features/Classes/DTOs/ClassHeatmapDtos.cs) gồm `PedagogicalAlertDto`, `HeatmapColumnDto`, `HeatmapCellDto`, `HeatmapRowDto`, `ClassHeatmapResponseDto` và `ForceAggregateResponseDto`.
+  - **Query & Handler CQRS (API 2)**:
+    - [`GetClassHeatmapQuery.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Queries/GetClassHeatmap/GetClassHeatmapQuery.cs): Hỗ trợ lọc theo `ClassId`, `DomainCode` tùy chọn và ngưỡng thành thạo `MinMastery`.
+    - [`GetClassHeatmapQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Queries/GetClassHeatmap/GetClassHeatmapQueryHandler.cs):
+      - Cơ chế Cache-First với `IClassHeatmapCacheService` trả kết quả dưới 300ms.
+      - Tự động kích hoạt tổng hợp on-demand nếu dữ liệu tóm tắt chưa được khởi tạo.
+      - Phân tích cảnh báo sư phạm (`CRITICAL_RED` khi có >= 40% học sinh yếu hoặc `AveragePlt < 0.50`) và nhận diện phân hóa 2 cực `IsBimodal` để gợi ý chia nhóm vi mô hoặc tạo Live Q&A cứu trợ.
+      - Ma trận hàng học sinh với từng ô điểm nhiệt $P(L_t)$, phân loại rủi ro 3 mức (`SAFE`, `MEDIUM_RISK`, `HIGH_RISK`).
+  - **Command & Handler CQRS (API 6)**:
+    - [`ForceAggregateHeatmapCommand.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/ForceAggregateHeatmap/ForceAggregateHeatmapCommand.cs): Nhận `ClassId`.
+    - [`ForceAggregateHeatmapCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/ForceAggregateHeatmap/ForceAggregateHeatmapCommandHandler.cs): Cưỡng chế tính toán lại ma trận nhiệt, lưu bảng `ClassHeatmapSummaries` và làm mới bộ đệm Cache.
+  - **Mở Rộng Controller**:
+    - [`ClassesController.cs`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs): Thêm 2 endpoints `GET /api/practice/classes/{classId:guid}/heatmap` và `POST /api/practice/classes/{classId:guid}/heatmap/force-aggregate`.
+- **Giai Đoạn 3 (Flow 3: 1-Click Pedagogical Action Live Session - API 3)**:
+  - **DTOs**: Tạo [`TriggerLiveSessionDtos.cs`](../V-Eval-Practice_Service.Application/Features/Classes/DTOs/TriggerLiveSessionDtos.cs) gồm `TriggerLiveSessionRequestDto` và `TriggerLiveSessionResponseDto`.
+  - **Command & Handler CQRS (API 3)**:
+    - [`TriggerHeatmapLiveSessionCommand.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/TriggerHeatmapLiveSession/TriggerHeatmapLiveSessionCommand.cs): Nhận `ClassId`, `SkillId`, `SessionTitle`, `ScheduledAt`, `DurationMinutes`, `MeetingUrl`.
+    - [`TriggerHeatmapLiveSessionCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/TriggerHeatmapLiveSession/TriggerHeatmapLiveSessionCommandHandler.cs):
+      - Quét danh sách học sinh đang có $P(L_t) < 0.50$ tại kỹ năng cảnh báo trên Heatmap.
+      - Tạo bản ghi `LiveSession` mới với trạng thái `SCHEDULED`.
+      - Tự động liên kết `LiveSessionId` vào các chặng học `RoadmapNodes` của các học sinh thuộc diện can thiệp sư phạm.
+  - **Mở Rộng Repository**:
+    - [`ILearningRoadmapRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILearningRoadmapRepository.cs) & [`LearningRoadmapRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LearningRoadmapRepository.cs): Bổ sung `AddLiveSessionAsync` và `GetNodesBySkillAndStudentIdsAsync`.
+  - **Mở Rộng Controller**:
+    - [`ClassesController.cs`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs): Thêm endpoint `POST /api/practice/classes/{classId:guid}/heatmap/trigger-live-session`.
+- **Giai Đoạn 3 (Flow 4: Parent Companion Portal - API 4)**:
+  - **DTOs**: Tạo [`ParentDashboardDtos.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/DTOs/ParentDashboardDtos.cs) gồm `ExamReadinessDto`, `WeeklyDisciplinesDto`, `AiParentAlertDto`, `ChildAnalyticsDto` và `ParentDashboardResponseDto`.
+  - **Query & Handler CQRS (API 4)**:
+    - [`GetParentDashboardQuery.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQuery.cs): Nhận `ParentId` và trả về `Result<ParentDashboardResponseDto>`.
+    - [`GetParentDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs):
+      - Gọi Identity gRPC qua `IIdentityGrpcClient.GetParentStudentsAsync` lấy danh sách con cái liên kết.
+      - Tự động tính toán hoặc truy xuất Chỉ số sẵn sàng thi ($R_{\text{exam}}$) với 4 thành phần trọng số: chuẩn hóa Theta, độ phủ kỹ năng BKT, tính kiên định và phân cấp (READY, NEAR_READY, AT_RISK).
+      - Thống kê kỷ luật tự học tuần: tổng số giờ thực tế, so sánh với định mức 12 giờ, chuỗi ngày chuyên cần và trạng thái hoàn thành.
+      - Sinh các thẻ thông báo AI thông minh (AiParentAlerts: SUCCESS, WARNING) giải thích tiến bộ và đề xuất nhắc nhở kịp thời.
+  - **Mở Rộng Client & Controller**:
+    - [`IIdentityGrpcClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs) & [`IdentityGrpcClient.cs`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs): Bổ sung `GetParentStudentsAsync`.
+    - [`AnalyticsController.cs`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs): Thêm endpoint `GET /api/practice/analytics/parent/{parentId:guid}/children`.
+- **Giai Đoạn 3 (Flow 5: Campus Comparative Heatmap - API 5)**:
+  - **DTOs**: Tạo [`CampusComparativeHeatmapDtos.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/DTOs/CampusComparativeHeatmapDtos.cs) gồm `DomainAverageDto`, `ClassDomainMasteryDto`, `ClassComparisonDto` và `CampusComparativeHeatmapResponseDto`.
+  - **Query & Handler CQRS (API 5)**:
+    - [`GetCampusComparativeHeatmapQuery.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetCampusComparativeHeatmap/GetCampusComparativeHeatmapQuery.cs): Nhận `CampusId` và trả về `Result<CampusComparativeHeatmapResponseDto>`.
+    - [`GetCampusComparativeHeatmapQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetCampusComparativeHeatmap/GetCampusComparativeHeatmapQueryHandler.cs):
+      - Quét toàn bộ danh sách lớp học của cơ sở qua `IClassHeatmapRepository.GetClassesByCampusIdAsync`.
+      - Tổng hợp chỉ số làm chủ và tỷ lệ yếu kém theo 4 phân môn lớn (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`) cho từng lớp.
+      - Đánh giá phân cấp rủi ro cơ sở (`HIGH_RISK`, `MEDIUM_RISK`, `SAFE`) để ban quản lý cơ sở kịp thời điều phối nhân sự.
+      - Tính toán điểm trung bình toàn cơ sở cho từng phân môn.
+  - **Mở Rộng Repository & Controller**:
+    - [`IClassHeatmapRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassHeatmapRepository.cs) & [`ClassHeatmapRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassHeatmapRepository.cs): Bổ sung `GetClassesByCampusIdAsync`.
+    - [`AnalyticsController.cs`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs): Thêm endpoint `GET /api/practice/analytics/campus/{campusId:guid}/comparative-heatmap`.
+- **Kiểm Thử & Biên Dịch**:
+  - Biên dịch `dotnet build` toàn bộ solution `V-Eval-Practice_Service.sln` đạt **0 Error, 0 Warning**.
+
+---
+
+## [18/10/2026] - Hoàn Tất Giai Đoạn 1 & Giai Đoạn 2 Core Flow 5: Khởi Tạo CSDL & Động Cơ Hybrid Aggregation Engine
+
+- **Giai Đoạn 1: Khởi Tạo 4 Thực Thể Domain CSDL & Cấu Hình Fluent API (`Domain/Entities/` & `Infrastructure/Persistence/`)**:
+  - [`ClassSkillHeatmap.cs`](../V-Eval-Practice_Service.Domain/Entities/ClassSkillHeatmap.cs): Quản lý từng ô ma trận nhiệt `` `(ClassId, StudentId, SkillId)` `` với trường `` `PltValue` ``, phân loại `` `MasteryLevel` `` và `` `LastAssessmentType` ``.
+  - [`ClassHeatmapSummary.cs`](../V-Eval-Practice_Service.Domain/Entities/ClassHeatmapSummary.cs): Bản ghi tổng hợp thống kê cột kỹ năng toàn lớp với `` `AveragePlt` ``, `` `StrugglingCount` ``, `` `StrugglingRate` ``, độ lệch chuẩn `` `StdDevPlt` ``, cờ phân hóa 2 cực `` `IsBimodal` `` và trạng thái cảnh báo sư phạm `` `AlertStatus` ``.
+  - [`StudentDailyActivity.cs`](../V-Eval-Practice_Service.Domain/Entities/StudentDailyActivity.cs): Ghi nhận chi tiết chuyên cần và thời gian học tập hằng ngày theo chuẩn Active Study Day (làm bài tập APPLY, xem video LEARN, làm bài thi thử), tích hợp cờ bảo vệ chuỗi `` `IsFrozen` `` và `` `IsStreakCounted` ``.
+  - [`StudentReadinessMetric.cs`](../V-Eval-Practice_Service.Domain/Entities/StudentReadinessMetric.cs): Lưu trữ chỉ số sẵn sàng thi tổng hợp `` `ExamReadinessIndex` ``, năng lực tiềm ẩn chuẩn hóa `` `NormalizedTheta` ``, độ phủ kiến thức BKT `` `SkillCoveragePlt` `` và điểm kỷ luật `` `ConsistencyScore` `` phục vụ Cổng Phụ huynh.
+  - Cấu hình Fluent API chi tiết trong schema `v_eval_practice` của [`PracticeDbContext.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs) với các ràng buộc chỉ mục độc nhất và Cascade Delete.
+  - Tự động hóa DDL khởi tạo trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs) và xuất bản [`SQL_Migration_Flow5_Analytics.sql`](../../docs/SQL/SQL_Migration_Flow5_Analytics.sql).
+- **Giai Đoạn 2: Triển Khai Động Cơ Hybrid Aggregation Engine & Background Worker 15 Phút**:
+  - **Kho Dữ Liệu Chuyên Biệt**:
+    - [`IClassHeatmapRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassHeatmapRepository.cs) & [`ClassHeatmapRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassHeatmapRepository.cs): Truy vấn ma trận nhiệt, lọc theo phân môn và upsert hàng loạt bản ghi tóm tắt.
+    - [`IStudentActivityRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IStudentActivityRepository.cs) & [`StudentActivityRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/StudentActivityRepository.cs): Tính toán chuỗi chuyên cần thực tế (Streak) lùi ngày liên tục, thời gian tự học trong 7 ngày gần nhất và chỉ số sẵn sàng thi.
+  - **Tối Ưu Hóa Bộ Đệm Ma Trận (< 300ms)**:
+    - [`IClassHeatmapCacheService.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Services/IClassHeatmapCacheService.cs) & [`ClassHeatmapCacheService.cs`](../V-Eval-Practice_Service.Infrastructure/Caching/ClassHeatmapCacheService.cs): Dịch vụ đệm bộ nhớ trong `IMemoryCache` kèm cơ chế theo dõi khóa ConcurrentDictionary và hàm `InvalidateClassHeatmapAsync` xóa cache cục bộ theo lớp.
+  - **Động Cơ Tính Toán Khảo Thí & Phân Tích Sư Phạm**:
+    - [`IClassHeatmapAggregatorService.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Services/IClassHeatmapAggregatorService.cs) & [`ClassHeatmapAggregatorService.cs`](../V-Eval-Practice_Service.Infrastructure/Services/ClassHeatmapAggregatorService.cs):
+      - Tính toán trung bình cộng `` `\overline{P(L_t)}` ``, tỷ lệ học sinh yếu kém `` `\text{StrugglingRate}` ``, độ lệch chuẩn mẫu `` `\sigma` ``, xác định phân hóa 2 cực `IsBimodal` và phân loại cảnh báo đỏ/vàng/xanh 3 cấp độ.
+      - Thuật toán tính toán chỉ số sẵn sàng thi: `` `R_{\text{exam}} = 0.50 \cdot S_{\theta} + 0.35 \cdot C_{\text{BKT}} + 0.15 \cdot F_{\text{consistency}}` ``.
+      - Xử lý ghi nhận chuyên cần Active Study Day: Tự động đánh dấu `IsStreakCounted = true` khi hoàn thành bài tập thích ứng hoặc xem >= 15 phút video hoặc làm bài thi thử.
+  - **Background Worker Quét Định Kỳ 15 Phút**:
+    - [`ClassHeatmapAggregationWorker.cs`](../V-Eval-Practice_Service.Infrastructure/BackgroundJobs/ClassHeatmapAggregationWorker.cs): Kế thừa `BackgroundService`, khởi chạy sau 20s và kích hoạt chu kỳ quét tự động mỗi 15 phút cho tất cả các lớp học `ACTIVE`.
+  - **Tích Hợp Write-Through O(1) Vào Các Điểm Nộp Bài Thực Tế**:
+    - [`SubmitAnswerCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/SubmitAnswer/SubmitAnswerCommandHandler.cs): Ghi nhận 1 câu làm bài vào Streak và cập nhật ô nhiệt của học sinh ngay khi nộp bài thích ứng.
+    - [`SubmitMockExamCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/SubmitMockExam/SubmitMockExamCommandHandler.cs): Ghi nhận bài thi thử vào Streak, tích lũy giờ làm bài và cập nhật toàn bộ kỹ năng xuất hiện trong đề thi vào bảng nhiệt của lớp.
+    - [`TrackVideoCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/TrackVideo/TrackVideoCommandHandler.cs): Tích lũy thời gian xem video bài giảng lý thuyết vào chỉ số chuyên cần.
+  - **Đăng Ký DI Container**: Cập nhật [`DependencyInjection.cs`](../V-Eval-Practice_Service.Infrastructure/DependencyInjection.cs) đăng ký đầy đủ các kho, dịch vụ tính toán, cache và HostedService worker.
+- **Kiểm Thử Biên Dịch**:
+  - Chạy `dotnet build` toàn bộ solution `V-Eval-Practice_Service.sln` thành công 100% (**0 Error, 0 Warning**).
+
+---
+
+## [17/10/2026] - Đặc Tả Kỹ Thuật & Kế Hoạch Kiến Trúc Core Flow 5: Phân Tích Tiến Độ & Bản Đồ Nhiệt Lớp Học (Learning Analytics & Class Heatmap)
+
+- **Ban Hành Bản Đặc Tả Kỹ Thuật Core Flow 5**:
+  - Thiết kế kiến trúc Hybrid Analytics Engine: kết hợp **Real-time Write-Through Micro-update** (ngay khi hoàn thành chặng học/bài thi thử) và **Background Aggregation Worker** (quét định kỳ mỗi 15 phút tính toán Mean, StdDev, StrugglingRate, và phát hiện phân hóa 2 cực Bimodal Distribution).
+  - Hoàn thiện mô hình toán khảo thí định lượng:
+    - Ngưỡng cảnh báo đỏ 3 cấp độ cho Class Heatmap (khi có >= 40% học sinh yếu hoặc trung bình lớp < 0.50).
+    - Công thức chuẩn hóa Chỉ số sẵn sàng thi cho Phụ huynh (Exam Readiness Index): `` `R_{\text{exam}} = 0.50 \cdot S_{\theta} + 0.35 \cdot C_{\text{BKT}} + 0.15 \cdot F_{\text{consistency}}` ``.
+    - Tiêu chuẩn hóa định nghĩa Active Study Day & Chuỗi chuyên cần (Streak) và cơ chế đóng băng chuỗi (Streak Freeze).
+  - Thiết kế 4 bảng CSDL mới trong schema `v_eval_practice`: `ClassSkillHeatmaps`, `ClassHeatmapSummaries`, `StudentDailyActivities`, `StudentReadinessMetrics`.
+  - Đặc tả chi tiết bộ 6 REST APIs cho Teacher Heatmap, Student Dashboard, Parent Portal và Campus Director.
+  - Chuẩn bị kế hoạch triển khai Phase 1: Tạo EF Core Entities, Fluent API configuration và DDL migration script.
+
+---
+
+## [19/10/2026] - Hiện Thực Core Flow 6: API 5 Tra Cứu Cảnh Báo Sớm Cá Nhân (GetMyAlerts)
+
+- **Hiện Thực API 5: Học Sinh Tra Cứu Danh Sách Cảnh Báo Cá Nhân (GetMyAlerts)**:
+  - Khởi tạo bộ DTOs [`EarlyWarningDtos.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs):
+    - `SystemAlertDto`: Chi tiết từng thông báo cảnh báo 3 cấp (`AlertId`, `StudentId`, `AlertType`, `Message`, `IsRead`, `HandledBy`, `ResolutionNotes`, `ResolvedAt`, `CreatedAt`).
+    - `MyAlertsResponseDto`: Phản hồi thống kê toàn diện (`TotalAlerts`, `UnreadCount`, `RedAlertsCount`, `YellowAlertsCount`, `Alerts`).
+  - Xây dựng Query CQRS `GetMyAlertsQuery.cs` và Handler [`GetMyAlertsQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/Queries/GetMyAlerts/GetMyAlertsQueryHandler.cs):
+    - Truy xuất danh sách cảnh báo cá nhân từ `ISystemAlertRepository`.
+    - Hỗ trợ đa dạng bộ lọc: lọc cảnh báo chưa đọc (`unreadOnly = true/false`), lọc theo cấp độ cảnh báo (`alertType = 'YELLOW' | 'RED' | 'UNREALISTIC_GOAL' | 'GREEN'`).
+    - Tính toán chính xác các chỉ số tổng hợp độc lập với bộ lọc để giao diện học sinh luôn hiển thị badge cảnh báo chuẩn xác.
+  - Mở rộng Repository [`ISystemAlertRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ISystemAlertRepository.cs) và [`SystemAlertRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/SystemAlertRepository.cs) hỗ trợ lọc linh hoạt theo `alertType`.
+  - Khởi tạo Controller [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `GET /api/practice/early-warnings/my-alerts`.
+    - Cơ chế xác thực an toàn: ưu tiên bốc `StudentId` từ Gateway Header `X-User-Id`, fallback query parameter `studentId` hỗ trợ kiểm thử tiện lợi trên Swagger.
+  - Bổ sung Seed Data mẫu cho hệ thống cảnh báo sớm trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs) với đầy đủ 3 cấp độ `RED`, `YELLOW`, `UNREALISTIC_GOAL` kèm nhật ký can thiệp của Mentor.
+- **Hiện Thực API 6: Đánh Dấu Đã Đọc Thông Báo Cảnh Báo (MarkAlertAsRead)**:
+  - Bổ sung DTO `MarkAlertAsReadResponseDto` trong [`EarlyWarningDtos.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
+  - Xây dựng Command `MarkAlertAsReadCommand.cs` và Handler [`MarkAlertAsReadCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/Commands/MarkAlertAsRead/MarkAlertAsReadCommandHandler.cs):
+    - Kiểm tra tính hợp lệ và thẩm quyền sở hữu: cấm học sinh này cập nhật cảnh báo của học sinh khác (trả về 403 Forbidden).
+    - Cập nhật trường `IsRead = true` và lưu vết vào CSDL PostgreSQL qua `ISystemAlertRepository.UpdateAsync`.
+  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `PATCH /api/practice/early-warnings/{alertId}/read`.
+    - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `401 Unauthorized`, `403 Forbidden`, `404 NotFound`.
+- **Hiện Thực API 7: Mentor Tra Cứu Dashboard Cảnh Báo Sớm Học Sinh (GetAlertsDashboard)**:
+  - Bổ sung DTOs `AlertDashboardItemDto` và `EarlyWarningsDashboardResponseDto` trong [`EarlyWarningDtos.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
+  - Mở rộng Repository [`ISystemAlertRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ISystemAlertRepository.cs) và [`SystemAlertRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/SystemAlertRepository.cs) với `GetAlertsByClassAsync` và `GetAllAlertsAsync`.
+  - Xây dựng Query `GetAlertsDashboardQuery.cs` và Handler [`GetAlertsDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/Queries/GetAlertsDashboard/GetAlertsDashboardQueryHandler.cs):
+    - Tổng hợp toàn diện các chỉ số cảnh báo: `TotalAlerts`, `ActiveAlertsCount`, `RedAlertsCount`, `YellowAlertsCount`, `UnrealisticGoalCount`, `ResolvedAlertsCount`.
+    - Tự động làm giàu dữ liệu từng cảnh báo với điểm dự báo mới nhất `CurrentPredictedScore`, mục tiêu `TargetScore` và độ thâm hụt `DeficitScore` từ `IScorePredictionRepository`.
+    - Hỗ trợ đa dạng bộ lọc: theo lớp `classId`, theo loại cảnh báo `alertType`, theo trạng thái xử lý `isResolved` (đang cần can thiệp vs đã giải quyết).
+  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `GET /api/practice/early-warnings/dashboard`.
+  - Seed lớp chuyên đề mẫu và ghi danh học sinh trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs) phục vụ kiểm thử phân hệ Dashboard Mentor.
+- **Hiện Thực API 8: Mentor Ghi Chú Giải Quyết Can Thiệp Sư Phạm (ResolveAlert)**:
+  - Bổ sung DTOs `ResolveAlertRequestDto` và `ResolveAlertResponseDto` trong [`EarlyWarningDtos.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
+  - Xây dựng Command `ResolveAlertCommand.cs` và Handler [`ResolveAlertCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/Commands/ResolveAlert/ResolveAlertCommandHandler.cs):
+    - Kiểm tra hợp lệ `AlertId`, danh tính Mentor (`mentor_id` hoặc header `X-User-Id`), và bắt buộc có nội dung giải trình `resolution_notes`.
+    - Cập nhật bản ghi `SystemAlert`: gán `HandledBy`, `ResolutionNotes`, đóng dấu `ResolvedAt = DateTime.UtcNow` và `IsRead = true`.
+    - Lưu cập nhật xuống PostgreSQL qua `ISystemAlertRepository.UpdateAsync`.
+  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `POST /api/practice/early-warnings/{alertId}/resolve`.
+    - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `400 BadRequest`, `401 Unauthorized`, `404 NotFound`.
+- **Hiện Thực API 9: Mentor Lên Lịch Hẹn Tư Vấn 3 Bên Định Hướng Lại Mục Tiêu (ScheduleCounseling)**:
+  - Bổ sung DTOs `ScheduleCounselingRequestDto` và `ScheduleCounselingResponseDto` trong [`EarlyWarningDtos.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
+  - Xây dựng Command `ScheduleCounselingCommand.cs` và Handler [`ScheduleCounselingCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/Commands/ScheduleCounseling/ScheduleCounselingCommandHandler.cs):
+    - Kiểm tra điều kiện hợp lệ: thời gian hẹn tư vấn `counseling_date` phải ở tương lai, điểm số mục tiêu đề xuất `proposed_target_score` phải nằm trong thang điểm ĐGNL chuẩn (0–1200 điểm), định danh Mentor hợp lệ.
+    - Kiểm tra tồn tại bản ghi cảnh báo trong CSDL; cập nhật nội dung giải trình can thiệp sư phạm chứa thông tin cuộc hẹn 3 bên (Phụ huynh - Học sinh - Mentor), địa điểm và mục tiêu đề xuất, đồng thời chuyển trạng thái cảnh báo sang đã xử lý (`is_resolved = true`).
+  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
+    - Định tuyến chuẩn: `POST /api/practice/early-warnings/{alertId}/schedule-counseling`.
+    - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `400 BadRequest`, `401 Unauthorized`, `404 NotFound`.
+- **Hoàn Tất Triển Khai Toàn Diện 9/9 API Của Core Flow 6**:
+  - Toàn bộ 9 API thuộc Core Flow 6 (Dự báo khoảng điểm SEM, Toa thuốc bù điểm Knapsack ROI & Hệ thống cảnh báo sớm 3 cấp BR-04) đã được hiện thực đầy đủ, kiểm thử vận hành thành công và hoàn thiện tài liệu theo tiêu chuẩn kiến trúc sạch.
+- **Biên Dịch & Sẵn Sàng Vận Hành**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
+
+## [18/10/2026] - Khởi Tạo Nhánh Tính Năng Core Flow 6: Dự Báo Khoảng Điểm SEM & Cảnh Báo Sớm BR-04
+
+- **Khởi Tạo Nhánh Phát Triển Độc Lập**:
+  - Nhánh `feature/core-flow-6-score-prediction-early-warning` được tạo từ codebase tích hợp mới nhất của Practice Service (đã tích hợp đầy đủ Module 1, 2, 3 của Core Flow 3 và Core Flow 4 Graph-RAG).
+- **Nền Tảng Mô Hình Thực Thể & CSDL Core Flow 6**:
+  - Tạo entity `ScorePrediction.cs` lưu trữ dải điểm tin cậy `[PredictedScoreMin, PredictedScoreMax]`, sai số chuẩn `SemScore`, điểm thâm hụt `DeficitScore` và cột `PrescriptionItems` (JSONB) chứa danh sách các dạng bài bù điểm Knapsack ROI.
+  - Tạo entity `SystemAlert.cs` phục vụ hệ thống cảnh báo sớm 3 cấp BR-04 và nhật ký can thiệp sư phạm của Mentor tại lớp.
+  - Cập nhật `PracticeDbContext.cs` đăng ký 2 `DbSet` và cấu hình Fluent API mapping tương thích PostgreSQL Schema.
+  - Tạo bộ Repository `IScorePredictionRepository.cs`, `ScorePredictionRepository.cs`, `ISystemAlertRepository.cs`, `SystemAlertRepository.cs` và đăng ký vào DI Container trong `DependencyInjection.cs`.
+- **Hiện Thực API 1: Tra Cứu Dải Điểm Dự Báo & Toa Thuốc Bù Điểm (GetMyForecast)**:
+  - Khởi tạo chuỗi CQRS: `PrescriptionItemDto.cs`, `MyForecastResponseDto.cs`, `GetMyForecastQuery.cs` và `GetMyForecastQueryHandler.cs`.
+  - Khởi tạo controller `PredictionsController.cs` với endpoint `GET /api/practice/predictions/my-forecast`.
+  - Hỗ trợ linh hoạt định danh `X-User-Id` (Gateway/JWT) hoặc query param `studentId`, tự động phân loại trạng thái cân đối điểm (`ON_TRACK`, `AT_RISK`, `CRITICAL`).
+- **Hiện Thực API 2: Lấy Đề Ôn Tập Biến Thể Cho Dạng Bài Bù Điểm (GetPrescriptionPracticeSession)**:
+  - Khởi tạo chuỗi CQRS: `PrescriptionSessionResponseDto.cs`, `GetPrescriptionSessionQuery.cs` và `GetPrescriptionSessionQueryHandler.cs`.
+  - Endpoint `GET /api/practice/predictions/prescriptions/{patternId}/practice-session`.
+  - Nghiệp vụ: Bốc 3–5 câu hỏi biến thể từ Ngân hàng đề của Content Service thông qua `IContentGrpcClient`, ẩn đáp án đúng để học sinh làm bài thi, tích hợp cơ chế fallback sinh câu hỏi biến thể tự động.
+- **Hiện Thực API 3: Nộp Bài Ôn Tập Vi Mô, Chấm Điểm & Xóa Nợ Điểm Thâm Hụt (SubmitPrescriptionSession)**:
+  - Khởi tạo DTOs `SubmitPrescriptionSessionDtos.cs`, Command `SubmitPrescriptionSessionCommand.cs` và Handler `SubmitPrescriptionSessionCommandHandler.cs`.
+  - Endpoint `POST /api/practice/predictions/prescriptions/{patternId}/submit-session`.
+  - Nghiệp vụ: Chấm điểm tự động từng câu trả lời theo bảng khóa đáp án; nếu đạt độ chính xác $\ge 67\%$ thì đánh dấu dạng bài đã khắc phục (`is_remedied = true`), nâng xác suất thành thạo BKT $P(L_t)$ và trừ trực tiếp điểm thâm hụt (`deficit_score`) trong bảng `ScorePredictions`.
+- **Hiện Thực API 4: Kích Hoạt Tái Tính Toán Dải Điểm SEM & Toa Thuốc Bù Điểm (RecalculatePrediction)**:
+  - Khởi tạo DTOs `RecalculatePredictionDtos.cs`, Command `RecalculatePredictionCommand.cs` và Handler `RecalculatePredictionCommandHandler.cs`.
+  - Endpoint `POST /api/practice/predictions/recalculate`.
+  - Nghiệp vụ: Tái ước lượng dải điểm tin cậy $[Min, Max]$ qua sai số chuẩn đo lường SEM $95\%$, cập nhật mức độ thâm hụt so với mục tiêu, tự động giải bài toán Knapsack chọn 2–3 dạng bài bù điểm có ROI cao nhất và lưu bản ghi dự báo mới vào CSDL.
+- **Biên Dịch & Sẵn Sàng Vận Hành**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Đã kiểm thử live thành công đầy đủ cả 4 API qua port trực tiếp `5261` và cổng API Gateway YARP `5212`.
+
+---
+
+## [16/10/2026] - Hợp Nhất Kiến Trúc Nhánh Develop: Tích Hợp Core Flow 4 (GraphRAG AI Tutor) & Core Flow 3 (Proctored Mock Exam)
+
+- **Hợp Nhất Codebase & Giải Quyết Xung Đột Tích Hợp**:
+  - Hợp nhất thành công các cập nhật mới nhất từ `origin/develop` vào nhánh `feature/core-flow-3-interactive-learning`.
+  - Tích hợp liền mạch phân hệ **Graph-RAG Socratic AI Tutor** (Core Flow 4: `AiTutorController`, `IAiTutorClient`, `AiTutorClient`, Rate Limiting `StrictTutorPolicy`) cùng phân hệ **Thi Thử Có Giám Sát Chuẩn Hóa** (Core Flow 3 Module 3: `MockExamsController`, `IMockExamRepository`, `MockExamRepository`, `ProctoringSnapshots`).
+  - Đồng bộ `Program.cs` và `DependencyInjection.cs` đảm bảo khởi tạo đầy đủ các pipeline và DI container.
+- **Kiểm Thử & Biên Dịch Toàn Cục**:
+  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+  - Chuẩn bị sẵn sàng cho Pull Request từ nhánh tính năng vào nhánh `develop`.
+
+---
+
 ## [14/10/2026] - Triển Khai Liên Thông Tự Động Gán Đề Thích Ứng Cho Nhóm Học Tập Vi Mô (Practice <-> Content Service API 19)
 
 - **Hiện Thực Hóa Client Liên Thông REST API Content Service (`Application/Common/Interfaces/IContentHttpClient.cs`)**:
@@ -18,6 +250,81 @@
   - Nhận `ExamId` trả về và gán làm `AssignedWorksheetId` cùng `AssignedWorksheetTitle` trực tiếp cho nhóm học tập.
 - **Kiểm Thử & Biên Dịch**:
   - Toàn bộ solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
+
+---
+
+## [12/10/2026] - Khởi Động Core Flow 3 (Module 3): Nền Tảng CSDL Giám Sát & API Khởi Tạo Bài Thi Thử Chuẩn Hóa (StartMockExam)
+
+- **Mở Rộng Mô Hình CSDL & Thực Thể Giám Sát Liêm Chính Học Thuật (Proctoring & Mock Exam)**:
+  - Mở rộng thực thể [`ExamSubmission.cs`](../V-Eval-Practice_Service.Domain/Entities/ExamSubmission.cs):
+    - Tái sử dụng bảng `ExamSubmissions` với `ExamType = "MOCK_EXAM"`.
+    - Bổ sung 4 trường phục vụ giám sát gian lận và thẩm định: `TabDepartureCount` (đếm số lần rời tab), `IntegrityStatus` (mặc định `NORMAL`, chuyển sang `FLAGGED_FOR_REVIEW` khi vi phạm), `MentorVerdict` (`PENDING`, `APPROVED`, `DISQUALIFIED`), `MentorNotes`.
+    - Thêm quan hệ 1-N với bộ sưu tập `ProctoringSnapshots`.
+  - Tạo mới thực thể Domain [`ProctoringSnapshot.cs`](../V-Eval-Practice_Service.Domain/Entities/ProctoringSnapshot.cs): lưu vết ảnh chụp webcam ngẫu nhiên định kỳ (`Id`, `SubmissionId`, `SnapshotUrl`, `CapturedAt`, `FaceDetected`).
+  - Cấu hình Fluent API và DbSets trong [`PracticeDbContext.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs): ánh xạ các cột mới và thiết lập Cascade Delete.
+  - Cập nhật script khởi tạo bảng SQL DDL tự động trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs): `ALTER TABLE "ExamSubmissions"` và `CREATE TABLE IF NOT EXISTS "ProctoringSnapshots"`.
+- **Repository Tầng Dữ Liệu Thi Thử & Giám Sát**:
+  - Tạo interface [`IMockExamRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IMockExamRepository.cs) và hiện thực tại [`MockExamRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/MockExamRepository.cs).
+  - Đăng ký DI Scoped trong [`DependencyInjection.cs`](../V-Eval-Practice_Service.Infrastructure/DependencyInjection.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 1): Khởi Tạo Phiên Thi Thử Chuẩn Hóa (POST /api/practice/mock-exams/{examId}/start)**:
+  - Khởi tạo DTOs [`StartMockExamDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/StartMockExamDtos.cs) (`StartMockExamRequestDto`, `MockExamQuestionDto`, `StartMockExamResponseDto`).
+  - Khởi tạo Command `StartMockExamCommand.cs` và Validator `StartMockExamCommandValidator.cs`.
+  - Xây dựng Handler [`StartMockExamCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/StartMockExam/StartMockExamCommandHandler.cs):
+    1. Kiểm tra phiên thi đang dang dở (`IN_PROGRESS`) của học sinh; nếu còn trong thời gian 150 phút thì khôi phục phiên làm bài tiếp tục.
+    2. Nạp câu hỏi từ Content Service qua gRPC (`GetMilestoneQuizAsync` với `questionCount = 120`), ẩn hoàn toàn đáp án đúng để bảo mật.
+    3. Cung cấp cơ chế dự phòng an toàn (Fallback Graceful Degradation) khi tạm mất kết nối Content Service.
+    4. Khởi tạo bản ghi `ExamSubmission` mới (`ExamType = "MOCK_EXAM"`, `Status = "IN_PROGRESS"`, thời hạn 150 phút) và lưu CSDL.
+  - Xây dựng Controller mới [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs) với route `api/practice/mock-exams` và endpoint `[HttpPost("{examId:guid}/start")]`.
+- **Hiện Thực Core Flow 3 (Module 3 - API 2): Ghi Nhận Sự Kiện Rời Tab & Cắm Cờ Gian Lận (POST /api/practice/mock-exams/{submissionId}/log-tab-departure)**:
+  - Khởi tạo DTOs [`LogTabDepartureDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/LogTabDepartureDtos.cs) (`LogTabDepartureRequestDto`, `LogTabDepartureResponseDto`).
+  - Khởi tạo Command `LogTabDepartureCommand.cs` và Validator `LogTabDepartureCommandValidator.cs`.
+  - Xây dựng Handler [`LogTabDepartureCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/LogTabDeparture/LogTabDepartureCommandHandler.cs):
+    1. Xác thực phiên thi tồn tại và đang ở trạng thái `IN_PROGRESS`.
+    2. Tăng số lần rời màn hình `TabDepartureCount += 1`.
+    3. Thực thi quy tắc liêm chính học thuật (BR-20): Nếu rời tab vượt quá 3 lần (`TabDepartureCount > 3`), tự động gắn cờ nghi vấn gian lận `IntegrityStatus = "FLAGGED_FOR_REVIEW"`.
+    4. Cập nhật bản ghi vào CSDL qua `IMockExamRepository.UpdateAsync`.
+    5. Trả về thông điệp cảnh báo sư phạm tương ứng theo mức độ vi phạm.
+  - Bổ sung endpoint `[HttpPost("{submissionId:guid}/log-tab-departure")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 3): Lưu Ảnh Chụp Webcam Giám Sát Ngẫu Nhiên (POST /api/practice/mock-exams/{submissionId}/upload-snapshot)**:
+  - Khởi tạo DTOs [`UploadSnapshotDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/UploadSnapshotDtos.cs) (`UploadSnapshotRequestDto`, `UploadSnapshotResponseDto`).
+  - Khởi tạo Command `UploadSnapshotCommand.cs` và Validator `UploadSnapshotCommandValidator.cs`.
+  - Xây dựng Handler [`UploadSnapshotCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/UploadSnapshot/UploadSnapshotCommandHandler.cs):
+    1. Xác thực bài thi tồn tại và trạng thái `IN_PROGRESS`.
+    2. Khởi tạo bản ghi `ProctoringSnapshot` liên kết `SubmissionId`, lưu vết `SnapshotUrl`, mốc thời gian `CapturedAt = UtcNow` và kết quả nhận diện khuôn mặt `FaceDetected`.
+    3. Cảnh báo trong log kiểm toán nếu phát hiện frame ảnh không nhận diện được khuôn mặt (`FaceDetected = false`).
+    4. Cập nhật và đếm tổng số lượng ảnh chụp trong phiên thi qua `IMockExamRepository.AddSnapshotAsync`.
+  - Bổ sung endpoint `[HttpPost("{submissionId:guid}/upload-snapshot")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 4): Nộp Bài Thi Thử, Chấm Điểm & Phân Luồng Liêm Chính Học Thuật (POST /api/practice/mock-exams/{submissionId}/submit)**:
+  - Khởi tạo DTOs [`SubmitMockExamDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/SubmitMockExamDtos.cs) (`MockExamAnswerSubmissionDto`, `SubmitMockExamRequestDto`, `MockExamQuestionResultDto`, `SubmitMockExamResponseDto`).
+  - Khởi tạo Command `SubmitMockExamCommand.cs` và Validator `SubmitMockExamCommandValidator.cs`.
+  - Xây dựng Handler [`SubmitMockExamCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/SubmitMockExam/SubmitMockExamCommandHandler.cs):
+    1. Xác thực phiên thi tồn tại và trạng thái `IN_PROGRESS`.
+    2. Nạp bảng đáp án chuẩn qua gRPC `IContentGrpcClient.GetExamAnswerKeysAsync`, hỗ trợ cơ chế fallback chấm điểm độc lập khi test local.
+    3. Chấm điểm từng câu, tính `TotalCorrect`, `TotalQuestions`, `TotalScore` (120 câu chuẩn ĐGNL x 10 điểm = 1200 điểm), và `TotalTimeSpentSeconds`. Lưu chi tiết từng câu vào `SubmissionAnswers`.
+    4. Áp dụng quy tắc giám sát thi cử (BR-20): Nếu `IntegrityStatus == "FLAGGED_FOR_REVIEW"` hoặc `TabDepartureCount > 3`, tự động chuyển bài thi sang `Status = "UNDER_REVIEW"` và `MentorVerdict = "PENDING"` để Mentor thẩm định. Ngược lại đánh dấu `Status = "COMPLETED"` và `MentorVerdict = "APPROVED"`.
+    5. Tự động liên thông Core 3: Các câu làm sai (`!isCorrect`) được tự động nạp vào Sổ tay lỗi sai cá nhân (`MistakeNotebook`) với `NextReviewDate = Ngày mai` phục vụ chu kỳ lặp lại ngắt quãng SM-2.
+    6. Liên thông Core 2: Cập nhật độ thành thạo các kỹ năng làm được vào `LearningProfiles` (`UpsertSkillPriorsAsync`) để chuẩn bị dữ liệu phân nhóm bàn học vi mô (Micro-groups 3-5 bạn) cho tuần học tiếp theo.
+  - Bổ sung endpoint `[HttpPost("{submissionId:guid}/submit")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 5): Xem Chi Tiết Bài Thi & Dấu Vết Giám Sát Thị Giác (GET /api/practice/mock-exams/{submissionId})**:
+  - Khởi tạo DTOs [`GetMockExamDetailDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/GetMockExamDetailDtos.cs) (`MockExamSnapshotDto`, `MockExamAnswerDetailDto`, `GetMockExamDetailResponseDto`).
+  - Khởi tạo Query `GetMockExamDetailQuery.cs` và Validator `GetMockExamDetailQueryValidator.cs`.
+  - Xây dựng Handler [`GetMockExamDetailQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetMockExamDetail/GetMockExamDetailQueryHandler.cs):
+    1. Truy xuất thông tin bài thi kèm chi tiết câu trả lời và lịch sử ảnh chụp webcam qua `IMockExamRepository.GetByIdWithDetailsAsync`.
+    2. Trả về toàn diện kết quả điểm số, trạng thái liêm chính (`IntegrityStatus`), số lần vi phạm (`TabDepartureCount`), kết luận thẩm định của Mentor (`MentorVerdict`, `MentorNotes`).
+    3. Cung cấp chuỗi bằng chứng ảnh chụp (Visual Audit Trail) sắp xếp theo thời gian (`CapturedAt`) kèm cờ nhận diện khuôn mặt (`FaceDetected`) phục vụ quy trình thẩm định gian lận.
+    4. Cung cấp chi tiết từng câu hỏi học sinh đã trả lời.
+  - Bổ sung endpoint `[HttpGet("{submissionId:guid}")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
+- **Hiện Thực Core Flow 3 (Module 3 - API 6): Mentor Thẩm Định & Phê Duyệt Kết Quả Thi Thử (PATCH /api/practice/mock-exams/{submissionId}/mentor-review)**:
+  - Khởi tạo DTOs [`MentorReviewDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/MentorReviewDtos.cs) (`MentorReviewRequestDto`, `MentorReviewResponseDto`).
+  - Khởi tạo Command `MentorReviewCommand.cs` và Validator `MentorReviewCommandValidator.cs` (ràng buộc Verdict chỉ nhận `APPROVED` hoặc `DISQUALIFIED`, bắt buộc nhập `Notes` khi hủy kết quả).
+  - Xây dựng Handler [`MentorReviewCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/MentorReview/MentorReviewCommandHandler.cs):
+    1. Xác thực bài thi tồn tại và không ở trạng thái đang làm (`IN_PROGRESS`).
+    2. Nếu `Verdict == "APPROVED"`: Chuyển trạng thái `Status = "COMPLETED"`, giải phóng cờ `IntegrityStatus = "NORMAL"`, giữ nguyên và công nhận điểm số chính thức.
+    3. Nếu `Verdict == "DISQUALIFIED"`: Chuyển trạng thái `Status = "DISQUALIFIED"`, hủy điểm `TotalScore = 0`, `TotalCorrect = 0` do vi phạm quy chế thi.
+    4. Lưu vết ghi chú sư phạm và lý do thẩm định của Mentor vào `MentorNotes`.
+  - Bổ sung endpoint `[HttpPatch("{submissionId:guid}/mentor-review")]` vào [`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs).
+- **Kiểm Thử Biên Dịch**:
+  - Toàn bộ Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
 
 ---
 
@@ -44,8 +351,6 @@
 - **Kiểm Thử & Biên Dịch**:
   - Toàn bộ solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
 
----
-
 ## [11/10/2026] - Triển Khai Giai Đoạn 5 Core Flow 4 GraphRAG AI Tutor: Tích Hợp Practice Service .NET 9 & SSE Streaming Proxy
 - **Định Nghĩa Hợp Đồng Giao Tiếp Socratic AI Tutor (`Application/Common/Interfaces/IAiTutorClient.cs`)**:
   - Khởi tạo interface `IAiTutorClient` với 2 cơ chế:
@@ -71,6 +376,7 @@
   - Toàn bộ solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
 
 ---
+
 ## [09/10/2026] - Nâng Cấp Mô Hình Giảng Dạy Offline: Giới Hạn Sĩ Số Lớp 20 Người, Đánh Số Thứ Tự Tăng Dần & Phân Nhóm Học Tập Vi Mô (3 - 5 Học Sinh)
 
 - **Giới Hạn Sĩ Số Lớp 20 Học Sinh & Tự Động Đánh Số Thứ Tự Lớp Tăng Dần**:
@@ -268,7 +574,6 @@
 ---
 
 ## [07/10/2026] - Chuẩn Hóa Cấu Hình gRPC Settings, AI Subsystem & Kết Nối CSDL Tập Trung
->>>>>>> origin/develop
 - **Chuẩn Hóa File Cấu Hình Mẫu (`appsettings.example.json`)**:
   - Bổ sung khối cấu hình `GrpcSettings` (IdentityServiceUrl: `http://localhost:5156`, ContentServiceUrl: `http://localhost:5250`).
   - Bổ sung cấu hình `AiSettings` (ServiceUrl: `http://localhost:8000`).

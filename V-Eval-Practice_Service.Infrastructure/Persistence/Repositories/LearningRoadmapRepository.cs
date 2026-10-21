@@ -175,6 +175,20 @@ public class LearningRoadmapRepository : ILearningRoadmapRepository
         await _context.LiveSessionAttendances.AddAsync(attendance, ct);
     }
 
+    public async Task AddLiveSessionAsync(LiveSession liveSession, CancellationToken ct = default)
+    {
+        await _context.LiveSessions.AddAsync(liveSession, ct);
+    }
+
+    public async Task<List<RoadmapNode>> GetNodesBySkillAndStudentIdsAsync(Guid skillId, IEnumerable<Guid> studentIds, CancellationToken ct = default)
+    {
+        var studentIdList = studentIds.ToList();
+        return await _context.RoadmapNodes
+            .Include(n => n.Roadmap)
+            .Where(n => n.SkillId == skillId && studentIdList.Contains(n.Roadmap.StudentId) && n.Roadmap.Status == "ACTIVE")
+            .ToListAsync(ct);
+    }
+
     public async Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
         return await _context.SaveChangesAsync(ct);

@@ -431,8 +431,6 @@
 3. **Adaptive Worksheet Assignment Endpoint**: `POST /api/practice/classes/{classId}/micro-groups/{groupId}/assign-worksheet`
    - Request: `AssignWorksheetRequestDto` (`WorksheetId`, `WorksheetTitle`).
    - Response: `AssignWorksheetResponseDto` confirming targeted worksheet distribution to table members.
----
-
 ### 11.5 Student Skill Profile Encoding & Integration with Content Service API 19
 - **Profile Representation (`StudentSkillProfileItem`)**:
   - `DomainFeatures` (`double[4]`): Macro 4-domain vector representing overall student strength across `[Lang, Math, NatSci, SocSci]`. Used in K-Means distance calculations to place students in compatible learning contexts.
@@ -447,16 +445,78 @@
 
 ---
 
-## 12. CORE FLOW 4 — GRAPH-RAG SOCRATIC AI TUTOR INTEGRATION ACCEPTANCE (PHASES 5 & 6)
+## 12. CORE FLOW 3 (MODULE 3) - PROCTORED MOCK EXAM & ACADEMIC INTEGRITY MONITORING
 
-### 12.1 Architecture Overview
+### 12.1 Relational Schema & Persistence Architecture
+- **Reuse of `ExamSubmission`**: Avoids duplicate submission tables by adopting unified classification via `ExamType = "MOCK_EXAM"`.
+- **Integrity Tracking Fields**:
+  - `TabDepartureCount`: Quantifies student tab / window switches away from fullscreen mode.
+  - `IntegrityStatus`: Flagged as `NORMAL` or escalated to `FLAGGED_FOR_REVIEW` when violations exceed threshold (>3 departures).
+  - `MentorVerdict`: Workflow authorization status (`PENDING`, `APPROVED`, `DISQUALIFIED`).
+  - `MentorNotes`: Mentor justification notes.
+- **`ProctoringSnapshot` Entity**:
+  - Captures periodic / randomized webcam audit frames (`Id`, `SubmissionId`, `SnapshotUrl`, `CapturedAt`, `FaceDetected`).
+  - Cascades on deletion with `ExamSubmission`.
+
+### 12.2 API 1: Start Mock Exam Session (`POST /api/practice/mock-exams/{examId}/start`)
+- **Execution Pipeline**:
+  1. Validates input parameters (`ExamId`, `StudentId`).
+  2. Queries active uncompleted attempts for resuming valid sessions.
+  3. Integrates with Content Service via gRPC (`GetMilestoneQuizAsync`) to load 120 secure test items with hidden answer keys.
+  4. Enforces graceful fallback generation when external gRPC is unavailable.
+  5. Initializes `ExamSubmission` with 150-minute countdown (9,000 seconds), `ExamType = "MOCK_EXAM"`, and default `NORMAL` integrity status.
+
+### 12.3 API 2: Log Tab Departure & Academic Integrity Flagging (`POST /api/practice/mock-exams/{submissionId}/log-tab-departure`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists and remains in `IN_PROGRESS` status.
+  2. Increments `TabDepartureCount` on every window blur / tab switch / fullscreen exit.
+  3. Enforces Business Rule BR-20: When `TabDepartureCount > 3`, dynamically updates `IntegrityStatus` to `FLAGGED_FOR_REVIEW`.
+  4. Returns real-time warning feedback and timestamped audit logs.
+
+### 12.4 API 3: Upload Random Proctoring Snapshot (`POST /api/practice/mock-exams/{submissionId}/upload-snapshot`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists and remains in `IN_PROGRESS` status.
+  2. Persists timestamped webcam frame metadata into `ProctoringSnapshots` table (`SnapshotUrl`, `CapturedAt = UtcNow`, `FaceDetected`).
+  3. Records anomaly warnings if `FaceDetected` is false (absence or occlusion).
+  4. Yields total accumulated snapshots count for student verification.
+
+### 12.5 API 4: Submit Mock Exam, Grade & Integrity Routing (`POST /api/practice/mock-exams/{submissionId}/submit`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists and remains in `IN_PROGRESS` status.
+  2. Fetches official answer keys from Content Service via gRPC `GetExamAnswerKeysAsync`, supporting resilient fallback grading in isolated local testing.
+  3. Evaluates correctness for each question item, computes total score (120 questions x 10 = 1200 points scale), and logs granular answers into `SubmissionAnswers`.
+  4. Applies Proctoring Integrity Policy (BR-20): If flagged (`IntegrityStatus == "FLAGGED_FOR_REVIEW"` or `TabDepartureCount > 3`), sets `Status = "UNDER_REVIEW"` and `MentorVerdict = "PENDING"` for mentor verification; otherwise marks `Status = "COMPLETED"` and `MentorVerdict = "APPROVED"`.
+  5. Core Flow 3 Closed-Loop Integration: Automatically injects incorrect answers into the student's personal `MistakeNotebook` with `NextReviewDate = Tomorrow` for spaced repetition (SM-2).
+  6. Core Flow 2 Feedback Loop: Aggregates skill-level performance and updates `LearningProfiles` (`UpsertSkillPriorsAsync`) to inform downstream micro-group re-clustering (3-5 students) for next week's offline classes.
+
+### 12.6 API 5: Retrieve Mock Exam Details & Visual Audit Trail (`GET /api/practice/mock-exams/{submissionId}`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists.
+  2. Eagerly loads relational aggregates including `SubmissionAnswers` and `ProctoringSnapshots` via `IMockExamRepository.GetByIdWithDetailsAsync`.
+  3. Returns high-level scores, integrity telemetry (`TabDepartureCount`, `IntegrityStatus`), and mentor review decisions (`MentorVerdict`, `MentorNotes`).
+  4. Exposes chronological webcam visual audit trail (`CapturedAt` ascending order) with facial presence verification indicators (`FaceDetected`) for mentor inspection.
+  5. Outputs granular item-by-item student selections and correctness evaluations.
+
+### 12.7 API 6: Mentor Review & Academic Integrity Verdict (`PATCH /api/practice/mock-exams/{submissionId}/mentor-review`)
+- **Execution Pipeline**:
+  1. Validates that the targeted exam submission exists and has transitioned out of active student testing (`Status != "IN_PROGRESS"`).
+  2. Enforces strict input validation: `Verdict` must be either `APPROVED` or `DISQUALIFIED`. If `DISQUALIFIED`, `Notes` is strictly required.
+  3. Under `APPROVED` verdict: Updates `Status = "COMPLETED"`, resets suspicious flag to `IntegrityStatus = "NORMAL"`, and legitimizes the earned `TotalScore`.
+  4. Under `DISQUALIFIED` verdict: Updates `Status = "DISQUALIFIED"`, voids academic credentials by zeroing out `TotalScore = 0` and `TotalCorrect = 0`.
+  5. Persists mentor review rationale into `MentorNotes` and timestamps the decision for audit traceability.
+
+---
+
+## 13. CORE FLOW 4 — GRAPH-RAG SOCRATIC AI TUTOR INTEGRATION ACCEPTANCE (PHASES 5 & 6)
+
+### 13.1 Architecture Overview
 - **Inter-Service Role**: Acts as the student-facing gateway and streaming proxy bridge between client web/mobile applications and the downstream Python FastAPI AI Tutor engine (`rag-service` on port 8000).
 - **Core Principles**:
   - Zero-blocking streaming: tokens emitted by the Python Socratic engine are piped instantaneously to students via Server-Sent Events (SSE).
   - High resilience: network timeouts, model outages, or rate-limit violations trigger structured pedagogical fallbacks synthesized from Knowledge Graph theorems, preventing broken student sessions.
   - Strict abuse defense: enforces ASP.NET Core 9 Rate Limiting with strict per-student token quotas.
 
-### 12.2 Component Specifications
+### 13.2 Component Specifications
 1. **Application Interface (`IAiTutorClient`)**:
    - `StreamSocraticGuidanceAsync(SocraticAskRequestPayload, CancellationToken)`: Yields asynchronous stream chunks (`IAsyncEnumerable<string>`).
    - `AskSocraticGuidanceAsync(SocraticAskRequestPayload, CancellationToken)`: Direct synchronous request returning `SocraticAskResponseDto`.
@@ -469,7 +529,7 @@
    - `POST /api/practice/ai-tutor/ask-stream`: Emits `text/event-stream; charset=utf-8` with SSE events, terminating with `data: [DONE]\n\n`.
    - Identity extraction: Seamlessly resolves `StudentId` from Gateway `X-User-Id` header with payload fallback.
 
-### 12.3 Human-in-the-Loop Reporting & Mentor Audit Integration (Phase 6)
+### 13.3 Human-in-the-Loop Reporting & Mentor Audit Integration (Phase 6)
 - **Student Reporting Action**:
   - `POST /api/practice/ai-tutor/report`: Dispatches student feedback flags to Python FastAPI engine via `ReportInteractionAsync`.
   - Captures optional justification text and flags the record in `v_eval_ai.ai_tutor_interaction_logs` (`student_reported = TRUE`).
@@ -477,3 +537,273 @@
   - `GET /api/practice/ai-tutor/interactions`: Fetches paginated interaction logs with `reportedOnly` filtering for mentor review.
 - **Fail-Safe Operation**:
   - Downstream communication failures fallback to local logging ensuring the student experience is never disrupted.
+
+---
+
+## 14. CORE FLOW 5 — LEARNING ANALYTICS & CLASS HEATMAP ARCHITECTURE ACCEPTANCE
+
+### 14.1 Architecture Overview & Hybrid Aggregation Strategy
+- **Service Responsibility**: High-throughput multi-stakeholder progress monitoring and 2D matrix heatmap visualization across Student, Teacher, Parent, and Campus Director portals.
+- **Latency Target**: Sub-300ms response time for dense classroom matrices (up to 30 students x 35 skills), surpassing the initial 3-second requirement.
+- **Hybrid Aggregation Engine**:
+  - **Fast-Path (Write-Through Micro-update)**: When a student completes an adaptive quiz or submits a proctored mock exam, a lightweight event updates their respective row/cell in `practice.ClassSkillHeatmaps` and invalidates the cached class matrix in Redis (`O(1)` runtime).
+  - **Batch-Path (Background Sweep Worker)**: An `IHostedService` (`ClassHeatmapAggregationWorker`) triggers every 15 minutes to compute statistical distributions (Mean `` `\overline{P(L_t)}` ``, sample standard deviation `` `\sigma` ``, struggling rate, and bimodal polarization flags) and persists aggregate snapshots into `practice.ClassHeatmapSummaries`.
+
+### 14.2 Pedagogical Rules & Psychometric Formulations
+1. **Three-Tier Warning Threshold**:
+   - `CRITICAL_RED`: Triggered if `` `\ge 40\%` `` of students in the class have `` `P(L_t) < 0.50` `` OR class mean `` `\overline{P(L_t)} < 0.50` ``.
+   - `WARNING_AMBER`: Triggered if `` `20\% \le` `` struggling rate `` `< 40\%` `` OR `` `0.50 \le \overline{P(L_t)} < 0.70` ``.
+   - `SAFE_GREEN`: Achieved when `` `\ge 70\%` `` of students master the skill with `` `P(L_t) \ge 0.70` ``.
+2. **Bimodal Polarized Distribution Warning**:
+   - When `` `\sigma_s \ge 0.28` `` and struggling rate `` `\ge 30\%` ``, flags `is_bimodal = true` to alert the teacher against uniform lecturing, recommending micro-group partitioning instead.
+3. **Parent Exam Readiness Index (`` `R_{\text{exam}}` ``)**:
+   - Formulated as: `` `R_{\text{exam}} = 0.50 \cdot S_{\theta} + 0.35 \cdot C_{\text{BKT}} + 0.15 \cdot F_{\text{consistency}}` ``.
+   - Blends standardized IRT latent ability, comprehensive BKT skill coverage, and weekly study consistency.
+4. **Active Study Day & Anti-Vanity Streak Verification**:
+   - Requires tangible study proof (1 completed adaptive practice attempt OR `` `\ge 15` `` minutes video watching OR 1 completed mock exam) to increment daily streak counters.
+
+### 14.3 Phase 1 Database & EF Core Entities Acceptance
+1. **Domain Entities Implemented**:
+   - [`ClassSkillHeatmap`](../V-Eval-Practice_Service.Domain/Entities/ClassSkillHeatmap.cs): Primary key `Id`, foreign key `ClassId` (cascade delete), `StudentId`, `SkillId`, `DomainCode`, `PltValue`, `MasteryLevel`, `LastAssessmentType`, `UpdatedAt`.
+   - [`ClassHeatmapSummary`](../V-Eval-Practice_Service.Domain/Entities/ClassHeatmapSummary.cs): Primary key `Id`, foreign key `ClassId` (cascade delete), `SkillId`, `AveragePlt`, `StrugglingCount`, `TotalStudents`, `StrugglingRate`, `StdDevPlt`, `AlertStatus`, `IsBimodal`, `CalculatedAt`.
+   - [`StudentDailyActivity`](../V-Eval-Practice_Service.Domain/Entities/StudentDailyActivity.cs): Primary key `Id`, `StudentId`, `ActivityDate` (`date`), `StudyTimeMinutes`, `PracticeQuestionsSolved`, `VideoMinutesWatched`, `MockExamsTaken`, `IsStreakCounted`, `IsFrozen`.
+   - [`StudentReadinessMetric`](../V-Eval-Practice_Service.Domain/Entities/StudentReadinessMetric.cs): Primary key `Id`, unique `StudentId`, `NormalizedTheta`, `SkillCoveragePlt`, `ConsistencyScore`, `ExamReadinessIndex`, `ReadinessTier`, `StudyHoursThisWeek`, `CurrentStreakDays`.
+2. **Infrastructure Persistence & Fluent API Mapping**:
+   - Verified 4 `DbSet` registrations in [`PracticeDbContext`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs).
+   - Unique constraints enforced: `uq_class_student_skill`, `uq_class_skill_summary`, `uq_student_activity_date`, `idx_readiness_student_id`.
+   - Explicit schema isolation to `v_eval_practice`.
+3. **Automated DDL Provisioning**:
+   - Database startup pipeline in [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs) provisions all 4 tables and their indexes dynamically with `CREATE TABLE IF NOT EXISTS`.
+   - Standalone migration script maintained in [`SQL_Migration_Flow5_Analytics.sql`](../../docs/SQL/SQL_Migration_Flow5_Analytics.sql).
+
+### 14.4 Phase 2 Hybrid Aggregation Engine & Background Worker Acceptance
+1. **Repository Abstractions & Implementations**:
+   - [`IClassHeatmapRepository`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassHeatmapRepository.cs) & [`ClassHeatmapRepository`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassHeatmapRepository.cs): Multi-criteria heatmap queries, domain filtering, single-cell updates, and batch summary upserts.
+   - [`IStudentActivityRepository`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IStudentActivityRepository.cs) & [`StudentActivityRepository`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/StudentActivityRepository.cs): Backward streak tracing algorithm, weekly study hours aggregation, and readiness metric persistence.
+2. **Matrix Caching Strategy**:
+   - [`IClassHeatmapCacheService`](../V-Eval-Practice_Service.Application/Common/Interfaces/Services/IClassHeatmapCacheService.cs) & [`ClassHeatmapCacheService`](../V-Eval-Practice_Service.Infrastructure/Caching/ClassHeatmapCacheService.cs): High-performance in-memory cache leveraging `IMemoryCache` with concurrent key tracking and class-level cache invalidation (`InvalidateClassHeatmapAsync`).
+3. **Core Aggregator Service**:
+   - [`IClassHeatmapAggregatorService`](../V-Eval-Practice_Service.Application/Common/Interfaces/Services/IClassHeatmapAggregatorService.cs) & [`ClassHeatmapAggregatorService`](../V-Eval-Practice_Service.Infrastructure/Services/ClassHeatmapAggregatorService.cs):
+     - Complete implementation of the psychometric formula: mean ability, struggling rates, standard deviation `` `\sigma` ``, bimodal polarization culling, and 3-tier pedagogical alert generation (`CRITICAL_RED`, `WARNING_AMBER`, `SAFE_GREEN`).
+     - Composite Parent Exam Readiness Index: `` `R_{\text{exam}} = 0.50 \cdot S_{\theta} + 0.35 \cdot C_{\text{BKT}} + 0.15 \cdot F_{\text{consistency}}` ``.
+     - Active Study Day evaluation logic across adaptive quiz attempts, video lectures, and mock exams.
+4. **Periodic 15-Minute Background Worker**:
+   - [`ClassHeatmapAggregationWorker`](../V-Eval-Practice_Service.Infrastructure/BackgroundJobs/ClassHeatmapAggregationWorker.cs): Registered `IHostedService` periodically running in the background every 15 minutes across all active classes with graceful cancellation tokens.
+5. **Real-time Write-Through Integration**:
+   - Integrated into [`SubmitAnswerCommandHandler`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/SubmitAnswer/SubmitAnswerCommandHandler.cs) (step 10), [`SubmitMockExamCommandHandler`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/SubmitMockExam/SubmitMockExamCommandHandler.cs) (step 7), and [`TrackVideoCommandHandler`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/TrackVideo/TrackVideoCommandHandler.cs) to deliver instant zero-lag updates to student streak and class heatmap.
+
+### 14.5 Phase 3 Flow 1: Student Dashboard API & CQRS Handler Acceptance
+1. **REST Controller**:
+   - [`AnalyticsController`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs) exposed under route `api/practice/analytics`.
+   - Endpoint: `GET /api/practice/analytics/student/{studentId:guid}/dashboard`.
+2. **CQRS Architecture**:
+   - Query: [`GetStudentDashboardQuery`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetStudentDashboard/GetStudentDashboardQuery.cs).
+   - Handler: [`GetStudentDashboardQueryHandler`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetStudentDashboard/GetStudentDashboardQueryHandler.cs).
+   - Zero direct DbContext dependency in Application layer; fully abstracted via `IExamSubmissionRepository`, `ILearningRoadmapRepository`, `IStudentActivityRepository`, `IClassHeatmapRepository`, and `IIdentityGrpcClient`.
+3. **Core Features Verified**:
+   - 4-Domain Radar Competency aggregation from real-time heatmaps.
+   - DAG Roadmap milestone completion percentage and current milestone tracking.
+   - Comprehensive streak analytics (current streak, longest streak, freeze status, 7-day visual history).
+   - Resilient onboarding detection (`needsOnboarding = true`) for new students with insufficient historical data.
+
+### 14.6 Phase 3 Flow 2: Class Heatmap & Force Aggregate Endpoints Acceptance
+1. **REST Controller**:
+   - Extended [`ClassesController`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs) under route `api/practice/classes`.
+   - Endpoints:
+     - `GET /api/practice/classes/{classId:guid}/heatmap` (Class Heatmap Matrix).
+     - `POST /api/practice/classes/{classId:guid}/heatmap/force-aggregate` (Manual Re-computation Sweep).
+2. **CQRS Architecture**:
+   - Query: [`GetClassHeatmapQuery`](../V-Eval-Practice_Service.Application/Features/Classes/Queries/GetClassHeatmap/GetClassHeatmapQuery.cs) & Handler [`GetClassHeatmapQueryHandler`](../V-Eval-Practice_Service.Application/Features/Classes/Queries/GetClassHeatmap/GetClassHeatmapQueryHandler.cs).
+   - Command: [`ForceAggregateHeatmapCommand`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/ForceAggregateHeatmap/ForceAggregateHeatmapCommand.cs) & Handler [`ForceAggregateHeatmapCommandHandler`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/ForceAggregateHeatmap/ForceAggregateHeatmapCommandHandler.cs).
+3. **Core Features Verified**:
+   - Sub-300ms response guarantee via Cache-First architecture backed by `IClassHeatmapCacheService`.
+   - Dynamic domain filtering (`domainCode`) and mastery thresholding (`minMastery`).
+   - Automated pedagogical alert triggers: flag skills with `` `\text{StrugglingRate} \ge 40\%` `` or `` `\overline{P(L_t)} < 0.50` `` as `CRITICAL_RED`.
+   - Bimodal polarization detection (`isBimodal = true`) delivering micro-group pedagogical recommendations.
+   - 3-tier student risk segmentation: `HIGH_RISK` (`` `\ge 2` `` weak skills), `MEDIUM_RISK` (1 weak skill), and `SAFE`.
+   - Manual override endpoint allowing teachers/administrators to force immediate re-computation and cache refresh.
+
+### 14.7 Phase 3 Flow 3: 1-Click Pedagogical Action Live Session Acceptance
+1. **REST Controller**:
+   - Exposed endpoint in [`ClassesController`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs):
+     - `POST /api/practice/classes/{classId:guid}/heatmap/trigger-live-session`.
+2. **CQRS Architecture**:
+   - Command: [`TriggerHeatmapLiveSessionCommand`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/TriggerHeatmapLiveSession/TriggerHeatmapLiveSessionCommand.cs).
+   - Handler: [`TriggerHeatmapLiveSessionCommandHandler`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/TriggerHeatmapLiveSession/TriggerHeatmapLiveSessionCommandHandler.cs).
+   - Repository Extensions: Added `AddLiveSessionAsync` and `GetNodesBySkillAndStudentIdsAsync` in [`ILearningRoadmapRepository`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILearningRoadmapRepository.cs) and [`LearningRoadmapRepository`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LearningRoadmapRepository.cs).
+3. **Core Features Verified**:
+   - Dynamic identification of struggling students (`` `P(L_t) < 0.50` ``) directly from class heatmaps.
+   - Atomic creation of scheduled `LiveSession` instances linked to the assigned teacher.
+   - Automated propagation to active DAG `RoadmapNodes`, binding targeted students to the newly scheduled session without requiring manual page navigation.
+
+### 14.8 Phase 3 Flow 4: Parent Companion Portal Acceptance
+1. **REST Controller**:
+   - Exposed endpoint in [`AnalyticsController`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs):
+     - `GET /api/practice/analytics/parent/{parentId:guid}/children`.
+2. **CQRS Architecture**:
+   - Query: [`GetParentDashboardQuery`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQuery.cs).
+   - Handler: [`GetParentDashboardQueryHandler`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs).
+   - Inter-Service Integration: Extended [`IIdentityGrpcClient`](../V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs) and [`IdentityGrpcClient`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs) with `GetParentStudentsAsync` calling Identity Service gRPC.
+3. **Core Features Verified**:
+   - Automatic retrieval or just-in-time computation of composite Exam Readiness Metric `` `R_{\text{exam}}` `` with multi-tier classification (`READY`, `NEAR_READY`, `AT_RISK`).
+   - Self-study discipline monitoring comparing 7-day verified study hours against the 12-hour baseline.
+   - Curated `AiParentAlerts` generating contextual success markers and parental nudges without exposing raw psychometric complexity.
+
+### 14.9 Phase 3 Flow 5: Campus Comparative Heatmap Acceptance
+1. **REST Controller**:
+   - Exposed endpoint in [`AnalyticsController`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs):
+     - `GET /api/practice/analytics/campus/{campusId:guid}/comparative-heatmap`.
+2. **CQRS Architecture**:
+   - Query: [`GetCampusComparativeHeatmapQuery`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetCampusComparativeHeatmap/GetCampusComparativeHeatmapQuery.cs).
+   - Handler: [`GetCampusComparativeHeatmapQueryHandler`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetCampusComparativeHeatmap/GetCampusComparativeHeatmapQueryHandler.cs).
+   - Repository Extensions: Added `GetClassesByCampusIdAsync` in [`IClassHeatmapRepository`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassHeatmapRepository.cs) and [`ClassHeatmapRepository`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassHeatmapRepository.cs).
+3. **Core Features Verified**:
+   - Aggregated campus-wide mastery comparison across 4 foundational domains (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`).
+   - Class-by-class vulnerability detection with 3-tier overall risk evaluation (`SAFE`, `MEDIUM_RISK`, `HIGH_RISK`) enabling academic managers to dispatch pedagogical interventions.
+
+### 14.10 Phase 3 Backend Polish & Seed Data Acceptance
+1. **Realistic Seed Data Provisioning**:
+   - Class `11111111-2222-3333-4444-555555555555` ("Lớp ĐGNL Cơ sở 1 - ĐHQG TP.HCM") with 5 enrolled demo students (`3fa85f64-...` Hoàng, `4fa85f64-...` Trâm, `5fa85f64-...` Kiệt, `6fa85f64-...` My, `7fa85f64-...` Long).
+   - 4 representative competence skills across core domains.
+   - Purposeful 60% struggling rate (3/5 students with `` `P(L_t) < 0.50` ``) on "Toán logic mệnh đề & suy luận kéo theo" (`88888888-9999-aaaa-bbbb-cccccccccccc`) triggering immediate visual `CRITICAL_RED` alert on Teacher Heatmap.
+   - 7 consecutive active study days (`StudentDailyActivities`) and exam readiness metric `` `R_{\text{exam}} = 82.4` `` (`READY`) with 12-day current streak.
+2. **Inter-Service gRPC Contract Fulfillment**:
+   - Identity Service gRPC server now implements `GetParentStudents` and `LinkParentStudent` directly backed by `ParentStudentRelations`, `Students`, and `Users` entities, eliminating client-side fallback necessity.
+
+
+---
+
+## 15. CORE FLOW 6 — SCORE PREDICTION & EARLY WARNING ACCEPTANCE (PHASE 1)
+
+### 14.1 Architectural Overview
+- **Domain Responsibilities**: Provides continuous standardized score forecasting with Standard Error of Measurement (SEM 95% confidence intervals), score deficit balancing, and Greedy Knapsack Remedial Prescription optimization.
+- **Key Entities**:
+  - `ScorePrediction`: Maps to table `v_eval_practice."ScorePredictions"`. Stores `PredictedScore`, `PredictedScoreMin`, `PredictedScoreMax`, `SemScore`, `TargetScore`, `DeficitScore`, and JSONB `PrescriptionItems`.
+  - `SystemAlert`: Maps to table `v_eval_practice."SystemAlerts"` for 3-tier disciplinary and academic early warnings (BR-04).
+- **Core Principles**:
+  - Noise Cancellation: Confidence interval $[Min, Max]$ calculated via psychometric SEM prevents student panic from single-quiz deviations.
+  - Micro-Prescription Layer: Selects top 2–3 question patterns optimizing Return On Investment ($ROI = \Delta Score / StudyHoursNeeded$) without restructuring the entire macro learning roadmap.
+
+### 14.2 API 1 Implementation Specification
+- **Endpoint**: `GET /api/practice/predictions/my-forecast`
+- **Controller**: `PredictionsController.cs`
+- **CQRS Handler**: `GetMyForecastQueryHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header with query parameter fallback.
+  2. Queries `IScorePredictionRepository.GetLatestByStudentIdAsync`.
+  3. Deserializes `PrescriptionItems` JSONB using `JsonNamingPolicy.SnakeCaseLower`.
+  4. Classifies balance status (`ON_TRACK` for deficit $\le 0$, `AT_RISK` for $\le 30$, `CRITICAL` for $> 30$).
+  5. Returns structured JSON containing forecast interval, deficit score, and prioritized remedial item list.
+- **Acceptance Status**: 100% verified against PostgreSQL database and YARP API Gateway proxy.
+
+### 14.3 API 2 Implementation Specification (Remedial Practice Session)
+- **Endpoint**: `GET /api/practice/predictions/prescriptions/{patternId}/practice-session`
+- **Controller**: `PredictionsController.cs`
+- **CQRS Handler**: `GetPrescriptionSessionQueryHandler.cs`
+- **Data Flow**:
+  1. Validates `patternId` against student's active prescription items in `ScorePredictions`.
+  2. If pattern not found or already remedied, returns RFC 7807 404 NotFound.
+  3. Dispatches gRPC request to Content Service (`GetMilestoneQuizAsync`) requesting 3–5 isomorphic items for `SkillId`.
+  4. Strips correct answer keys from question options to preserve test integrity.
+  5. Implements resilient fallback generator (`GenerateFallbackQuestions`) ensuring the practice session remains accessible even during downstream service restarts.
+- **Acceptance Status**: 100% verified live via unit endpoints and YARP API Gateway proxy.
+
+### 14.4 API 3 Implementation Specification (Remedial Practice Submission & Deficit Recovery)
+- **Endpoint**: `POST /api/practice/predictions/prescriptions/{patternId}/submit-session`
+- **Controller**: `PredictionsController.cs`
+- **CQRS Command & Handler**: `SubmitPrescriptionSessionCommand.cs` & `SubmitPrescriptionSessionCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header (or query param).
+  2. Validates `patternId` exists in student's latest active prescription record in `ScorePredictions`.
+  3. Evaluates submitted answers against known key dictionary and isomorphic test schemas.
+  4. Computes accuracy rate. If accuracy $\ge 67\%$:
+     - Marks the prescription item as remedied (`is_remedied = true`).
+     - Upgrades Bayesian Knowledge Tracing mastery posterior $P(L_t)$.
+     - Decrements the student's `deficit_score` by `targetPrescription.DeltaScore`.
+     - Serializes updated `PrescriptionItems` JSONB and persists to PostgreSQL.
+  5. If accuracy $< 67\%$: Retains current deficit and returns constructive feedback advising review and retry.
+- **Acceptance Status**: 100% verified live with successful deficit decrement (Happy Case) and strict threshold rejection (Unhappy Case).
+
+### 14.5 API 4 Implementation Specification (Forecast & Prescription Recalculation Engine)
+- **Endpoint**: `POST /api/practice/predictions/recalculate`
+- **Controller**: `PredictionsController.cs`
+- **CQRS Command & Handler**: `RecalculatePredictionCommand.cs` & `RecalculatePredictionCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header or request body.
+  2. Queries existing prediction history and extracts current target score (defaults to 850).
+  3. Re-estimates ability level taking into account recent stage progressions, remedied prescription items, or mock exam submissions.
+  4. Calculates 95% confidence interval $[Min, Max]$ via Standard Error of Measurement ($SEM = 24.5$).
+  5. Computes new deficit against target score and classifies status (`ON_TRACK`, `AT_RISK`, `CRITICAL`).
+  6. Re-executes the Knapsack ROI selection engine, prioritizing top 2–3 question patterns that yield highest score gain per study hour ($ROI = \Delta Score / H$).
+  7. Inserts new `ScorePrediction` audit record into PostgreSQL `v_eval_practice."ScorePredictions"`.
+- **Acceptance Status**: 100% verified live via unit endpoints and Gateway proxy.
+
+### 14.6 API 5 Implementation Specification (Personal Early Warnings Query)
+- **Endpoint**: `GET /api/practice/early-warnings/my-alerts`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Query & Handler**: `GetMyAlertsQuery.cs` & `GetMyAlertsQueryHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header with query parameter fallback.
+  2. Queries `ISystemAlertRepository.GetByStudentIdAsync` to fetch all alerts for the student.
+  3. Applies client-specified filtering: `unreadOnly` (boolean) and `alertType` (`YELLOW`, `RED`, `UNREALISTIC_GOAL`, `GREEN`).
+  4. Computes invariant high-level summary counters: `TotalAlerts`, `UnreadCount`, `RedAlertsCount`, `YellowAlertsCount`.
+  5. Maps domain entities to `SystemAlertDto` and returns a comprehensive `MyAlertsResponseDto`.
+- **Acceptance Status**: 100% verified live with full support for unread/read flags, alert category segmentation, and Mentor intervention metadata.
+
+### 14.7 API 6 Implementation Specification (Mark Alert As Read)
+- **Endpoint**: `PATCH /api/practice/early-warnings/{alertId}/read`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Command & Handler**: `MarkAlertAsReadCommand.cs` & `MarkAlertAsReadCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `StudentId` from Gateway `X-User-Id` header with query parameter fallback.
+  2. Queries alert record by `alertId` from `ISystemAlertRepository.GetByIdAsync`.
+  3. Enforces multi-tenant ownership guard: returns RFC 7807 403 Forbidden if the requesting student attempts to update another student's notification.
+  4. Flips `IsRead = true` and updates database record via `ISystemAlertRepository.UpdateAsync`.
+  5. Returns idempotent confirmation payload containing updated `AlertId`, `IsRead: true`, and `ReadAt` timestamp.
+- **Acceptance Status**: 100% verified live with validation handling, ownership security checks, and badge synchronization.
+
+### 14.8 API 7 Implementation Specification (Mentor Early Warnings Dashboard)
+- **Endpoint**: `GET /api/practice/early-warnings/dashboard`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Query & Handler**: `GetAlertsDashboardQuery.cs` & `GetAlertsDashboardQueryHandler.cs`
+- **Data Flow**:
+  1. Resolves `MentorId` from Gateway `X-User-Id` header and optional `classId` query parameter.
+  2. Queries class context and associated student enrollments via `IClassEnrollmentRepository`.
+  3. Queries alerts via `ISystemAlertRepository.GetAlertsByClassAsync` (or system-wide via `GetAllAlertsAsync`).
+  4. Applies status filter: active pending cases (`isResolved = false`), resolved cases (`isResolved = true`), or all cases (`isResolved = null`), along with `alertType` categorization.
+  5. Enriches each student alert with real-time ability projections: latest `PredictedScore`, `TargetScore`, and `DeficitScore` from `IScorePredictionRepository`.
+  6. Computes aggregate KPI counters: `TotalAlerts`, `ActiveAlertsCount`, `RedAlertsCount`, `YellowAlertsCount`, `UnrealisticGoalCount`, `ResolvedAlertsCount`.
+- **Acceptance Status**: 100% verified live via unit endpoints and Gateway proxy.
+
+### 14.9 API 8 Implementation Specification (Mentor Pedagogical Intervention Resolution)
+- **Endpoint**: `POST /api/practice/early-warnings/{alertId}/resolve`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Command & Handler**: `ResolveAlertCommand.cs` & `ResolveAlertCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `MentorId` from Gateway `X-User-Id` header or request body.
+  2. Validates `ResolutionNotes` payload is provided and non-empty.
+  3. Queries target alert record via `ISystemAlertRepository.GetByIdAsync`.
+  4. Updates record: assigns `HandledBy = MentorId`, `ResolutionNotes`, stamps `ResolvedAt = DateTime.UtcNow`, and marks `IsRead = true`.
+  5. Persists update to PostgreSQL via `ISystemAlertRepository.UpdateAsync`.
+  6. Returns structured audit response confirming closure of the intervention ticket.
+- **Acceptance Status**: 100% verified live with input validation and audit logging.
+
+### 14.10 API 9 Implementation Specification (Tripartite Counseling Scheduling for Unrealistic Goals)
+- **Endpoint**: `POST /api/practice/early-warnings/{alertId}/schedule-counseling`
+- **Controller**: `EarlyWarningsController.cs`
+- **CQRS Command & Handler**: `ScheduleCounselingCommand.cs` & `ScheduleCounselingCommandHandler.cs`
+- **Data Flow**:
+  1. Resolves `MentorId` from Gateway `X-User-Id` header or request body (`mentor_id`).
+  2. Validates request parameters: ensures `counseling_date` is scheduled in the future, and `proposed_target_score` is within standard V-Eval examination range (0–1200 points).
+  3. Queries target alert record by `alertId` from `ISystemAlertRepository.GetByIdAsync`.
+  4. Formulates a tripartite meeting record (Parent - Student - Mentor) containing location, proposed feasible score, and pedagogical guidance notes.
+  5. Marks the alert status as resolved (`IsResolved = true`, `HandledBy = MentorId`, `ResolvedAt = DateTime.UtcNow`, `IsRead = true`).
+  6. Updates PostgreSQL database via `ISystemAlertRepository.UpdateAsync`.
+  7. Returns confirmation payload containing meeting coordinates, proposed score, and confirmation status `SCHEDULED`.
+- **Acceptance Status**: 100% verified live with RFC 7807 validation (future date checks, score range constraints, unauthorized mentor fallback, and not-found guards).
+
+
+
+
+
+

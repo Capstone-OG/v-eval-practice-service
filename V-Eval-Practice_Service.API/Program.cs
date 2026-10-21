@@ -237,6 +237,153 @@ using (var scope = app.Services.CreateScope())
 
             CREATE INDEX IF NOT EXISTS idx_mistake_notebook_daily_review 
             ON v_eval_practice.""MistakeNotebooks"" (student_id, next_review_date, is_mastered);
+
+            -- Core Flow 3 (Module 3): Proctoring & Mock Exam fields
+            ALTER TABLE v_eval_practice.""ExamSubmissions"" ADD COLUMN IF NOT EXISTS tab_departure_count INT DEFAULT 0;
+            ALTER TABLE v_eval_practice.""ExamSubmissions"" ADD COLUMN IF NOT EXISTS integrity_status VARCHAR(50) DEFAULT 'NORMAL';
+            ALTER TABLE v_eval_practice.""ExamSubmissions"" ADD COLUMN IF NOT EXISTS mentor_verdict VARCHAR(50) DEFAULT 'PENDING';
+            ALTER TABLE v_eval_practice.""ExamSubmissions"" ADD COLUMN IF NOT EXISTS mentor_notes TEXT;
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""SubmissionAnswers"" (
+                answer_id UUID PRIMARY KEY,
+                submission_id UUID NOT NULL REFERENCES v_eval_practice.""ExamSubmissions""(submission_id) ON DELETE CASCADE,
+                question_id UUID NOT NULL,
+                selected_option VARCHAR(10),
+                is_correct BOOLEAN NOT NULL,
+                time_spent_seconds INT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""ProctoringSnapshots"" (
+                id UUID PRIMARY KEY,
+                submission_id UUID NOT NULL REFERENCES v_eval_practice.""ExamSubmissions""(submission_id) ON DELETE CASCADE,
+                snapshot_url TEXT NOT NULL,
+                captured_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
+                face_detected BOOLEAN DEFAULT TRUE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_proctoring_snapshots_sub 
+            ON v_eval_practice.""ProctoringSnapshots"" (submission_id, captured_at);
+
+<<<<<<< HEAD
+            -- Core Flow 5: Analytics & Class Heatmap
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""ClassSkillHeatmaps"" (
+                id UUID PRIMARY KEY,
+                class_id UUID NOT NULL REFERENCES v_eval_practice.""Classes""(class_id) ON DELETE CASCADE,
+                student_id UUID NOT NULL,
+                skill_id UUID NOT NULL,
+                skill_name VARCHAR(255) NOT NULL,
+                domain_code VARCHAR(50) NOT NULL,
+                plt_value DOUBLE PRECISION NOT NULL DEFAULT 0.1000,
+                mastery_level VARCHAR(30) NOT NULL DEFAULT 'WEAK',
+                last_assessment_type VARCHAR(50) NOT NULL DEFAULT 'DIAGNOSTIC',
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
+                CONSTRAINT uq_class_student_skill UNIQUE (class_id, student_id, skill_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_heatmaps_class_id ON v_eval_practice.""ClassSkillHeatmaps""(class_id);
+            CREATE INDEX IF NOT EXISTS idx_heatmaps_student_id ON v_eval_practice.""ClassSkillHeatmaps""(student_id);
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""ClassHeatmapSummaries"" (
+                id UUID PRIMARY KEY,
+                class_id UUID NOT NULL REFERENCES v_eval_practice.""Classes""(class_id) ON DELETE CASCADE,
+                skill_id UUID NOT NULL,
+                skill_name VARCHAR(255) NOT NULL,
+                domain_code VARCHAR(50) NOT NULL,
+                average_plt DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                struggling_count INT NOT NULL DEFAULT 0,
+                total_students INT NOT NULL DEFAULT 0,
+                struggling_rate DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                std_dev_plt DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                alert_status VARCHAR(30) NOT NULL DEFAULT 'SAFE_GREEN',
+                is_bimodal BOOLEAN NOT NULL DEFAULT FALSE,
+                calculated_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
+                CONSTRAINT uq_class_skill_summary UNIQUE (class_id, skill_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_heatmap_summaries_class_status 
+            ON v_eval_practice.""ClassHeatmapSummaries""(class_id, alert_status);
+
+            DO $$
+            BEGIN
+                IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ClassSkillHeatmaps_class_id_fkey' AND table_schema = 'v_eval_practice') THEN
+                    ALTER TABLE v_eval_practice.""ClassSkillHeatmaps"" DROP CONSTRAINT ""ClassSkillHeatmaps_class_id_fkey"";
+                    ALTER TABLE v_eval_practice.""ClassSkillHeatmaps"" ADD CONSTRAINT ""ClassSkillHeatmaps_class_id_fkey"" FOREIGN KEY (class_id) REFERENCES v_eval_practice.""Classes""(class_id) ON DELETE CASCADE;
+                END IF;
+                IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'ClassHeatmapSummaries_class_id_fkey' AND table_schema = 'v_eval_practice') THEN
+                    ALTER TABLE v_eval_practice.""ClassHeatmapSummaries"" DROP CONSTRAINT ""ClassHeatmapSummaries_class_id_fkey"";
+                    ALTER TABLE v_eval_practice.""ClassHeatmapSummaries"" ADD CONSTRAINT ""ClassHeatmapSummaries_class_id_fkey"" FOREIGN KEY (class_id) REFERENCES v_eval_practice.""Classes""(class_id) ON DELETE CASCADE;
+                END IF;
+            END $$;
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""StudentDailyActivities"" (
+                id UUID PRIMARY KEY,
+                student_id UUID NOT NULL,
+                activity_date DATE NOT NULL,
+                study_time_minutes INT NOT NULL DEFAULT 0,
+                practice_questions_solved INT NOT NULL DEFAULT 0,
+                video_minutes_watched INT NOT NULL DEFAULT 0,
+                mock_exams_taken INT NOT NULL DEFAULT 0,
+                is_streak_counted BOOLEAN NOT NULL DEFAULT FALSE,
+                is_frozen BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
+                CONSTRAINT uq_student_activity_date UNIQUE (student_id, activity_date)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_student_activity_date 
+            ON v_eval_practice.""StudentDailyActivities""(student_id, activity_date DESC);
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""StudentReadinessMetrics"" (
+                id UUID PRIMARY KEY,
+                student_id UUID NOT NULL,
+                normalized_theta DOUBLE PRECISION NOT NULL DEFAULT 50.0,
+                skill_coverage_plt DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                consistency_score DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                exam_readiness_index DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                readiness_tier VARCHAR(30) NOT NULL DEFAULT 'PREPARING',
+                study_hours_this_week DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+                current_streak_days INT NOT NULL DEFAULT 0,
+                calculated_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
+                CONSTRAINT uq_student_readiness UNIQUE (student_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_readiness_student_id 
+            ON v_eval_practice.""StudentReadinessMetrics""(student_id);
+=======
+            -- Core Flow 6: ScorePredictions & SystemAlerts
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""ScorePredictions"" (
+                prediction_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                student_id UUID NOT NULL,
+                predicted_score INT,
+                predicted_score_min INT,
+                predicted_score_max INT,
+                confidence_rate DOUBLE PRECISION DEFAULT 0.95,
+                target_score INT,
+                deficit_score INT,
+                sem_score DOUBLE PRECISION,
+                prescription_items JSONB,
+                calculation_source VARCHAR(50) DEFAULT 'MOCK_EXAM',
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
+            );
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""SystemAlerts"" (
+                alert_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                student_id UUID NOT NULL,
+                alert_type VARCHAR(50) NOT NULL,
+                message TEXT NOT NULL,
+                is_read BOOLEAN DEFAULT FALSE,
+                handled_by UUID,
+                resolution_notes TEXT,
+                resolved_at TIMESTAMP WITH TIME ZONE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_score_predictions_student 
+            ON v_eval_practice.""ScorePredictions"" (student_id);
+
+            CREATE INDEX IF NOT EXISTS idx_system_alerts_student 
+            ON v_eval_practice.""SystemAlerts"" (student_id);
+>>>>>>> origin/develop
         ");
         logger.LogInformation("Đã xác thực và khởi tạo thành công CSDL schema practice trên Supabase.");
 
@@ -277,6 +424,266 @@ using (var scope = app.Services.CreateScope())
 
             await dbContext.SaveChangesAsync();
             logger.LogInformation("Đã khởi tạo chặng học mẫu RoadmapNode {NodeId} phục vụ kiểm thử Core Flow 3.", sampleNodeId);
+        }
+
+        // Đảm bảo có dữ liệu mẫu Class & Heatmap phục vụ kiểm thử Core Flow 5
+        var sampleClassId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        var sampleClass = await dbContext.Classes.FirstOrDefaultAsync(c => c.ClassId == sampleClassId);
+        if (sampleClass == null)
+        {
+            var sampleCampusId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+            sampleClass = new Class
+            {
+                ClassId = sampleClassId,
+                CampusId = sampleCampusId,
+                Name = "Lớp ĐGNL Cơ sở 1 - ĐHQG TP.HCM",
+                Status = "ACTIVE",
+                CreatedAt = DateTime.UtcNow
+            };
+            await dbContext.Classes.AddAsync(sampleClass);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var heatmapExists = await dbContext.ClassSkillHeatmaps.AnyAsync(h => h.ClassId == sampleClassId);
+        if (!heatmapExists)
+        {
+
+            // 5 học sinh mẫu
+            var demoStudents = new[]
+            {
+                Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6"), // Phạm Minh Hoàng
+                Guid.Parse("4fa85f64-5717-4562-b3fc-2c963f66afa6"), // Lê Bảo Trâm
+                Guid.Parse("5fa85f64-5717-4562-b3fc-2c963f66afa6"), // Trần Tuấn Kiệt
+                Guid.Parse("6fa85f64-5717-4562-b3fc-2c963f66afa6"), // Nguyễn Hà My
+                Guid.Parse("7fa85f64-5717-4562-b3fc-2c963f66afa6")  // Vũ Hoàng Long
+            };
+
+            foreach (var stId in demoStudents)
+            {
+                await dbContext.ClassEnrollments.AddAsync(new ClassEnrollment
+                {
+                    EnrollmentId = Guid.NewGuid(),
+                    ClassId = sampleClassId,
+                    StudentId = stId,
+                    Status = "ENROLLED",
+                    EnrolledAt = DateTime.UtcNow
+                });
+            }
+
+            // 4 Kỹ năng mẫu đại diện 4 phân môn lớn
+            var demoSkills = new[]
+            {
+                (Guid.Parse("88888888-9999-aaaa-bbbb-cccccccccccc"), "Toán logic mệnh đề & suy luận kéo theo", "DOM_MATH", 0.42),
+                (Guid.Parse("99999999-0000-bbbb-cccc-dddddddddddd"), "Đọc hiểu phân tích biểu đồ & bảng biểu", "DOM_MATH", 0.74),
+                (Guid.Parse("aaaaaaaa-1111-bbbb-cccc-dddddddddddd"), "Sử dụng từ Hán Việt & Phong cách văn bản", "DOM_LANG", 0.78),
+                (Guid.Parse("bbbbbbbb-2222-cccc-dddd-eeeeeeeeeeee"), "Đọc hiểu văn bản Khoa học Tự nhiên", "DOM_NAT_SCI", 0.65)
+            };
+
+            // Gieo các ô điểm nhiệt P(Lt). Cố tình để kỹ năng 1 có 3/5 em < 0.50 (tỷ lệ yếu 60%) để kích hoạt cảnh báo đỏ CRITICAL_RED!
+            foreach (var (skId, skName, domCode, basePlt) in demoSkills)
+            {
+                for (int idx = 0; idx < demoStudents.Length; idx++)
+                {
+                    var stId = demoStudents[idx];
+                    double plt = basePlt;
+                    if (skId == Guid.Parse("88888888-9999-aaaa-bbbb-cccccccccccc"))
+                    {
+                        plt = idx < 3 ? 0.35 + idx * 0.05 : 0.75 + idx * 0.05;
+                    }
+
+                    await dbContext.ClassSkillHeatmaps.AddAsync(new ClassSkillHeatmap
+                    {
+                        Id = Guid.NewGuid(),
+                        ClassId = sampleClassId,
+                        StudentId = stId,
+                        SkillId = skId,
+                        SkillName = skName,
+                        DomainCode = domCode,
+                        PltValue = Math.Round(plt, 2),
+                        MasteryLevel = plt < 0.50 ? "WEAK" : "MASTERED",
+                        LastAssessmentType = "DIAGNOSTIC",
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            // Seed dữ liệu chuyên cần và chỉ số sẵn sàng thi cho học sinh Hoàng (3fa85f64-5717-4562-b3fc-2c963f66afa6)
+            var primaryStudentId = demoStudents[0];
+            var today = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+            for (int d = 6; d >= 0; d--)
+            {
+                var actDate = today.AddDays(-d);
+                await dbContext.StudentDailyActivities.AddAsync(new StudentDailyActivity
+                {
+                    Id = Guid.NewGuid(),
+                    StudentId = primaryStudentId,
+                    ActivityDate = actDate,
+                    StudyTimeMinutes = 120,
+                    PracticeQuestionsSolved = 15,
+                    VideoMinutesWatched = 25,
+                    MockExamsTaken = d == 1 ? 1 : 0,
+                    IsStreakCounted = true,
+                    IsFrozen = false,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            await dbContext.StudentReadinessMetrics.AddAsync(new StudentReadinessMetric
+            {
+                Id = Guid.NewGuid(),
+                StudentId = primaryStudentId,
+                NormalizedTheta = 81.2,
+                SkillCoveragePlt = 79.5,
+                ConsistencyScore = 95.0,
+                ExamReadinessIndex = 82.4,
+                ReadinessTier = "READY",
+                StudyHoursThisWeek = 14.5,
+                CurrentStreakDays = 12,
+                CalculatedAt = DateTime.UtcNow
+            });
+
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Đã khởi tạo thành công Lớp học mẫu {ClassId} và ma trận nhiệt phục vụ Core Flow 5.", sampleClassId);
+
+        // Đảm bảo có dữ liệu mẫu ScorePrediction phục vụ kiểm thử Core Flow 6
+        var testStudentId = Guid.Parse("b0a218d2-1111-4000-8000-000000000001");
+        var samplePrescriptionsJson = @"[
+            {
+                ""pattern_id"": ""PAT_TOAN_LOGIC_01"",
+                ""pattern_name"": ""Quy nạp logic mệnh đề điều kiện"",
+                ""skill_id"": ""a0000001-0000-0000-0000-000000000007"",
+                ""delta_score"": 25.5,
+                ""study_hours_needed"": 1.8,
+                ""roi_score"": 14.16,
+                ""priority_rank"": 1,
+                ""is_remedied"": false
+            },
+            {
+                ""pattern_id"": ""PAT_HOA_PH_03"",
+                ""pattern_name"": ""Tính pH dung dịch đệm axit yếu"",
+                ""skill_id"": ""a0000001-0000-0000-0000-000000000010"",
+                ""delta_score"": 20.0,
+                ""study_hours_needed"": 1.5,
+                ""roi_score"": 13.33,
+                ""priority_rank"": 2,
+                ""is_remedied"": false
+            }
+        ]";
+
+        var existingPrediction = await dbContext.ScorePredictions.FirstOrDefaultAsync(p => p.StudentId == testStudentId);
+        if (existingPrediction == null)
+        {
+            await dbContext.ScorePredictions.AddAsync(new ScorePrediction
+            {
+                PredictionId = Guid.NewGuid(),
+                StudentId = testStudentId,
+                PredictedScore = 805,
+                PredictedScoreMin = 780,
+                PredictedScoreMax = 830,
+                ConfidenceRate = 0.95,
+                TargetScore = 850,
+                DeficitScore = 45,
+                SemScore = 25.5,
+                PrescriptionItems = samplePrescriptionsJson,
+                CalculationSource = "MOCK_EXAM",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Đã khởi tạo bản ghi ScorePrediction mẫu cho học sinh {StudentId} phục vụ kiểm thử Core Flow 6.", testStudentId);
+        }
+        else
+        {
+            existingPrediction.PrescriptionItems = samplePrescriptionsJson;
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Đã làm mới PrescriptionItems chuẩn cho học sinh {StudentId}.", testStudentId);
+        }
+
+        // Khởi tạo các cảnh báo mẫu 3 cấp BR-04 phục vụ kiểm thử Core Flow 6
+        var testStudentIds = new[] { testStudentId, Guid.Parse("00000000-0000-0000-0000-000000000001") };
+        foreach (var sid in testStudentIds)
+        {
+            var hasAlerts = await dbContext.SystemAlerts.AnyAsync(a => a.StudentId == sid);
+            if (!hasAlerts)
+            {
+                await dbContext.SystemAlerts.AddRangeAsync(
+                    new SystemAlert
+                    {
+                        AlertId = Guid.NewGuid(),
+                        StudentId = sid,
+                        AlertType = "RED",
+                        Message = "Cảnh báo nguy cơ cao: Điểm dự báo hiện tại (805) đang thâm hụt 45 điểm so với mục tiêu (850). Mentor đề xuất làm ngay bài tập bù điểm trong Toa thuốc.",
+                        IsRead = false,
+                        HandledBy = null,
+                        CreatedAt = DateTime.UtcNow.AddHours(-12)
+                    },
+                    new SystemAlert
+                    {
+                        AlertId = Guid.NewGuid(),
+                        StudentId = sid,
+                        AlertType = "YELLOW",
+                        Message = "Nhắc nhở học tập: Bạn đang có bài tập vi mô chuyên đề 'Tính pH dung dịch đệm' chưa hoàn thành sau 3 ngày.",
+                        IsRead = false,
+                        HandledBy = null,
+                        CreatedAt = DateTime.UtcNow.AddDays(-2)
+                    },
+                    new SystemAlert
+                    {
+                        AlertId = Guid.NewGuid(),
+                        StudentId = sid,
+                        AlertType = "UNREALISTIC_GOAL",
+                        Message = "Mục tiêu điểm số (950) có độ dốc tăng trưởng quá gấp (+250 điểm trong 3 tuần). Mentor đã lên lịch tư vấn định hướng lại lộ trình.",
+                        IsRead = true,
+                        HandledBy = Guid.Parse("77777777-7777-7777-7777-777777777777"),
+                        ResolutionNotes = "Đã tư vấn trực tiếp tại lớp, học sinh đồng thuận điều chỉnh mục tiêu giai đoạn 1 về 850 điểm.",
+                        ResolvedAt = DateTime.UtcNow.AddDays(-1),
+                        CreatedAt = DateTime.UtcNow.AddDays(-3)
+                    }
+                );
+                await dbContext.SaveChangesAsync();
+                logger.LogInformation("Đã khởi tạo bộ cảnh báo sớm mẫu cho học sinh {StudentId}.", sid);
+            }
+        }
+
+        // Khởi tạo lớp mẫu cho Mentor nếu chưa có
+        var mentorClassId = Guid.Parse("c0000000-0000-0000-0000-000000000001");
+        var sampleTeacherId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+        var classObj = await dbContext.Classes.FirstOrDefaultAsync(c => c.ClassId == mentorClassId);
+        if (classObj == null)
+        {
+            classObj = new Class
+            {
+                ClassId = mentorClassId,
+                CampusId = Guid.Parse("11111111-0000-0000-0000-000000000001"),
+                TeacherId = sampleTeacherId,
+                Name = "Lớp Chuyên Đề ĐGNL Tăng Tốc 01",
+                Status = "ACTIVE",
+                ClassType = 1,
+                DomainCode = "DOM_MATH",
+                CreatedAt = DateTime.UtcNow
+            };
+            await dbContext.Classes.AddAsync(classObj);
+            await dbContext.SaveChangesAsync();
+
+            foreach (var sid in testStudentIds)
+            {
+                var enrolled = await dbContext.ClassEnrollments.AnyAsync(ce => ce.ClassId == mentorClassId && ce.StudentId == sid);
+                if (!enrolled)
+                {
+                    await dbContext.ClassEnrollments.AddAsync(new ClassEnrollment
+                    {
+                        EnrollmentId = Guid.NewGuid(),
+                        ClassId = mentorClassId,
+                        StudentId = sid,
+                        Status = "ENROLLED",
+                        EnrolledAt = DateTime.UtcNow
+                    });
+                }
+            }
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Đã khởi tạo lớp mẫu {ClassId} và ghi danh học sinh phục vụ Mentor Dashboard.", mentorClassId);
+        }
         }
     }
     catch (Exception ex)

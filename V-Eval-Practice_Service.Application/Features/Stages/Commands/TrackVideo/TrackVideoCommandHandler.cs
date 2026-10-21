@@ -12,13 +12,16 @@ namespace V_Eval_Practice_Service.Application.Features.Stages.Commands.TrackVide
 public class TrackVideoCommandHandler : IRequestHandler<TrackVideoCommand, Result<TrackVideoResponseDto>>
 {
     private readonly IStageProgressRepository _stageProgressRepository;
+    private readonly Application.Common.Interfaces.Services.IClassHeatmapAggregatorService _aggregatorService;
     private readonly ILogger<TrackVideoCommandHandler> _logger;
 
     public TrackVideoCommandHandler(
         IStageProgressRepository stageProgressRepository,
+        Application.Common.Interfaces.Services.IClassHeatmapAggregatorService aggregatorService,
         ILogger<TrackVideoCommandHandler> logger)
     {
         _stageProgressRepository = stageProgressRepository;
+        _aggregatorService = aggregatorService;
         _logger = logger;
     }
 
@@ -67,6 +70,23 @@ public class TrackVideoCommandHandler : IRequestHandler<TrackVideoCommand, Resul
         }
 
         await _stageProgressRepository.UpdateAsync(progress, ct);
+
+        // Core Flow 5: Ghi nhận thời lượng xem video bài giảng vào nhật ký chuyên cần (Active Study Day)
+        try
+        {
+            int minutesWatched = Math.Max(1, request.Request.WatchedSeconds / 60);
+            await _aggregatorService.RecordStudentActivityAsync(
+                progress.StudentId,
+                studyMinutes: minutesWatched,
+                practiceQuestionsSolved: 0,
+                videoMinutesWatched: minutesWatched,
+                mockExamsTaken: 0,
+                ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Flow 5] Gặp lỗi khi ghi nhận thời gian xem video cho Student {StudentId}", progress.StudentId);
+        }
 
         string nextAction = isCompletedLearn ? "START_ADAPTIVE_PRACTICE" : "CONTINUE_WATCHING";
         string message = isCompletedLearn
