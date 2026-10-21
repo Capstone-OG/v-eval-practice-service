@@ -34,6 +34,14 @@ public static class DependencyInjection
         services.AddScoped<IAiDiagnosticClient, HttpClients.AiDiagnosticClient>();
         services.AddScoped<IAiTutorClient, HttpClients.AiTutorClient>();
 
+        // Core Flow 5: Analytics & Class Heatmap
+        services.AddMemoryCache();
+        services.AddScoped<IClassHeatmapRepository, ClassHeatmapRepository>();
+        services.AddScoped<IStudentActivityRepository, StudentActivityRepository>();
+        services.AddSingleton<Application.Common.Interfaces.Services.IClassHeatmapCacheService, Caching.ClassHeatmapCacheService>();
+        services.AddScoped<Application.Common.Interfaces.Services.IClassHeatmapAggregatorService, Services.ClassHeatmapAggregatorService>();
+        services.AddHostedService<BackgroundJobs.ClassHeatmapAggregationWorker>();
+
         return services;
     }
 }

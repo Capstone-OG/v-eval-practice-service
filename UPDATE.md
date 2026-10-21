@@ -1,57 +1,13 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [19/10/2026] - Hoàn Tất Core Flow 6: Bộ 5 APIs Cảnh Báo Sớm Cá Nhân (GetMyAlerts), Đánh Dấu Đã Đọc (MarkAlertAsRead), Dashboard Mentor (GetAlertsDashboard), Ghi Chú Can Thiệp Sư Phạm (ResolveAlert) & Hẹn Lịch Tư Vấn 3 Bên (ScheduleCounseling)
+## [20/10/2026] - Hoàn Thiện Toàn Diện Backend Core Flow 5: Khởi Tạo Dữ Liệu Mẫu & Đồng Bộ gRPC
 
-- **Hiện Thực API 5: Học Sinh Tra Cứu Danh Sách Cảnh Báo Cá Nhân (GetMyAlerts)**:
-  - Khởi tạo bộ DTOs [`EarlyWarningDtos.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs):
-    - `SystemAlertDto`: Chi tiết từng thông báo cảnh báo 3 cấp (`AlertId`, `StudentId`, `AlertType`, `Message`, `IsRead`, `HandledBy`, `ResolutionNotes`, `ResolvedAt`, `CreatedAt`).
-    - `MyAlertsResponseDto`: Phản hồi thống kê toàn diện (`TotalAlerts`, `UnreadCount`, `RedAlertsCount`, `YellowAlertsCount`, `Alerts`).
-  - Xây dựng Query CQRS `GetMyAlertsQuery.cs` và Handler [`GetMyAlertsQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/Queries/GetMyAlerts/GetMyAlertsQueryHandler.cs):
-    - Truy xuất danh sách cảnh báo cá nhân từ `ISystemAlertRepository`.
-    - Hỗ trợ đa dạng bộ lọc: lọc cảnh báo chưa đọc (`unreadOnly = true/false`), lọc theo cấp độ cảnh báo (`alertType = 'YELLOW' | 'RED' | 'UNREALISTIC_GOAL' | 'GREEN'`).
-    - Tính toán chính xác các chỉ số tổng hợp độc lập với bộ lọc để giao diện học sinh luôn hiển thị badge cảnh báo chuẩn xác.
-  - Mở rộng Repository [`ISystemAlertRepository.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ISystemAlertRepository.cs) và [`SystemAlertRepository.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/SystemAlertRepository.cs) hỗ trợ lọc linh hoạt theo `alertType`.
-  - Khởi tạo Controller [`EarlyWarningsController.cs`](./V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
-    - Định tuyến chuẩn: `GET /api/practice/early-warnings/my-alerts`.
-    - Cơ chế xác thực an toàn: ưu tiên bốc `StudentId` từ Gateway Header `X-User-Id`, fallback query parameter `studentId` hỗ trợ kiểm thử tiện lợi trên Swagger.
-  - Bổ sung Seed Data mẫu cho hệ thống cảnh báo sớm trong [`Program.cs`](./V-Eval-Practice_Service.API/Program.cs) với đầy đủ 3 cấp độ `RED`, `YELLOW`, `UNREALISTIC_GOAL` kèm nhật ký can thiệp của Mentor.
-- **Hiện Thực API 6: Đánh Dấu Đã Đọc Thông Báo Cảnh Báo (MarkAlertAsRead)**:
-  - Bổ sung DTO `MarkAlertAsReadResponseDto` trong [`EarlyWarningDtos.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
-  - Xây dựng Command `MarkAlertAsReadCommand.cs` và Handler [`MarkAlertAsReadCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/Commands/MarkAlertAsRead/MarkAlertAsReadCommandHandler.cs):
-    - Kiểm tra tính hợp lệ và thẩm quyền sở hữu: cấm học sinh này cập nhật cảnh báo của học sinh khác (trả về 403 Forbidden).
-    - Cập nhật trường `IsRead = true` và lưu vết vào CSDL PostgreSQL qua `ISystemAlertRepository.UpdateAsync`.
-  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](./V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
-    - Định tuyến chuẩn: `PATCH /api/practice/early-warnings/{alertId}/read`.
-    - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `401 Unauthorized`, `403 Forbidden`, `404 NotFound`.
-- **Hiện Thực API 7: Mentor Tra Cứu Dashboard Cảnh Báo Sớm Học Sinh (GetAlertsDashboard)**:
-  - Bổ sung DTOs `AlertDashboardItemDto` và `EarlyWarningsDashboardResponseDto` trong [`EarlyWarningDtos.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
-  - Mở rộng Repository [`ISystemAlertRepository.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ISystemAlertRepository.cs) và [`SystemAlertRepository.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/SystemAlertRepository.cs) với `GetAlertsByClassAsync` và `GetAllAlertsAsync`.
-  - Xây dựng Query `GetAlertsDashboardQuery.cs` và Handler [`GetAlertsDashboardQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/Queries/GetAlertsDashboard/GetAlertsDashboardQueryHandler.cs):
-    - Tổng hợp toàn diện các chỉ số cảnh báo: `TotalAlerts`, `ActiveAlertsCount`, `RedAlertsCount`, `YellowAlertsCount`, `UnrealisticGoalCount`, `ResolvedAlertsCount`.
-    - Tự động làm giàu dữ liệu từng cảnh báo với điểm dự báo mới nhất `CurrentPredictedScore`, mục tiêu `TargetScore` và độ thâm hụt `DeficitScore` từ `IScorePredictionRepository`.
-    - Hỗ trợ đa dạng bộ lọc: theo lớp `classId`, theo loại cảnh báo `alertType`, theo trạng thái xử lý `isResolved` (đang cần can thiệp vs đã giải quyết).
-  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](./V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
-    - Định tuyến chuẩn: `GET /api/practice/early-warnings/dashboard`.
-  - Seed lớp chuyên đề mẫu và ghi danh học sinh trong [`Program.cs`](./V-Eval-Practice_Service.API/Program.cs) phục vụ kiểm thử phân hệ Dashboard Mentor.
-- **Hiện Thực API 8: Mentor Ghi Chú Giải Quyết Can Thiệp Sư Phạm (ResolveAlert)**:
-  - Bổ sung DTOs `ResolveAlertRequestDto` và `ResolveAlertResponseDto` trong [`EarlyWarningDtos.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
-  - Xây dựng Command `ResolveAlertCommand.cs` và Handler [`ResolveAlertCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/Commands/ResolveAlert/ResolveAlertCommandHandler.cs):
-    - Kiểm tra hợp lệ `AlertId`, danh tính Mentor (`mentor_id` hoặc header `X-User-Id`), và bắt buộc có nội dung giải trình `resolution_notes`.
-    - Cập nhật bản ghi `SystemAlert`: gán `HandledBy`, `ResolutionNotes`, đóng dấu `ResolvedAt = DateTime.UtcNow` và `IsRead = true`.
-    - Lưu cập nhật xuống PostgreSQL qua `ISystemAlertRepository.UpdateAsync`.
-  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](./V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
-    - Định tuyến chuẩn: `POST /api/practice/early-warnings/{alertId}/resolve`.
-    - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `400 BadRequest`, `401 Unauthorized`, `404 NotFound`.
-- **Hiện Thực API 9: Mentor Lên Lịch Hẹn Tư Vấn 3 Bên Định Hướng Lại Mục Tiêu (ScheduleCounseling)**:
-  - Bổ sung DTOs `ScheduleCounselingRequestDto` và `ScheduleCounselingResponseDto` trong [`EarlyWarningDtos.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs).
-  - Xây dựng Command `ScheduleCounselingCommand.cs` và Handler [`ScheduleCounselingCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/Commands/ScheduleCounseling/ScheduleCounselingCommandHandler.cs):
-    - Ràng buộc hợp lệ: thời gian hẹn tư vấn phải ở tương lai, điểm mục tiêu đề xuất nằm trong khoảng 0–1200 điểm, bắt buộc có Mentor phụ trách.
-    - Cập nhật nhật ký can thiệp sư phạm chứa tọa độ cuộc hẹn 3 bên (Phụ huynh - Học sinh - Mentor), đề xuất điểm số thực tế và tự động đóng ca cảnh báo `is_resolved = true`.
-    - Lưu cập nhật xuống PostgreSQL qua `ISystemAlertRepository.UpdateAsync`.
-  - Bổ sung Endpoint trong [`EarlyWarningsController.cs`](./V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs):
-    - Định tuyến chuẩn: `POST /api/practice/early-warnings/{alertId}/schedule-counseling`.
-    - Phản hồi chuẩn RFC 7807 với các mã trạng thái `200 OK`, `400 BadRequest`, `401 Unauthorized`, `404 NotFound`.
+- **Khởi Tạo Dữ Liệu Mẫu Lớp Học & Ma Trận Nhiệt (`Program.cs`)**:
+  - Tự động gieo dữ liệu kiểm thử thực tế cho lớp mẫu `11111111-2222-3333-4444-555555555555` tại cơ sở `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee`.
+  - Khởi tạo 5 học sinh mẫu liên kết bảng `ClassEnrollments`.
+  - Khởi tạo 4 kỹ năng chuẩn thuộc 4 phân môn lớn với ma trận nhiệt thực tế: cố tình tạo tỷ lệ yếu 60% (3/5 học sinh có `` `P(L_t) < 0.50` ``) tại kỹ năng "Toán logic mệnh đề & suy luận kéo theo" (`88888888-9999-aaaa-bbbb-cccccccccccc`) nhằm kích hoạt trực quan cảnh báo đỏ `CRITICAL_RED` trên Teacher Heatmap.
+  - Khởi tạo 7 ngày hoạt động tự học liên tiếp (`StudentDailyActivities`) và chỉ số sẵn sàng thi `` `R_{\text{exam}} = 82.4` `` (`READY`) cho học sinh Hoàng (`3fa85f64-5717-4562-b3fc-2c963f66afa6`).
+- **Đồng Bộ gRPC Liên Dịch Vụ**:
+  - Kết nối hoàn hảo phương thức `GetParentStudents` và `LinkParentStudent` qua gRPC Identity Service phục vụ phân hệ giám sát phụ huynh (Parent Companion Portal).
 - **Kiểm Thử & Biên Dịch**:
-  - Solution `V-Eval-Practice_Service.sln` biên dịch sạch 100% (**0 Warning, 0 Error**).
-  - Đã kiểm thử live thành công 100% toàn bộ 9/9 APIs của Core Flow 6 trực tiếp và qua API Gateway YARP.
-
+  - Toàn bộ solution biên dịch thành công 100% (**0 Error, 0 Warning**).

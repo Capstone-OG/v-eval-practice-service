@@ -537,7 +537,140 @@
 
 ---
 
-## 14. CORE FLOW 6 — SCORE PREDICTION & EARLY WARNING ACCEPTANCE (PHASE 1)
+## 14. CORE FLOW 5 — LEARNING ANALYTICS & CLASS HEATMAP ARCHITECTURE ACCEPTANCE
+
+### 14.1 Architecture Overview & Hybrid Aggregation Strategy
+- **Service Responsibility**: High-throughput multi-stakeholder progress monitoring and 2D matrix heatmap visualization across Student, Teacher, Parent, and Campus Director portals.
+- **Latency Target**: Sub-300ms response time for dense classroom matrices (up to 30 students x 35 skills), surpassing the initial 3-second requirement.
+- **Hybrid Aggregation Engine**:
+  - **Fast-Path (Write-Through Micro-update)**: When a student completes an adaptive quiz or submits a proctored mock exam, a lightweight event updates their respective row/cell in `practice.ClassSkillHeatmaps` and invalidates the cached class matrix in Redis (`O(1)` runtime).
+  - **Batch-Path (Background Sweep Worker)**: An `IHostedService` (`ClassHeatmapAggregationWorker`) triggers every 15 minutes to compute statistical distributions (Mean `` `\overline{P(L_t)}` ``, sample standard deviation `` `\sigma` ``, struggling rate, and bimodal polarization flags) and persists aggregate snapshots into `practice.ClassHeatmapSummaries`.
+
+### 14.2 Pedagogical Rules & Psychometric Formulations
+1. **Three-Tier Warning Threshold**:
+   - `CRITICAL_RED`: Triggered if `` `\ge 40\%` `` of students in the class have `` `P(L_t) < 0.50` `` OR class mean `` `\overline{P(L_t)} < 0.50` ``.
+   - `WARNING_AMBER`: Triggered if `` `20\% \le` `` struggling rate `` `< 40\%` `` OR `` `0.50 \le \overline{P(L_t)} < 0.70` ``.
+   - `SAFE_GREEN`: Achieved when `` `\ge 70\%` `` of students master the skill with `` `P(L_t) \ge 0.70` ``.
+2. **Bimodal Polarized Distribution Warning**:
+   - When `` `\sigma_s \ge 0.28` `` and struggling rate `` `\ge 30\%` ``, flags `is_bimodal = true` to alert the teacher against uniform lecturing, recommending micro-group partitioning instead.
+3. **Parent Exam Readiness Index (`` `R_{\text{exam}}` ``)**:
+   - Formulated as: `` `R_{\text{exam}} = 0.50 \cdot S_{\theta} + 0.35 \cdot C_{\text{BKT}} + 0.15 \cdot F_{\text{consistency}}` ``.
+   - Blends standardized IRT latent ability, comprehensive BKT skill coverage, and weekly study consistency.
+4. **Active Study Day & Anti-Vanity Streak Verification**:
+   - Requires tangible study proof (1 completed adaptive practice attempt OR `` `\ge 15` `` minutes video watching OR 1 completed mock exam) to increment daily streak counters.
+
+### 14.3 Phase 1 Database & EF Core Entities Acceptance
+1. **Domain Entities Implemented**:
+   - [`ClassSkillHeatmap`](../V-Eval-Practice_Service.Domain/Entities/ClassSkillHeatmap.cs): Primary key `Id`, foreign key `ClassId` (cascade delete), `StudentId`, `SkillId`, `DomainCode`, `PltValue`, `MasteryLevel`, `LastAssessmentType`, `UpdatedAt`.
+   - [`ClassHeatmapSummary`](../V-Eval-Practice_Service.Domain/Entities/ClassHeatmapSummary.cs): Primary key `Id`, foreign key `ClassId` (cascade delete), `SkillId`, `AveragePlt`, `StrugglingCount`, `TotalStudents`, `StrugglingRate`, `StdDevPlt`, `AlertStatus`, `IsBimodal`, `CalculatedAt`.
+   - [`StudentDailyActivity`](../V-Eval-Practice_Service.Domain/Entities/StudentDailyActivity.cs): Primary key `Id`, `StudentId`, `ActivityDate` (`date`), `StudyTimeMinutes`, `PracticeQuestionsSolved`, `VideoMinutesWatched`, `MockExamsTaken`, `IsStreakCounted`, `IsFrozen`.
+   - [`StudentReadinessMetric`](../V-Eval-Practice_Service.Domain/Entities/StudentReadinessMetric.cs): Primary key `Id`, unique `StudentId`, `NormalizedTheta`, `SkillCoveragePlt`, `ConsistencyScore`, `ExamReadinessIndex`, `ReadinessTier`, `StudyHoursThisWeek`, `CurrentStreakDays`.
+2. **Infrastructure Persistence & Fluent API Mapping**:
+   - Verified 4 `DbSet` registrations in [`PracticeDbContext`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs).
+   - Unique constraints enforced: `uq_class_student_skill`, `uq_class_skill_summary`, `uq_student_activity_date`, `idx_readiness_student_id`.
+   - Explicit schema isolation to `v_eval_practice`.
+3. **Automated DDL Provisioning**:
+   - Database startup pipeline in [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs) provisions all 4 tables and their indexes dynamically with `CREATE TABLE IF NOT EXISTS`.
+   - Standalone migration script maintained in [`SQL_Migration_Flow5_Analytics.sql`](../../docs/SQL/SQL_Migration_Flow5_Analytics.sql).
+
+### 14.4 Phase 2 Hybrid Aggregation Engine & Background Worker Acceptance
+1. **Repository Abstractions & Implementations**:
+   - [`IClassHeatmapRepository`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassHeatmapRepository.cs) & [`ClassHeatmapRepository`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassHeatmapRepository.cs): Multi-criteria heatmap queries, domain filtering, single-cell updates, and batch summary upserts.
+   - [`IStudentActivityRepository`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IStudentActivityRepository.cs) & [`StudentActivityRepository`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/StudentActivityRepository.cs): Backward streak tracing algorithm, weekly study hours aggregation, and readiness metric persistence.
+2. **Matrix Caching Strategy**:
+   - [`IClassHeatmapCacheService`](../V-Eval-Practice_Service.Application/Common/Interfaces/Services/IClassHeatmapCacheService.cs) & [`ClassHeatmapCacheService`](../V-Eval-Practice_Service.Infrastructure/Caching/ClassHeatmapCacheService.cs): High-performance in-memory cache leveraging `IMemoryCache` with concurrent key tracking and class-level cache invalidation (`InvalidateClassHeatmapAsync`).
+3. **Core Aggregator Service**:
+   - [`IClassHeatmapAggregatorService`](../V-Eval-Practice_Service.Application/Common/Interfaces/Services/IClassHeatmapAggregatorService.cs) & [`ClassHeatmapAggregatorService`](../V-Eval-Practice_Service.Infrastructure/Services/ClassHeatmapAggregatorService.cs):
+     - Complete implementation of the psychometric formula: mean ability, struggling rates, standard deviation `` `\sigma` ``, bimodal polarization culling, and 3-tier pedagogical alert generation (`CRITICAL_RED`, `WARNING_AMBER`, `SAFE_GREEN`).
+     - Composite Parent Exam Readiness Index: `` `R_{\text{exam}} = 0.50 \cdot S_{\theta} + 0.35 \cdot C_{\text{BKT}} + 0.15 \cdot F_{\text{consistency}}` ``.
+     - Active Study Day evaluation logic across adaptive quiz attempts, video lectures, and mock exams.
+4. **Periodic 15-Minute Background Worker**:
+   - [`ClassHeatmapAggregationWorker`](../V-Eval-Practice_Service.Infrastructure/BackgroundJobs/ClassHeatmapAggregationWorker.cs): Registered `IHostedService` periodically running in the background every 15 minutes across all active classes with graceful cancellation tokens.
+5. **Real-time Write-Through Integration**:
+   - Integrated into [`SubmitAnswerCommandHandler`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/SubmitAnswer/SubmitAnswerCommandHandler.cs) (step 10), [`SubmitMockExamCommandHandler`](../V-Eval-Practice_Service.Application/Features/MockExams/Commands/SubmitMockExam/SubmitMockExamCommandHandler.cs) (step 7), and [`TrackVideoCommandHandler`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/TrackVideo/TrackVideoCommandHandler.cs) to deliver instant zero-lag updates to student streak and class heatmap.
+
+### 14.5 Phase 3 Flow 1: Student Dashboard API & CQRS Handler Acceptance
+1. **REST Controller**:
+   - [`AnalyticsController`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs) exposed under route `api/practice/analytics`.
+   - Endpoint: `GET /api/practice/analytics/student/{studentId:guid}/dashboard`.
+2. **CQRS Architecture**:
+   - Query: [`GetStudentDashboardQuery`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetStudentDashboard/GetStudentDashboardQuery.cs).
+   - Handler: [`GetStudentDashboardQueryHandler`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetStudentDashboard/GetStudentDashboardQueryHandler.cs).
+   - Zero direct DbContext dependency in Application layer; fully abstracted via `IExamSubmissionRepository`, `ILearningRoadmapRepository`, `IStudentActivityRepository`, `IClassHeatmapRepository`, and `IIdentityGrpcClient`.
+3. **Core Features Verified**:
+   - 4-Domain Radar Competency aggregation from real-time heatmaps.
+   - DAG Roadmap milestone completion percentage and current milestone tracking.
+   - Comprehensive streak analytics (current streak, longest streak, freeze status, 7-day visual history).
+   - Resilient onboarding detection (`needsOnboarding = true`) for new students with insufficient historical data.
+
+### 14.6 Phase 3 Flow 2: Class Heatmap & Force Aggregate Endpoints Acceptance
+1. **REST Controller**:
+   - Extended [`ClassesController`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs) under route `api/practice/classes`.
+   - Endpoints:
+     - `GET /api/practice/classes/{classId:guid}/heatmap` (Class Heatmap Matrix).
+     - `POST /api/practice/classes/{classId:guid}/heatmap/force-aggregate` (Manual Re-computation Sweep).
+2. **CQRS Architecture**:
+   - Query: [`GetClassHeatmapQuery`](../V-Eval-Practice_Service.Application/Features/Classes/Queries/GetClassHeatmap/GetClassHeatmapQuery.cs) & Handler [`GetClassHeatmapQueryHandler`](../V-Eval-Practice_Service.Application/Features/Classes/Queries/GetClassHeatmap/GetClassHeatmapQueryHandler.cs).
+   - Command: [`ForceAggregateHeatmapCommand`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/ForceAggregateHeatmap/ForceAggregateHeatmapCommand.cs) & Handler [`ForceAggregateHeatmapCommandHandler`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/ForceAggregateHeatmap/ForceAggregateHeatmapCommandHandler.cs).
+3. **Core Features Verified**:
+   - Sub-300ms response guarantee via Cache-First architecture backed by `IClassHeatmapCacheService`.
+   - Dynamic domain filtering (`domainCode`) and mastery thresholding (`minMastery`).
+   - Automated pedagogical alert triggers: flag skills with `` `\text{StrugglingRate} \ge 40\%` `` or `` `\overline{P(L_t)} < 0.50` `` as `CRITICAL_RED`.
+   - Bimodal polarization detection (`isBimodal = true`) delivering micro-group pedagogical recommendations.
+   - 3-tier student risk segmentation: `HIGH_RISK` (`` `\ge 2` `` weak skills), `MEDIUM_RISK` (1 weak skill), and `SAFE`.
+   - Manual override endpoint allowing teachers/administrators to force immediate re-computation and cache refresh.
+
+### 14.7 Phase 3 Flow 3: 1-Click Pedagogical Action Live Session Acceptance
+1. **REST Controller**:
+   - Exposed endpoint in [`ClassesController`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs):
+     - `POST /api/practice/classes/{classId:guid}/heatmap/trigger-live-session`.
+2. **CQRS Architecture**:
+   - Command: [`TriggerHeatmapLiveSessionCommand`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/TriggerHeatmapLiveSession/TriggerHeatmapLiveSessionCommand.cs).
+   - Handler: [`TriggerHeatmapLiveSessionCommandHandler`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/TriggerHeatmapLiveSession/TriggerHeatmapLiveSessionCommandHandler.cs).
+   - Repository Extensions: Added `AddLiveSessionAsync` and `GetNodesBySkillAndStudentIdsAsync` in [`ILearningRoadmapRepository`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/ILearningRoadmapRepository.cs) and [`LearningRoadmapRepository`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LearningRoadmapRepository.cs).
+3. **Core Features Verified**:
+   - Dynamic identification of struggling students (`` `P(L_t) < 0.50` ``) directly from class heatmaps.
+   - Atomic creation of scheduled `LiveSession` instances linked to the assigned teacher.
+   - Automated propagation to active DAG `RoadmapNodes`, binding targeted students to the newly scheduled session without requiring manual page navigation.
+
+### 14.8 Phase 3 Flow 4: Parent Companion Portal Acceptance
+1. **REST Controller**:
+   - Exposed endpoint in [`AnalyticsController`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs):
+     - `GET /api/practice/analytics/parent/{parentId:guid}/children`.
+2. **CQRS Architecture**:
+   - Query: [`GetParentDashboardQuery`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQuery.cs).
+   - Handler: [`GetParentDashboardQueryHandler`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs).
+   - Inter-Service Integration: Extended [`IIdentityGrpcClient`](../V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs) and [`IdentityGrpcClient`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs) with `GetParentStudentsAsync` calling Identity Service gRPC.
+3. **Core Features Verified**:
+   - Automatic retrieval or just-in-time computation of composite Exam Readiness Metric `` `R_{\text{exam}}` `` with multi-tier classification (`READY`, `NEAR_READY`, `AT_RISK`).
+   - Self-study discipline monitoring comparing 7-day verified study hours against the 12-hour baseline.
+   - Curated `AiParentAlerts` generating contextual success markers and parental nudges without exposing raw psychometric complexity.
+
+### 14.9 Phase 3 Flow 5: Campus Comparative Heatmap Acceptance
+1. **REST Controller**:
+   - Exposed endpoint in [`AnalyticsController`](../V-Eval-Practice_Service.API/Controllers/AnalyticsController.cs):
+     - `GET /api/practice/analytics/campus/{campusId:guid}/comparative-heatmap`.
+2. **CQRS Architecture**:
+   - Query: [`GetCampusComparativeHeatmapQuery`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetCampusComparativeHeatmap/GetCampusComparativeHeatmapQuery.cs).
+   - Handler: [`GetCampusComparativeHeatmapQueryHandler`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetCampusComparativeHeatmap/GetCampusComparativeHeatmapQueryHandler.cs).
+   - Repository Extensions: Added `GetClassesByCampusIdAsync` in [`IClassHeatmapRepository`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassHeatmapRepository.cs) and [`ClassHeatmapRepository`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassHeatmapRepository.cs).
+3. **Core Features Verified**:
+   - Aggregated campus-wide mastery comparison across 4 foundational domains (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`).
+   - Class-by-class vulnerability detection with 3-tier overall risk evaluation (`SAFE`, `MEDIUM_RISK`, `HIGH_RISK`) enabling academic managers to dispatch pedagogical interventions.
+
+### 14.10 Phase 3 Backend Polish & Seed Data Acceptance
+1. **Realistic Seed Data Provisioning**:
+   - Class `11111111-2222-3333-4444-555555555555` ("Lớp ĐGNL Cơ sở 1 - ĐHQG TP.HCM") with 5 enrolled demo students (`3fa85f64-...` Hoàng, `4fa85f64-...` Trâm, `5fa85f64-...` Kiệt, `6fa85f64-...` My, `7fa85f64-...` Long).
+   - 4 representative competence skills across core domains.
+   - Purposeful 60% struggling rate (3/5 students with `` `P(L_t) < 0.50` ``) on "Toán logic mệnh đề & suy luận kéo theo" (`88888888-9999-aaaa-bbbb-cccccccccccc`) triggering immediate visual `CRITICAL_RED` alert on Teacher Heatmap.
+   - 7 consecutive active study days (`StudentDailyActivities`) and exam readiness metric `` `R_{\text{exam}} = 82.4` `` (`READY`) with 12-day current streak.
+2. **Inter-Service gRPC Contract Fulfillment**:
+   - Identity Service gRPC server now implements `GetParentStudents` and `LinkParentStudent` directly backed by `ParentStudentRelations`, `Students`, and `Users` entities, eliminating client-side fallback necessity.
+
+
+---
+
+## 15. CORE FLOW 6 — SCORE PREDICTION & EARLY WARNING ACCEPTANCE (PHASE 1)
 
 ### 14.1 Architectural Overview
 - **Domain Responsibilities**: Provides continuous standardized score forecasting with Standard Error of Measurement (SEM 95% confidence intervals), score deficit balancing, and Greedy Knapsack Remedial Prescription optimization.
