@@ -1,5 +1,18 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [23/10/2026] - Chuẩn Hóa CSDL Toàn Diện (Master SQL.sql), Xử Lý Dây Đè Bảng Trang 1 & Vẽ Hoàn Thiện Sơ Đồ Khái Niệm Trang 2 (Capstone.drawio)
+- **Hợp Nhất Toàn Bộ CSDL Của Hệ Thống (`docs/SQL/SQL.sql`)**:
+  - Tích hợp đầy đủ 21 thực thể của phân hệ `v_eval_practice` vào file SQL duy nhất: `Classes`, `ExamSubmissions`, `SubmissionAnswers`, `ProctoringSnapshots`, `ClassEnrollments`, `ClassGroups`, `ClassGroupMembers`, `LiveSessions`, `LiveSessionAttendance`, `LearningProfiles`, `LearningRoadmaps`, `RoadmapNodes`, `StageProgress`, `AdaptiveQuizAttempts`, `MistakeNotebooks`, `ScorePredictions`, `SystemAlerts`, `ClassSkillHeatmaps`, `ClassHeatmapSummaries`, `StudentDailyActivities`, `StudentReadinessMetrics`.
+  - Đồng bộ chuẩn hóa toàn bộ khóa ngoại, chỉ mục hiệu năng cao và loại bỏ triệt để các file SQL phân mảnh cũ.
+- **Tái Cấu Trúc Sơ Đồ ERD Trang 1 & Xử Lý Dây Đè Bảng Trong `docs/SQL/Capstone.drawio`**:
+  - Khắc phục hoàn toàn lỗi dây đè lên bảng bằng cơ chế Highway Corridor Routing và các tiếp điểm biên (`exitX, exitY, entryX, entryY`), kết hợp cầu nối `jumpStyle=arc` chuyên nghiệp.
+  - Phân bổ cấu trúc các bảng của `v_eval_practice` vào các package `4. Thi thử & Giám sát liêm chính`, `5. Lớp học, Live & Nhóm vi mô`, `6. Lộ trình thích ứng & Chu trình P-L-A-R`, `8. Dự báo điểm & Cảnh báo sớm BR-04` và `9. Phân tích học tập & Ma trận nhiệt (Analytics)`.
+- **Thiết Kế & Bẻ Dây Riêng Cho Trang 2 (`Trang-2` Concentric Conceptual ERD)**:
+  - Khôi phục phong cách nguyên bản tối giản: không gom nhóm container, chỉ bao gồm các ô vuông thực thể (`rounded=0;whiteSpace=wrap;html=1;`) chứa tên bảng và dây nối.
+  - Sắp xếp bố cục theo mật độ kết nối (Core-Periphery): Các thực thể nhiều dây nhất (`Students`, `Skills`, `Users`, `Classes`, `Questions`...) nằm ở trung tâm, ít dây tỏa ra ngoại vi; bẻ dây qua khoảng trống giữa các hàng (`Array as="points"`) kết hợp cầu nhảy `jumpStyle=arc`, đảm bảo dây không đè dây và không đè lên bảng.
+
+---
+
 ## [20/10/2026] - Hoàn Thiện Toàn Diện Backend Core Flow 5: Khởi Tạo Dữ Liệu Mẫu & Đồng Bộ gRPC
 - **Khởi Tạo Dữ Liệu Mẫu Lớp Học & Ma Trận Nhiệt (`Program.cs`)**:
   - Tự động gieo dữ liệu kiểm thử thực tế cho lớp mẫu `11111111-2222-3333-4444-555555555555` tại cơ sở `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee`.

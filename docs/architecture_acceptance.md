@@ -800,10 +800,21 @@
   5. Marks the alert status as resolved (`IsResolved = true`, `HandledBy = MentorId`, `ResolvedAt = DateTime.UtcNow`, `IsRead = true`).
   6. Updates PostgreSQL database via `ISystemAlertRepository.UpdateAsync`.
   7. Returns confirmation payload containing meeting coordinates, proposed score, and confirmation status `SCHEDULED`.
-- **Acceptance Status**: 100% verified live with RFC 7807 validation (future date checks, score range constraints, unauthorized mentor fallback, and not-found guards).
 
+---
 
+## 15. UNIFIED MASTER DATABASE SCHEMA & ERD ACCEPTANCE
 
+### 15.1 Database Consolidation (`docs/SQL/SQL.sql`)
+- **Single Source of Truth**: All individual and migration scripts have been consolidated into `docs/SQL/SQL.sql`, removing obsolete scripts (`SQL_Migration_Flow5_Analytics.sql`, `V_EVAL_AI_SCHEMA.sql`, `V_EVAL_SCHEMA_V3.sql`).
+- **Schema Distribution**:
+  - `v_eval_identity` (13 tables): Complete RBAC, Identity, and 1:1 Actor profile hierarchy.
+  - `v_eval_content` (8 tables): Three-tier competency hierarchy, DAG prerequisites, and Bloom question bank.
+  - `v_eval_practice` (21 tables): Class management, micro-cohorts, P-L-A-R roadmaps, BKT/SM-2, proctoring, score forecast, and learning analytics.
+  - `v_eval_ai` (7 tables): RAG knowledge base, vector chunks (768d), and Level 4 Archetype Knowledge Graph with Socratic audit logs.
+- **Total Tables**: Exactly 49 production tables with standard PostgreSQL types, constraints, and high-performance indexes.
 
-
-
+### 15.2 Visual ERD Diagram Synchronization (`docs/SQL/Capstone.drawio`)
+- **Visual Diagram (`Trang-1`)**: Synchronized 100% with the unified master schema across 9 bounded context packages.
+- **Embedded PlantUML Source**: Updated in `plantUmlData` wrapper with clean crow's-foot relationships and attribute definitions.
+- **DrawIO Graphical Primitives**: 556 UserObjects, 49 table swimlanes with exact attribute color coding, and 77 orthogonal Crow's Foot relationship edges.

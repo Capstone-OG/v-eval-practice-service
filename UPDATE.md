@@ -1,13 +1,14 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [20/10/2026] - Hoàn Thiện Toàn Diện Backend Core Flow 5: Khởi Tạo Dữ Liệu Mẫu & Đồng Bộ gRPC
+## [23/10/2026] - Chuẩn Hóa CSDL Toàn Diện (Master SQL.sql), Xử Lý Dây Đè Bảng Trang 1 & Vẽ Hoàn Thiện Sơ Đồ Khái Niệm Trang 2 (Capstone.drawio)
 
-- **Khởi Tạo Dữ Liệu Mẫu Lớp Học & Ma Trận Nhiệt (`Program.cs`)**:
-  - Tự động gieo dữ liệu kiểm thử thực tế cho lớp mẫu `11111111-2222-3333-4444-555555555555` tại cơ sở `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee`.
-  - Khởi tạo 5 học sinh mẫu liên kết bảng `ClassEnrollments`.
-  - Khởi tạo 4 kỹ năng chuẩn thuộc 4 phân môn lớn với ma trận nhiệt thực tế: cố tình tạo tỷ lệ yếu 60% (3/5 học sinh có `` `P(L_t) < 0.50` ``) tại kỹ năng "Toán logic mệnh đề & suy luận kéo theo" (`88888888-9999-aaaa-bbbb-cccccccccccc`) nhằm kích hoạt trực quan cảnh báo đỏ `CRITICAL_RED` trên Teacher Heatmap.
-  - Khởi tạo 7 ngày hoạt động tự học liên tiếp (`StudentDailyActivities`) và chỉ số sẵn sàng thi `` `R_{\text{exam}} = 82.4` `` (`READY`) cho học sinh Hoàng (`3fa85f64-5717-4562-b3fc-2c963f66afa6`).
-- **Đồng Bộ gRPC Liên Dịch Vụ**:
-  - Kết nối hoàn hảo phương thức `GetParentStudents` và `LinkParentStudent` qua gRPC Identity Service phục vụ phân hệ giám sát phụ huynh (Parent Companion Portal).
-- **Kiểm Thử & Biên Dịch**:
-  - Toàn bộ solution biên dịch thành công 100% (**0 Error, 0 Warning**).
+- **Hợp Nhất Toàn Bộ CSDL Của Hệ Thống (`docs/SQL/SQL.sql`)**:
+  - Tích hợp đầy đủ 21 thực thể của phân hệ `v_eval_practice` vào file SQL duy nhất: `Classes`, `ExamSubmissions`, `SubmissionAnswers`, `ProctoringSnapshots`, `ClassEnrollments`, `ClassGroups`, `ClassGroupMembers`, `LiveSessions`, `LiveSessionAttendance`, `LearningProfiles`, `LearningRoadmaps`, `RoadmapNodes`, `StageProgress`, `AdaptiveQuizAttempts`, `MistakeNotebooks`, `ScorePredictions`, `SystemAlerts`, `ClassSkillHeatmaps`, `ClassHeatmapSummaries`, `StudentDailyActivities`, `StudentReadinessMetrics`.
+  - Đồng bộ chuẩn hóa toàn bộ khóa ngoại, chỉ mục hiệu năng cao và loại bỏ triệt để các file SQL phân mảnh cũ.
+- **Tái Cấu Trúc Sơ Đồ ERD Trang 1 & Xử Lý Dây Đè Bảng Trong `docs/SQL/Capstone.drawio`**:
+  - Khắc phục hoàn toàn lỗi dây đè lên bảng bằng cơ chế Highway Corridor Routing và các tiếp điểm biên (`exitX, exitY, entryX, entryY`), kết hợp cầu nối `jumpStyle=arc;jumpSize=6;` chuyên nghiệp.
+  - Phân bổ cấu trúc các bảng của `v_eval_practice` vào các package `4. Thi thử & Giám sát liêm chính`, `5. Lớp học, Live & Nhóm vi mô`, `6. Lộ trình thích ứng & Chu trình P-L-A-R`, `8. Dự báo điểm & Cảnh báo sớm BR-04` và `9. Phân tích học tập & Ma trận nhiệt (Analytics)`.
+- **Tối Ưu Tuyệt Đối Sơ Đồ Khái Niệm Trang 2 (`Trang-2` Straight Orthogonal ERD)**:
+  - Phóng to các ô vuông thực thể (`width = 160..190px, height = 54..75px`) theo lưới 7 cột thoáng đãng, không gom nhóm.
+  - Sắp xếp thực thể trọng tâm nhiều dây (`Students`, `Users`, `Skills`, `Classes`, `Questions`) trên trục chính, các bảng vệ tinh ít dây tỏa đều ra ngoại vi.
+  - Chuyển toàn bộ 77 đường liên kết sang cơ chế **nối thẳng trực giao (Straight Orthogonal, không dây vòng, không detour)** kết hợp tiếp điểm đa điểm và cầu nhảy `jumpStyle=arc`, đảm bảo dây chạy thẳng tắp, không dính chùm và không đè lên nhau.
