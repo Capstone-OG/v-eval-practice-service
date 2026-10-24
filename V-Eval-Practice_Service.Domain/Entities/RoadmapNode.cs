@@ -12,13 +12,11 @@ public class RoadmapNode
     public Guid SkillId { get; set; }
     public int StepOrder { get; set; }
 
-    // 3 Thành phần chính của một chặng học:
+    // 2 Thành phần chính của một chặng học:
     // Thành phần 1: Bài giảng lý thuyết (content.Materials)
     public Guid? MaterialId { get; set; }
     // Thành phần 2: Bài Quiz củng cố 5-10 câu
     public Guid? QuizExamId { get; set; }
-    // Thành phần 3: Buổi Live Q&A trực tuyến cơ sở
-    public Guid? LiveSessionId { get; set; }
 
     public string Status { get; set; } = "LOCKED"; // LOCKED, IN_PROGRESS, COMPLETED, SKIPPED_PRUNED
     public bool IsPruned { get; set; } = false;
@@ -36,5 +34,4 @@ public class RoadmapNode
 
     // Navigation Properties
     public virtual LearningRoadmap Roadmap { get; set; } = null!;
-    public virtual LiveSession? LiveSession { get; set; }
 }

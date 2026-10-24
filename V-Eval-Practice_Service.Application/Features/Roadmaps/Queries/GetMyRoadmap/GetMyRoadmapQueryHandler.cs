@@ -73,7 +73,6 @@ public class GetMyRoadmapQueryHandler : IRequestHandler<GetMyRoadmapQuery, Resul
                     n.StepOrder,
                     n.MaterialId,
                     n.QuizExamId,
-                    n.LiveSessionId,
                     n.Status,
                     n.IsPruned,
                     n.UnlockedAt,

@@ -8,18 +8,16 @@ namespace V_Eval_Practice_Service.Application.Common.Graph;
 public record SkillResourceBinding(
     Guid SkillId,
     Guid? MaterialId,     // Bài giảng lý thuyết từ content.Materials
-    Guid? QuizExamId,     // Bài Quiz củng cố 5-10 câu
-    Guid? LiveSessionId   // Buổi Live Q&A tương ứng của lớp cơ sở
+    Guid? QuizExamId      // Bài Quiz củng cố 5-10 câu
 );
 
 /// <summary>
-/// Bộ tích hợp 3 thành phần (Milestone Binder):
+/// Bộ tích hợp chặng học (Milestone Binder):
 ///   1. Video lý thuyết (Content Service Materials)
 ///   2. Quiz củng cố (Question Bank)
-///   3. Lịch Live Q&A (Practice Service LiveSessions)
 /// 
 /// Chuyển danh sách skill_id đã sắp xếp Topo thành danh sách RoadmapNode thực thể,
-/// gắn kết 3 thành phần và thiết lập trạng thái State Machine ban đầu.
+/// gắn kết các thành phần và thiết lập trạng thái State Machine ban đầu.
 /// </summary>
 public class MilestoneBinder
 {
@@ -28,9 +26,9 @@ public class MilestoneBinder
     /// </summary>
     /// <param name="roadmapId">ID của lộ trình học tập</param>
     /// <param name="sortedSkillIds">Danh sách skill_id đã sắp xếp theo thứ tự Topo</param>
-    /// <param name="resourceBindings">Ánh xạ skill_id -> tài nguyên (video, quiz, live)</param>
+    /// <param name="resourceBindings">Ánh xạ skill_id -> tài nguyên (video, quiz)</param>
     /// <param name="prunedSkillIds">Tập skill_id đã bị cắt tỉa (SKIPPED_PRUNED)</param>
-    /// <returns>Danh sách RoadmapNode đã gắn kết 3 thành phần với trạng thái State Machine</returns>
+    /// <returns>Danh sách RoadmapNode đã gắn kết tài nguyên với trạng thái State Machine</returns>
     public List<RoadmapNode> BindMilestones(
         Guid roadmapId,
         List<Guid> sortedSkillIds,
@@ -56,7 +54,6 @@ public class MilestoneBinder
                 StepOrder = stepOrder,
                 MaterialId = binding?.MaterialId,
                 QuizExamId = binding?.QuizExamId,
-                LiveSessionId = binding?.LiveSessionId,
                 IsPruned = isPruned,
                 // State Machine: Chặng bị cắt tỉa => SKIPPED_PRUNED, Chặng đầu tiên chưa bị prune => IN_PROGRESS, còn lại => LOCKED
                 Status = isPruned ? "SKIPPED_PRUNED" : "LOCKED"

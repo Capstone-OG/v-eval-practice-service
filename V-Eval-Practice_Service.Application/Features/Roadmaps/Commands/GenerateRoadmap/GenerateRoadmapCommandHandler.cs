@@ -178,44 +178,17 @@ public class GenerateRoadmapCommandHandler : IRequestHandler<GenerateRoadmapComm
         var sortedSkillIds = _topologicalSorter.Sort(candidateSkillIds, prerequisitesMap, metadataMap);
 
         // =====================================================================
-        // Bước 6: Đóng gói chặng học 3 thành phần & Khởi tạo State Machine (Milestone Binding)
+        // Bước 6: Đóng gói chặng học 2 thành phần (Lý thuyết + Quiz) & Khởi tạo State Machine (Milestone Binding)
         // =====================================================================
         var skillMap = skillsTree.ToDictionary(s => s.SkillId, s => s);
-
-        // Nạp danh sách các buổi LiveSession chuyên đề theo Domain (DOM_MATH, DOM_LANG, DOM_NAT_SCI, DOM_SOC_SCI)
-        // Ưu tiên lớp chuyên đề học sinh đã ghi danh -> fallback lớp chuyên đề campus -> fallback lớp hành chính
-        var thematicLiveSessions = await _roadmapRepository.GetUpcomingThematicLiveSessionsAsync(
-            request.StudentId,
-            submission.EnrolledClassId,
-            ct);
-
-        var defaultLiveSession = thematicLiveSessions.GetValueOrDefault("DEFAULT");
 
         var resourceBindings = new Dictionary<Guid, SkillResourceBinding>();
         foreach (var skillId in sortedSkillIds)
         {
-            string? domainCode = null;
-            if (skillMap.TryGetValue(skillId, out var skillDto))
-            {
-                domainCode = skillDto.DomainCode;
-            }
-
-            // Gắn LiveSession chuyên đề tương ứng theo Domain của skill
-            LiveSession? liveForSkill = null;
-            if (!string.IsNullOrEmpty(domainCode) && thematicLiveSessions.TryGetValue(domainCode, out var domainSession))
-            {
-                liveForSkill = domainSession;
-            }
-            else
-            {
-                liveForSkill = defaultLiveSession;
-            }
-
             resourceBindings[skillId] = new SkillResourceBinding(
                 SkillId: skillId,
                 MaterialId: null,
-                QuizExamId: null,
-                LiveSessionId: liveForSkill?.SessionId
+                QuizExamId: null
             );
         }
 
@@ -282,7 +255,6 @@ public class GenerateRoadmapCommandHandler : IRequestHandler<GenerateRoadmapComm
                     n.StepOrder,
                     n.MaterialId,
                     n.QuizExamId,
-                    n.LiveSessionId,
                     n.Status,
                     n.IsPruned,
                     n.UnlockedAt,

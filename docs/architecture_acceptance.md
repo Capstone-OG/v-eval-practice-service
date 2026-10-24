@@ -803,18 +803,28 @@
 
 ---
 
-## 15. UNIFIED MASTER DATABASE SCHEMA & ERD ACCEPTANCE
+## 15. UNIFIED MASTER DATABASE SCHEMA & HYBRID ERD ACCEPTANCE (SCHEMA V4.1)
 
-### 15.1 Database Consolidation (`docs/SQL/SQL.sql`)
-- **Single Source of Truth**: All individual and migration scripts have been consolidated into `docs/SQL/SQL.sql`, removing obsolete scripts (`SQL_Migration_Flow5_Analytics.sql`, `V_EVAL_AI_SCHEMA.sql`, `V_EVAL_SCHEMA_V3.sql`).
-- **Schema Distribution**:
+### 15.1 Offline Cohort Transition & LiveSessions Complete Deprecation
+- **Deprecation**: Completely purged `LiveSessions` and `LiveSessionAttendance` domain entities, DbSets, repositories, and CQRS commands/queries from `V-Eval-Practice_Service`.
+- **Roadmap Simplification**: Streamlined `RoadmapNodes` into a lean 2-component milestone model (Theoretical Video Material + Adaptive Consolidation Quiz), removing the `live_session_id` dependency.
+- **Micro-Group Pedagogical Intervention**: Replaced online live triggering with physical in-class micro-groups (3–5 students, `ClassGroups` and `ClassGroupMembers`) and targeted worksheet assignments (`AssignGroupWorksheetCommand`).
+
+### 15.2 Database Consolidation & Schema Alignment (`docs/SQL/SQL.sql`)
+- **Single Source of Truth**: Unified master script `docs/SQL/SQL.sql` strictly mirrors Supabase PostgreSQL production instance.
+- **Schema Distribution (47 Unified Entities)**:
   - `v_eval_identity` (13 tables): Complete RBAC, Identity, and 1:1 Actor profile hierarchy.
   - `v_eval_content` (8 tables): Three-tier competency hierarchy, DAG prerequisites, and Bloom question bank.
-  - `v_eval_practice` (21 tables): Class management, micro-cohorts, P-L-A-R roadmaps, BKT/SM-2, proctoring, score forecast, and learning analytics.
+  - `v_eval_practice` (19 tables): Offline class management, micro-groups, P-L-A-R roadmaps, BKT/SM-2, proctoring, SEM forecast, early alerts, and heatmap analytics.
   - `v_eval_ai` (7 tables): RAG knowledge base, vector chunks (768d), and Level 4 Archetype Knowledge Graph with Socratic audit logs.
-- **Total Tables**: Exactly 49 production tables with standard PostgreSQL types, constraints, and high-performance indexes.
+- **Total Tables**: Exactly 47 production tables with standard PostgreSQL types, constraints, and high-performance B-Tree / HNSW indexes.
 
-### 15.2 Visual ERD Diagram Synchronization (`docs/SQL/Capstone.drawio`)
-- **Visual Diagram (`Trang-1`)**: Synchronized 100% with the unified master schema across 9 bounded context packages.
-- **Embedded PlantUML Source**: Updated in `plantUmlData` wrapper with clean crow's-foot relationships and attribute definitions.
-- **DrawIO Graphical Primitives**: 556 UserObjects, 49 table swimlanes with exact attribute color coding, and 77 orthogonal Crow's Foot relationship edges.
+### 15.3 Visual ERD Diagram Synchronization (`docs/SQL/Capstone.drawio`)
+- **Hybrid Best-Practice (Option C)**:
+  - **Solid Lines (Physical FK)**: 42 intra-service physical foreign keys enforced via PostgreSQL `REFERENCES` constraints.
+  - **Dashed Lines (Logical Reference)**: 32 cross-service references verified at the application layer via high-performance HTTP/2 gRPC contracts.
+- **Stepped Orthogonal (Manhattan Routing)**: Strict $90^\circ$ right-angle ziczac paths through dedicated corridors, anchor points at table boundaries, and arc jump bridges (`jumpStyle=arc; jumpSize=6`) avoiding overlaps.
+- **Multi-Diagram Suite**:
+  - `Trang-1`: Bounded Context Clustered ERD with full attribute columns.
+  - `Trang-2`: Conceptual Entity ERD with clean Manhattan orthogonal routing.
+  - `Trang-3`: Flat Full-Detail ERD displaying all 47 full-attribute tables across a 4-zone unclustered layout with wide corridors.

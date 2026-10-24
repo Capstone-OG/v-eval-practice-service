@@ -14,7 +14,6 @@ public record RoadmapNodeSummaryDto(
     int StepOrder,
     Guid? MaterialId,
     Guid? QuizExamId,
-    Guid? LiveSessionId,
     string Status,
     bool IsPruned,
     DateTime? UnlockedAt,

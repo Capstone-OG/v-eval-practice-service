@@ -16,22 +16,26 @@
   - Đồng bộ kết quả vào CSDL Supabase PostgreSQL Schema `practice`.
   - Cung cấp dữ liệu vi mô làm đầu vào cho AI Subsystem (Bước 4 & 5) ước lượng vector năng lực `\theta_0`, khởi tạo BKT `P(L_0)`, vẽ Radar đa giác và phân cụm xếp lớp.
 
-### 2. Sơ Đồ CSDL PostgreSQL Schema `practice`
-- `practice.exam_submissions`: Phiên nộp bài thi (`submission_id`, `student_id`, `exam_id`, `exam_type`, `total_score`, `total_correct`, `total_questions`, `total_time_spent_seconds`, `started_at`, `completed_at`, `status`).
-- `practice.submission_answers`: Chi tiết 30 câu trả lời (`answer_id`, `submission_id`, `question_id`, `selected_option`, `is_correct`, `time_spent_seconds`).
-- `practice.LearningRoadmaps`: Lộ trình học tập cá nhân hóa (`roadmap_id`, `student_id`, `target_score`, `total_milestones`, `is_pruned`, `status`).
-- `practice.RoadmapNodes`: Chặng học 3 thành phần (`node_id`, `roadmap_id`, `skill_id`, `step_order`, `material_id`, `quiz_exam_id`, `live_session_id`, `status`).
-- `practice.LiveSessions`: Buổi học trực tuyến Live Q&A của lớp (`session_id`, `class_id`, `scheduled_at`, `meeting_url`, `recording_url`, `is_recorded`, `status`).
-- `practice.LiveSessionAttendance`: Điểm danh và bài Quiz bù (`attendance_id`, `session_id`, `student_id`, `attendance_status`, `makeup_quiz_id`, `is_makeup_quiz_passed`).
-- `practice.StageProgress`: Tiến trình chặng học P-L-A-R (`id`, `student_id`, `roadmap_node_id`, `current_step`, `video_watch_percentage`, `bkt_mastery_plt`, `consecutive_advanced_correct`, `consecutive_incorrect`, `status`).
-- `practice.AdaptiveQuizAttempts`: Log trả lời thích ứng từng câu (`id`, `stage_progress_id`, `student_id`, `question_id`, `pattern_id`, `selected_option`, `is_correct`, `time_spent_seconds`, `item_difficulty_b`, `item_discrimination_a`, `is_lucky_guess`, `prior_plt`, `posterior_plt`).
-- `practice.MistakeNotebooks`: Sổ tay lỗi sai & Lặp lại ngắt quãng SM-2 (`id`, `student_id`, `question_id`, `skill_id`, `pattern_id`, `cognitive_error_tag`, `student_notes`, `next_review_date`, `review_count`, `consecutive_correct_reviews`, `interval_days`, `ease_factor`, `is_mastered`, `last_reviewed_at`).
-- `practice.ClassSkillHeatmaps`: Ma trận nhiệt từng ô P(Lt) cho học sinh và kỹ năng (`id`, `class_id`, `student_id`, `skill_id`, `plt_value`, `mastery_level`, `updated_at`).
-- `practice.ClassHeatmapSummaries`: Tổng hợp thống kê theo kỹ năng cả lớp (`id`, `class_id`, `skill_id`, `average_plt`, `struggling_count`, `struggling_rate`, `std_dev_plt`, `alert_status`, `is_bimodal`, `calculated_at`).
-- `practice.StudentDailyActivities`: Nhật ký chuyên cần và thời gian học tập hằng ngày (`id`, `student_id`, `activity_date`, `study_time_minutes`, `practice_questions_solved`, `video_minutes_watched`, `is_streak_counted`, `is_frozen`).
-- `practice.StudentReadinessMetrics`: Chỉ số sẵn sàng thi cho Phụ huynh và Học sinh (`id`, `student_id`, `normalized_theta`, `skill_coverage_plt`, `consistency_score`, `exam_readiness_index`, `readiness_tier`, `calculated_at`).
-- `practice.ScorePredictions`: Dự báo khoảng điểm SEM, bảng cân đối thâm hụt & Toa thuốc Knapsack ROI (`prediction_id`, `student_id`, `predicted_score`, `predicted_score_min`, `predicted_score_max`, `confidence_rate`, `target_score`, `deficit_score`, `sem_score`, `prescription_items`, `calculation_source`, `created_at`).
-- `practice.SystemAlerts`: Hệ thống cảnh báo sớm 3 cấp BR-04 & Can thiệp sư phạm Mentor (`alert_id`, `student_id`, `alert_type`, `message`, `is_read`, `handled_by`, `resolution_notes`, `resolved_at`, `created_at`).
+### 2. Sơ Đồ CSDL PostgreSQL Schema `v_eval_practice` (19 Thực Thể)
+- `Classes`: Lớp học offline tại cơ sở (sĩ số tối đa 20 học sinh, phòng học, mã campus).
+- `ClassEnrollments`: Danh sách học sinh ghi danh chính thức vào lớp học offline.
+- `ClassGroups`: Nhóm học tập vi mô 3–5 học sinh phân hóa theo vùng trũng kiến thức.
+- `ClassGroupMembers`: Thành viên học sinh trong nhóm vi mô.
+- `ExamSubmissions`: Phiên nộp bài thi (`submission_id`, `student_id`, `exam_id`, `exam_type`, `total_score`, `total_correct`, `total_questions`, `total_time_spent_seconds`, `started_at`, `completed_at`, `status`).
+- `SubmissionAnswers`: Chi tiết từng câu trả lời (`answer_id`, `submission_id`, `question_id`, `selected_option`, `is_correct`, `time_spent_seconds`).
+- `ProctoringSnapshots`: Ảnh chụp webcam và giám sát liêm chính thi cử (đếm rời tab).
+- `LearningProfiles`: Hồ sơ năng lực BKT `P(L_t)` và xác suất ban đầu `P(L_0)` theo kỹ năng.
+- `LearningRoadmaps`: Lộ trình học tập cá nhân hóa tự động cắt tỉa mục tiêu theo điểm chẩn đoán.
+- `RoadmapNodes`: Chặng học 2 thành phần tích hợp (`node_id`, `roadmap_id`, `skill_id`, `step_order`, `material_id`, `quiz_exam_id`, `status`).
+- `StageProgress`: Tiến trình chặng học chu trình 4 bước P-L-A-R (`id`, `student_id`, `roadmap_node_id`, `current_step`, `video_watch_percentage`, `bkt_mastery_plt`, `status`).
+- `AdaptiveQuizAttempts`: Log trả lời thích ứng từng câu (`id`, `stage_progress_id`, `student_id`, `question_id`, `pattern_id`, `selected_option`, `is_correct`, `item_difficulty_b`, `prior_plt`, `posterior_plt`).
+- `MistakeNotebooks`: Sổ tay lỗi sai & Lặp lại ngắt quãng SM-2 (`id`, `student_id`, `question_id`, `skill_id`, `pattern_id`, `cognitive_error_tag`, `next_review_date`, `interval_days`, `ease_factor`, `is_mastered`).
+- `ClassSkillHeatmaps`: Ma trận nhiệt từng ô P(Lt) cho học sinh và kỹ năng trong lớp.
+- `ClassHeatmapSummaries`: Tổng hợp thống kê theo kỹ năng cả lớp (Mean `P(L_t)`, StdDev, cờ cảnh báo sư phạm, phân hóa 2 cực).
+- `StudentDailyActivities`: Nhật ký chuyên cần và thời gian học tập hằng ngày (`study_time_minutes`, `practice_questions_solved`, `streak`).
+- `StudentReadinessMetrics`: Chỉ số sẵn sàng thi cho Phụ huynh và Học sinh (`exam_readiness_index`, `readiness_tier`, `consistency_score`).
+- `ScorePredictions`: Dự báo khoảng điểm SEM, bảng cân đối thâm hụt & Toa thuốc Knapsack ROI (`predicted_score`, `sem_score`, `deficit_score`, `prescription_items`).
+- `SystemAlerts`: Hệ thống cảnh báo sớm 3 cấp BR-04 & Can thiệp sư phạm Mentor (`alert_type`, `message`, `is_read`, `handled_by`, `resolution_notes`).
 
 ---
 
@@ -115,7 +119,7 @@
 | 74 | **Core Flow 5 (Phase 2): Background Aggregation Worker & Hybrid Engine** | `Infrastructure/BackgroundJobs/` | 🟢 Hoàn thành | 100% | Hoàn thành Worker quét 15 phút, Cache `IMemoryCache`, Write-Through handler tích hợp nộp bài & video |
 | 75 | **Core Flow 5 (Phase 3 - API 1): Dashboard Năng Lực Học Sinh** | `Controllers/AnalyticsController.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/analytics/student/{studentId}/dashboard` Radar 4 miền, DAG %, Streak & Lịch sử |
 | 76 | **Core Flow 5 (Phase 3 - API 2): Class Heatmap Matrix Cho Giáo Viên** | `Controllers/ClassesController.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/classes/{classId}/heatmap` Ma trận nhiệt 2D, Cảnh báo đỏ sư phạm, lọc Domain, Cache < 300ms |
-| 77 | **Core Flow 5 (Phase 3 - API 3): Hành Động Sư Phạm 1-Click Tạo Live Q&A** | `Controllers/ClassesController.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/classes/{classId}/heatmap/trigger-live-session` Can thiệp chuyên đề trũng, cập nhật RoadmapNodes |
+| 77 | **Core Flow 5 (Phase 3 - API 3): Gán Phiếu Bài Tập Thích Ứng Cho Nhóm Vi Mô** | `Controllers/ClassesController.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/classes/{classId}/micro-groups/{groupId}/assign-worksheet` gán đề ôn tập vi mô thích ứng trực tiếp cho nhóm 3–5 học sinh trên lớp offline |
 | 78 | **Core Flow 5 (Phase 3 - API 4): Dashboard Phụ Huynh (Readiness Index)** | `Controllers/AnalyticsController.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/analytics/parent/{parentId}/children` Thước đo sẵn sàng thi R_exam, Giờ tự học & AI Alerts |
 | 79 | **Core Flow 5 (Phase 3 - API 6): Kích Hoạt Tính Toán Lại Ma Trận Nhiệt Thủ Công** | `Controllers/ClassesController.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/classes/{classId}/heatmap/force-aggregate` Cưỡng chế chạy sweep và làm tươi cache |
 | 80 | **Core Flow 5 (Phase 3 - API 5): Bản Đồ Nhiệt So Sánh Cấp Cơ Sở (Campus Heatmap)** | `Controllers/AnalyticsController.cs` | 🟢 Hoàn thành | 100% | `GET /api/practice/analytics/campus/{campusId}/comparative-heatmap` So sánh 4 miền, phân cấp rủi ro cơ sở |
@@ -131,4 +135,5 @@
 | 90 | **Core Flow 6 (API 9): Hẹn Lịch Tư Vấn 3 Bên Định Hướng Lại Mục Tiêu (ScheduleCounseling)** | `EarlyWarningsController.cs` & `ScheduleCounselingCommandHandler.cs` | 🟢 Hoàn thành | 100% | `POST /api/practice/early-warnings/{alertId}/schedule-counseling` lên lịch hẹn tư vấn Phụ huynh - Học sinh - Mentor khi gặp cảnh báo `UNREALISTIC_GOAL`, đề xuất mục tiêu khả thi và giải quyết cảnh báo |
 | 91 | **Liên Thông Tự Động Gán Đề Nhóm Vi Mô Với Content Service API 19** | `IContentHttpClient.cs`, `ContentHttpClient.cs` & `AssignGroupWorksheetCommandHandler.cs` | 🟢 Hoàn thành | 100% | Tự động trích xuất `CommonWeakSkillIds`, gọi `POST /api/content/exams/quiz` Content Service đóng gói 5 câu Bloom L1-L3, gán trực tiếp làm phiếu bài tập vi mô |
 | 92 | **Hợp Nhất Master CSDL SQL & Tái Cấu Trúc ERD Trang 1 Capstone.drawio** | `docs/SQL/SQL.sql` & `docs/SQL/Capstone.drawio` | 🟢 Hoàn thành | 100% | Hợp nhất 49 bảng thuộc 4 schema vào 1 file SQL duy nhất, dọn dẹp các script cũ và tái cấu trúc sơ đồ ERD Trang 1 với 9 packages và 77 edges chuẩn Crow's Foot |
+| 93 | **Chuyển Đổi Offline Cohort: Xóa Sạch LiveSessions & Chuẩn Hóa ERD Phương Án C** | Toàn bộ Solution & `docs/SQL/Capstone.drawio` | 🟢 Hoàn thành | 100% | Xóa bỏ 100% phân hệ LiveSessions (C# + Supabase DB + SQL.sql), chuẩn hóa 47 bảng, phân định 42 nét liền (Physical FK) và 32 nét đứt (Logical Ref), đi dây Manhattan sấm sét trên cả 3 trang drawio |
 

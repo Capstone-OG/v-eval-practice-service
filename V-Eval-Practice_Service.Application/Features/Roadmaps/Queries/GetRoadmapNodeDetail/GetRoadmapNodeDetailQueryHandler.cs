@@ -74,26 +74,6 @@ public class GetRoadmapNodeDetailQueryHandler : IRequestHandler<GetRoadmapNodeDe
             _logger.LogWarning(ex, "Không thể kết nối gRPC Content Service để lấy metadata cho kỹ năng {SkillId}", node.SkillId);
         }
 
-        // Trích xuất chi tiết buổi học Live Q&A nếu có
-        LiveSessionDetailDto? liveSessionDto = null;
-        if (node.LiveSession != null)
-        {
-            var attendance = await _roadmapRepository.GetAttendanceAsync(node.LiveSession.SessionId, node.Roadmap.StudentId, ct);
-            liveSessionDto = new LiveSessionDetailDto(
-                SessionId: node.LiveSession.SessionId,
-                Title: node.LiveSession.Title,
-                Description: node.LiveSession.Description,
-                ScheduledAt: node.LiveSession.ScheduledAt,
-                DurationMinutes: node.LiveSession.DurationMinutes,
-                MeetingUrl: node.LiveSession.MeetingUrl,
-                RecordingUrl: node.LiveSession.RecordingUrl,
-                IsRecorded: node.LiveSession.IsRecorded,
-                Status: node.LiveSession.Status,
-                AttendanceStatus: attendance?.AttendanceStatus,
-                IsMakeupQuizPassed: attendance?.IsMakeupQuizPassed
-            );
-        }
-
         bool isQuizEligible = node.IsVideoCompleted ||
             (node.VideoTotalSeconds > 0 && (double)node.VideoWatchedSeconds / node.VideoTotalSeconds >= 0.8);
 
@@ -116,7 +96,6 @@ public class GetRoadmapNodeDetailQueryHandler : IRequestHandler<GetRoadmapNodeDe
             IsVideoCompleted: node.IsVideoCompleted,
             IsQuizEligible: isQuizEligible,
             QuizExamId: node.QuizExamId,
-            LiveSession: liveSessionDto,
             DomainCode: domainCode
         );
 

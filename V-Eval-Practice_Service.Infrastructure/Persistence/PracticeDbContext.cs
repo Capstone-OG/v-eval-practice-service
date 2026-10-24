@@ -17,8 +17,6 @@ public class PracticeDbContext : DbContext
     public DbSet<ClassEnrollment> ClassEnrollments => Set<ClassEnrollment>();
     public DbSet<LearningRoadmap> LearningRoadmaps => Set<LearningRoadmap>();
     public DbSet<RoadmapNode> RoadmapNodes => Set<RoadmapNode>();
-    public DbSet<LiveSession> LiveSessions => Set<LiveSession>();
-    public DbSet<LiveSessionAttendance> LiveSessionAttendances => Set<LiveSessionAttendance>();
     public DbSet<StageProgress> StageProgresses => Set<StageProgress>();
     public DbSet<AdaptiveQuizAttempt> AdaptiveQuizAttempts => Set<AdaptiveQuizAttempt>();
     public DbSet<ClassGroup> ClassGroups => Set<ClassGroup>();
@@ -228,7 +226,6 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.StepOrder).HasColumnName("step_order").IsRequired();
             entity.Property(e => e.MaterialId).HasColumnName("material_id");
             entity.Property(e => e.QuizExamId).HasColumnName("quiz_exam_id");
-            entity.Property(e => e.LiveSessionId).HasColumnName("live_session_id");
             entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(50).IsRequired();
             entity.Property(e => e.IsPruned).HasColumnName("is_pruned");
             entity.Property(e => e.UnlockedAt).HasColumnName("unlocked_at");
@@ -238,57 +235,46 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.IsVideoCompleted).HasColumnName("is_video_completed");
             entity.Property(e => e.QuizScore).HasColumnName("quiz_score");
             entity.Property(e => e.IsQuizPassed).HasColumnName("is_quiz_passed");
-
-            entity.HasOne(e => e.LiveSession)
-                  .WithMany(s => s.RoadmapNodes)
-                  .HasForeignKey(e => e.LiveSessionId)
-                  .OnDelete(DeleteBehavior.SetNull);
         });
 
-        // Cấu hình bảng LiveSessions (Lịch Live Q&A của lớp cơ sở)
-        modelBuilder.Entity<LiveSession>(entity =>
+        // Cấu hình bảng ClassGroups (Nhóm vi mô bàn học 3-5 bạn)
+        modelBuilder.Entity<ClassGroup>(entity =>
         {
-            entity.ToTable("LiveSessions");
-            entity.HasKey(e => e.SessionId);
+            entity.ToTable("ClassGroups", "v_eval_practice");
+            entity.HasKey(e => e.GroupId);
 
-            entity.Property(e => e.SessionId).HasColumnName("session_id");
+            entity.Property(e => e.GroupId).HasColumnName("group_id");
             entity.Property(e => e.ClassId).HasColumnName("class_id").IsRequired();
-            entity.Property(e => e.TeacherId).HasColumnName("teacher_id");
-            entity.Property(e => e.Title).HasColumnName("title").IsRequired();
-            entity.Property(e => e.Description).HasColumnName("description");
-            entity.Property(e => e.ScheduledAt).HasColumnName("scheduled_at").IsRequired();
-            entity.Property(e => e.DurationMinutes).HasColumnName("duration_minutes");
-            entity.Property(e => e.MeetingUrl).HasColumnName("meeting_url");
-            entity.Property(e => e.RecordingUrl).HasColumnName("recording_url");
-            entity.Property(e => e.IsRecorded).HasColumnName("is_recorded");
-            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(50).IsRequired();
+            entity.Property(e => e.GroupName).HasColumnName("group_name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.FocusArea).HasColumnName("focus_area").HasMaxLength(255);
+            entity.Property(e => e.CommonWeakSkillIds).HasColumnName("common_weak_skill_ids");
+            entity.Property(e => e.RecommendedWorksheetTitle).HasColumnName("recommended_worksheet_title").HasMaxLength(255);
+            entity.Property(e => e.AssignedWorksheetId).HasColumnName("assigned_worksheet_id").HasMaxLength(100);
+            entity.Property(e => e.AssignedWorksheetTitle).HasColumnName("assigned_worksheet_title").HasMaxLength(255);
+            entity.Property(e => e.WorksheetAssignedAt).HasColumnName("worksheet_assigned_at");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
 
             entity.HasOne(e => e.Class)
                   .WithMany()
                   .HasForeignKey(e => e.ClassId)
                   .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasMany(e => e.Attendances)
-                  .WithOne(a => a.Session)
-                  .HasForeignKey(a => a.SessionId)
-                  .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // Cấu hình bảng LiveSessionAttendance (Điểm danh & Quiz bù)
-        modelBuilder.Entity<LiveSessionAttendance>(entity =>
+        // Cấu hình bảng ClassGroupMembers (Thành viên nhóm vi mô)
+        modelBuilder.Entity<ClassGroupMember>(entity =>
         {
-            entity.ToTable("LiveSessionAttendance");
-            entity.HasKey(e => e.AttendanceId);
+            entity.ToTable("ClassGroupMembers", "v_eval_practice");
+            entity.HasKey(e => e.GroupMemberId);
 
-            entity.Property(e => e.AttendanceId).HasColumnName("attendance_id");
-            entity.Property(e => e.SessionId).HasColumnName("session_id").IsRequired();
+            entity.Property(e => e.GroupMemberId).HasColumnName("group_member_id");
+            entity.Property(e => e.GroupId).HasColumnName("group_id").IsRequired();
             entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
-            entity.Property(e => e.AttendanceStatus).HasColumnName("attendance_status").HasMaxLength(20).IsRequired();
             entity.Property(e => e.JoinedAt).HasColumnName("joined_at");
-            entity.Property(e => e.LeftAt).HasColumnName("left_at");
-            entity.Property(e => e.MakeupQuizId).HasColumnName("makeup_quiz_id");
-            entity.Property(e => e.IsMakeupQuizPassed).HasColumnName("is_makeup_quiz_passed");
+
+            entity.HasOne(e => e.Group)
+                  .WithMany(g => g.Members)
+                  .HasForeignKey(e => e.GroupId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Cấu hình bảng StageProgress (Core Flow 3 - Tiến trình chặng học P-L-A-R)
