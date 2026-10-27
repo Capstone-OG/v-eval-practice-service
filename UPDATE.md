@@ -10,3 +10,7 @@
     - [`ZpdQuestionSelectorTests.cs`](./V-Eval-Practice_Service.Tests/Adaptive/ZpdQuestionSelectorTests.cs) (1 test): Kiểm thử bộ chọn câu hỏi vùng phát triển gần ZPD, chọn câu hỏi có độ khó phù hợp với năng lực học sinh.
 - **Tích Hợp Tự Động Hóa CI/CD Workflow**:
   - Bổ sung bước thực thi `dotnet test --no-build --configuration Release --verbosity normal` vào `.github/workflows/ci.yml`.
+- **Bổ Sung Trạng Thái Vòng Đời Sổ Tay Lỗi Sai (Mistake Notebook Lifecycle)**:
+  - Cập nhật thực thể [`MistakeNotebook.cs`](./V-Eval-Practice_Service.Domain/Entities/MistakeNotebook.cs): Bổ sung thuộc tính `Status` và lớp hằng số `MistakeLifecycleState` (`NEW_MISTAKE`, `DUE_FOR_REVIEW`, `REVIEWING`, `RETAINED`, `RELAPSED`, `MASTERED`) đồng bộ với máy trạng thái và tài liệu thiết kế.
+  - Đồng bộ thực thể [`LearningProfile.cs`](./V-Eval-Practice_Service.Domain/Entities/LearningProfile.cs) và bảng `v_eval_practice."LearningProfiles"` vào sơ đồ thực thể ERD tổng thể.
+

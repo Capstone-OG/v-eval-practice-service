@@ -13,6 +13,11 @@ public class MistakeNotebook
     public Guid QuestionId { get; set; }
     public Guid SkillId { get; set; }
     public string PatternId { get; set; } = "STANDARD";
+    
+    /// <summary>
+    /// Vòng đời trạng thái Sổ tay lỗi sai: NEW_MISTAKE -> DUE_FOR_REVIEW -> REVIEWING -> (RETAINED / RELAPSED) -> MASTERED
+    /// </summary>
+    public string Status { get; set; } = MistakeLifecycleState.NewMistake;
 
     /// <summary>
     /// Nhãn nhận thức sư phạm: CARELESS (Tính ẩu), MISREAD_QUESTION (Đọc sót đề), MISSING_CONCEPT (Hổng lý thuyết)
@@ -61,4 +66,17 @@ public class MistakeNotebook
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Định nghĩa các trạng thái chuẩn trong vòng đời Sổ tay lỗi sai (Registration Form / BM01 & BM04)
+/// </summary>
+public static class MistakeLifecycleState
+{
+    public const string NewMistake = "NEW_MISTAKE";
+    public const string DueForReview = "DUE_FOR_REVIEW";
+    public const string Reviewing = "REVIEWING";
+    public const string Retained = "RETAINED";
+    public const string Relapsed = "RELAPSED";
+    public const string Mastered = "MASTERED";
 }
