@@ -1,16 +1,9 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [27/10/2026] - Chuẩn Hóa Bộ Unit Test Thích Ứng (Adaptive) Và Tích Hợp CI Test
+## [31/10/2026] - Khắc Phục Lỗi Serialization `snake_case` Trong `AiTutorClient` & Làm Giàu Ngữ Cảnh Socratic Fallback
 
-- **Chuẩn Hóa Bộ Unit Test Adaptive (4 Tests)**:
-  - Thiết lập dự án kiểm thử `V-Eval-Practice_Service.Tests` theo chuẩn xUnit và .NET 9.
-  - Tối ưu và rút gọn bộ unit test còn đúng 4 test cases trọng tâm theo kiến trúc:
-    - [`BktEngineTests.cs`](./V-Eval-Practice_Service.Tests/Adaptive/BktEngineTests.cs) (2 tests): Kiểm thử công thức cập nhật xác suất thành thạo kiến thức Bayesian Knowledge Tracing khi học sinh trả lời Đúng (`pMastery` tăng) và Sai (`pMastery` giảm).
-    - [`SpacedRepetitionCalculatorTests.cs`](./V-Eval-Practice_Service.Tests/Adaptive/SpacedRepetitionCalculatorTests.cs) (1 test): Kiểm thử thuật toán lặp lại ngắt quãng SM-2 tính toán khoảng cách ngày ôn tập theo điểm đánh giá chất lượng.
-    - [`ZpdQuestionSelectorTests.cs`](./V-Eval-Practice_Service.Tests/Adaptive/ZpdQuestionSelectorTests.cs) (1 test): Kiểm thử bộ chọn câu hỏi vùng phát triển gần ZPD, chọn câu hỏi có độ khó phù hợp với năng lực học sinh.
-- **Tích Hợp Tự Động Hóa CI/CD Workflow**:
-  - Bổ sung bước thực thi `dotnet test --no-build --configuration Release --verbosity normal` vào `.github/workflows/ci.yml`.
-- **Bổ Sung Trạng Thái Vòng Đời Sổ Tay Lỗi Sai (Mistake Notebook Lifecycle)**:
-  - Cập nhật thực thể [`MistakeNotebook.cs`](./V-Eval-Practice_Service.Domain/Entities/MistakeNotebook.cs): Bổ sung thuộc tính `Status` và lớp hằng số `MistakeLifecycleState` (`NEW_MISTAKE`, `DUE_FOR_REVIEW`, `REVIEWING`, `RETAINED`, `RELAPSED`, `MASTERED`) đồng bộ với máy trạng thái và tài liệu thiết kế.
-  - Đồng bộ thực thể [`LearningProfile.cs`](./V-Eval-Practice_Service.Domain/Entities/LearningProfile.cs) và bảng `v_eval_practice."LearningProfiles"` vào sơ đồ thực thể ERD tổng thể.
-
+- **Chuẩn Hóa Hợp Đồng JSON `snake_case` (`V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs`)**:
+  - Bổ sung `PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower` vào `JsonOptions` của `AiTutorClient` để các trường (`student_id`, `question_id`, `question_latex`, `options`, `student_selected_option`, `correct_option`, `skill_id`) khớp 100% với model Pydantic `SocraticAskRequest` của Python FastAPI RAG (`:8000`), khắc phục triệt để lỗi `422 Unprocessable Entity`.
+  - Cải tiến `GenerateStreamFallback(payload)` lồng ghép trực tiếp nội dung đề bài và phương án học sinh đã chọn từ `payload.Options`.
+- **Kiểm Thử & Xác Thực**:
+  - Chạy `dotnet test` thành công 100% (4/4 unit tests pass).

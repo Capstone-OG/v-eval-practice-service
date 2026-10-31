@@ -1,5 +1,15 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [31/10/2026] - Khắc Phục Lỗi Serialization `snake_case` Trong `AiTutorClient` Khi Giao Tiếp Python FastAPI RAG & Cải Tiến Phản Hồi Dự Phòng Socratic
+
+- **Chuẩn Hóa Hợp Đồng JSON `snake_case` Giữa Practice Service & Python FastAPI RAG ([`AiTutorClient.cs`](../V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs))**:
+  - Bổ sung `PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower` vào `JsonOptions` của `AiTutorClient`, đảm bảo payload `SocraticAskRequestPayload` (`student_id`, `question_id`, `question_latex`, `options`, `student_selected_option`, `correct_option`, `skill_id`) khớp 100% với Pydantic schema `SocraticAskRequest` của FastAPI RAG Service (`:8000`), chấm dứt lỗi `422 Unprocessable Entity`.
+  - Nâng cấp phương thức `GenerateStreamFallback(payload)` để trích xuất nội dung câu hỏi và phương án học sinh chọn từ `payload.Options`, cung cấp gợi ý Socratic giàu ngữ cảnh ngay cả khi dịch vụ RAG `:8000` đang ngoại tuyến.
+- **Kiểm Thử & Xác Thực**:
+  - Thực thi `dotnet test --nologo` thành công 100% (4/4 tests pass).
+
+---
+
 ## [27/10/2026] - Chuẩn Hóa Bộ Unit Test Thích Ứng (Adaptive) Và Tích Hợp CI Test
 
 - **Chuẩn Hóa Bộ Unit Test Adaptive (4 Tests)**:
