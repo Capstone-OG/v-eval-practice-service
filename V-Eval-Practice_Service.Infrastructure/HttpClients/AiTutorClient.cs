@@ -26,7 +26,8 @@ public class AiTutorClient : IAiTutorClient
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
 
     public AiTutorClient(
@@ -199,10 +200,14 @@ public class AiTutorClient : IAiTutorClient
 
     private static string GenerateStreamFallback(SocraticAskRequestPayload payload)
     {
-        return $"💡 **Gợi ý phương pháp giải:**\n\n" +
-               $"- Em đã chọn phương án **{payload.StudentSelectedOption}**, hãy kiểm tra lại điều kiện xác định và các bước biến đổi trung gian của bài toán.\n" +
-               $"- Hãy xem lại định lý cơ bản và thử thay lại nghiệm vào biểu thức ban đầu xem có thỏa mãn không nhé!\n\n" +
-               $"👉 *Câu hỏi gợi mở:* Bước nào trong quá trình biến đổi khiến em chọn phương án này?";
+        string selectedText = payload.Options != null && payload.Options.TryGetValue(payload.StudentSelectedOption, out var sVal) && !string.IsNullOrWhiteSpace(sVal)
+            ? $"{payload.StudentSelectedOption} ({sVal})"
+            : payload.StudentSelectedOption;
+
+        return $"💡 **Gợi ý phương pháp giải Socratic:**\n\n" +
+               $"- **Phân tích lựa chọn:** Em đã chọn phương án **{selectedText}** cho câu hỏi: *{payload.QuestionLatex}*.\n" +
+               $"- **Kiến thức cốt lõi cần đối chiếu:** Hãy kiểm tra lại định lý/công thức nền tảng của dạng bài này (điều kiện xác định, dấu của đạo hàm hoặc biến đổi tương đương) xem phương án **{payload.StudentSelectedOption}** có thỏa mãn trên toàn miền xác định hay chỉ đúng tại một vài giá trị đặc biệt.\n\n" +
+               $"👉 *Câu hỏi gợi mở:* Nếu thử kiểm tra lại điều kiện cần và đủ của bài toán trên từng phương án, em thấy phương án **{payload.StudentSelectedOption}** gặp mâu thuẫn ở bước nào?";
     }
 
     /// <summary>
