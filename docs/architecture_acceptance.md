@@ -669,6 +669,8 @@
    - 7 consecutive active study days (`StudentDailyActivities`) and exam readiness metric `` `R_{\text{exam}} = 82.4` `` (`READY`) with 12-day current streak.
 2. **Inter-Service gRPC Contract Fulfillment**:
    - Identity Service gRPC server now implements `GetParentStudents` and `LinkParentStudent` directly backed by `ParentStudentRelations`, `Students`, and `Users` entities, eliminating client-side fallback necessity.
+3. **Startup Auto-DDL & Seed Data Integrity (`Program.cs`)**:
+   - Cleaned up embedded SQL string conflict artifacts in [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs) and restored deterministic block scoping for `heatmapExists` and `predictionsExists`, guaranteeing clean idempotent startup provisioning for both Core Flow 5 and Core Flow 6 tables.
 
 
 ---

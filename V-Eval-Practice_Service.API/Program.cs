@@ -264,7 +264,6 @@ using (var scope = app.Services.CreateScope())
             CREATE INDEX IF NOT EXISTS idx_proctoring_snapshots_sub 
             ON v_eval_practice.""ProctoringSnapshots"" (submission_id, captured_at);
 
-<<<<<<< HEAD
             -- Core Flow 5: Analytics & Class Heatmap
             CREATE TABLE IF NOT EXISTS v_eval_practice.""ClassSkillHeatmaps"" (
                 id UUID PRIMARY KEY,
@@ -349,7 +348,7 @@ using (var scope = app.Services.CreateScope())
 
             CREATE INDEX IF NOT EXISTS idx_readiness_student_id 
             ON v_eval_practice.""StudentReadinessMetrics""(student_id);
-=======
+
             -- Core Flow 6: ScorePredictions & SystemAlerts
             CREATE TABLE IF NOT EXISTS v_eval_practice.""ScorePredictions"" (
                 prediction_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -383,7 +382,6 @@ using (var scope = app.Services.CreateScope())
 
             CREATE INDEX IF NOT EXISTS idx_system_alerts_student 
             ON v_eval_practice.""SystemAlerts"" (student_id);
->>>>>>> origin/develop
         ");
         logger.LogInformation("Đã xác thực và khởi tạo thành công CSDL schema practice trên Supabase.");
 
@@ -545,6 +543,7 @@ using (var scope = app.Services.CreateScope())
 
             await dbContext.SaveChangesAsync();
             logger.LogInformation("Đã khởi tạo thành công Lớp học mẫu {ClassId} và ma trận nhiệt phục vụ Core Flow 5.", sampleClassId);
+        }
 
         // Đảm bảo có dữ liệu mẫu ScorePrediction phục vụ kiểm thử Core Flow 6
         var testStudentId = Guid.Parse("b0a218d2-1111-4000-8000-000000000001");
@@ -683,7 +682,6 @@ using (var scope = app.Services.CreateScope())
             }
             await dbContext.SaveChangesAsync();
             logger.LogInformation("Đã khởi tạo lớp mẫu {ClassId} và ghi danh học sinh phục vụ Mentor Dashboard.", mentorClassId);
-        }
         }
     }
     catch (Exception ex)

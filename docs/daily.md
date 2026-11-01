@@ -1,5 +1,15 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [01/11/2026] - Khắc Phục Lỗi Ký Tự Xung Đột SQL Trong Khối Khởi Tạo CSDL Tự Động (`Program.cs`) Cho Core Flow 5 & Core Flow 6
+
+- **Khắc Phục Lỗi Runtime DDL & Seed Data Khi Khởi Động ([`Program.cs`](../V-Eval-Practice_Service.API/Program.cs))**:
+  - Loại bỏ triệt để các dấu vết xung đột Git còn sót bên trong chuỗi nguyên văn `ExecuteSqlRawAsync(@"...")` và đóng đúng phạm vi khối `if (!heatmapExists)`.
+  - Đảm bảo khi `Practice Service` khởi động, toàn bộ các bảng Core Flow 5 (`ClassSkillHeatmaps`, `ClassHeatmapSummaries`, `StudentDailyActivities`, `StudentReadinessMetrics`) và Core Flow 6 (`ScorePredictions`, `SystemAlerts`) cùng dữ liệu mẫu kiểm thử (Lớp `11111111-2222-3333-4444-555555555555`, 5 học sinh, ma trận nhiệt cảnh báo đỏ `CRITICAL_RED` 60%, chuỗi 7 ngày tự học và chỉ số `` `R_{\text{exam}} = 82.4` ``) được tạo lập và gieo dữ liệu thành công 100% trên PostgreSQL.
+- **Kiểm Thử & Xác Thực**:
+  - Thực thi `dotnet build --nologo` (**0 Warning, 0 Error**) và `dotnet test --no-build --nologo` (**4/4 tests pass**).
+
+---
+
 ## [31/10/2026] - Khắc Phục Lỗi Serialization `snake_case` Trong `AiTutorClient` Khi Giao Tiếp Python FastAPI RAG & Cải Tiến Phản Hồi Dự Phòng Socratic
 
 - **Chuẩn Hóa Hợp Đồng JSON `snake_case` Giữa Practice Service & Python FastAPI RAG ([`AiTutorClient.cs`](../V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs))**:
