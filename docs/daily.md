@@ -1,5 +1,19 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [02/11/2026] - Đồng Bộ Trực Tuyến Bài Nộp Khảo Sát Chẩn Đoán (Core Flow 1) Sang Trung Tâm Phân Tích Học Tập & Ma Trận Nhiệt (Core Flow 5)
+
+- **Nâng Cấp Luồng Chấm Điểm & Đồng Bộ Write-Through Sang Core Flow 5 ([`SubmitDiagnosticCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/Commands/SubmitDiagnostic/SubmitDiagnosticCommandHandler.cs), [`DiagnosticSubmissionDtos.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/DTOs/DiagnosticSubmissionDtos.cs), [`SubmitDiagnosticCommand.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/Commands/SubmitDiagnostic/SubmitDiagnosticCommand.cs))**:
+  - Mở rộng `QuestionAnswerInputDto` và `SubmitDiagnosticCommand` hỗ trợ đầy đủ metadata câu hỏi tuỳ chọn (`CorrectOption`, `SkillId`, `SkillName`, `DomainId`, `DomainName`, `DifficultyLevel`, `ExamTitle`, `TargetScore`, `CompletedAt`), cho phép lưu trữ vào PostgreSQL cả đề chuẩn từ Content Service lẫn đề sinh động từ Google Gemini AI.
+  - Gỡ bỏ khoá cứng nộp lặp theo `ExamId` để học sinh có thể thực hiện nhiều bài khảo sát chẩn đoán theo từng giai đoạn ôn luyện; đồng thời bổ sung cơ chế dự phòng mềm cho Identity gRPC (tự gán cơ sở mặc định nếu tài khoản mới chưa chọn Campus) và AI Diagnostic Subsystem (tự tính logit IRT 2PL `` `\theta_0 = \ln(p / (1 - p))` `` khi dịch vụ AI ngoại tuyến).
+  - Bổ sung đồng bộ trực tiếp (Write-Through) ngay khi hoàn tất bài chẩn đoán sang `ClassSkillHeatmaps` (ánh xạ chuẩn 4 phân môn `DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`) và `StudentDailyActivities` (`MockExamsTaken += 1`, `IsStreakCounted = true`), giúp biểu đồ Radar, chuỗi Streak 7 ngày và Heatmap lớp học cập nhật tức thì.
+- **Chuẩn Hoá Dữ Liệu Thực Tế Cho Dashboard Học Sinh ([`GetStudentDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetStudentDashboard/GetStudentDashboardQueryHandler.cs))**:
+  - Loại bỏ toàn bộ số liệu giả định cứng (`785` điểm, chuỗi `12` ngày, đề thi thử mẫu `88/120`, Radar mặc định `78.5/82.0/65.0/72.0`) khi học sinh đã có bài làm thực tế.
+  - Quy đổi chính xác điểm bài khảo sát chẩn đoán 30 câu sang thang điểm V-ACT `0 - 1200`, tổng hợp Radar 4 miền từ `ClassSkillHeatmaps` thực tế, tính chuỗi ngày liên tiếp kết hợp `StudentDailyActivities` và `ExamSubmissions`, đồng thời hiển thị đầy đủ cả bài Khảo sát Chẩn đoán (30 câu) lẫn Thi thử (120 câu) trong lịch sử gần nhất.
+- **Kiểm Thử & Xác Thực**:
+  - Thực thi `dotnet build --nologo` (**0 Warning, 0 Error**) và `dotnet test --nologo` (**4/4 tests pass**).
+
+---
+
 ## [01/11/2026] - Khắc Phục Lỗi Ký Tự Xung Đột SQL Trong Khối Khởi Tạo CSDL Tự Động (`Program.cs`) Cho Core Flow 5 & Core Flow 6
 
 - **Khắc Phục Lỗi Runtime DDL & Seed Data Khi Khởi Động ([`Program.cs`](../V-Eval-Practice_Service.API/Program.cs))**:

@@ -8,6 +8,14 @@ public class QuestionAnswerInputDto
     public Guid QuestionId { get; set; }
     public string? SelectedOption { get; set; }
     public int TimeSpentSeconds { get; set; }
+
+    // Optional metadata for AI-generated or client-hydrated diagnostic questions
+    public string? CorrectOption { get; set; }
+    public string? SkillId { get; set; }
+    public string? SkillName { get; set; }
+    public string? DomainId { get; set; }
+    public string? DomainName { get; set; }
+    public int? DifficultyLevel { get; set; }
 }
 
 public class SkillDiagnosticDto

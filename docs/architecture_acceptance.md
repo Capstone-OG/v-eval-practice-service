@@ -830,3 +830,14 @@
   - `Trang-1`: Bounded Context Clustered ERD with full attribute columns.
   - `Trang-2`: Conceptual Entity ERD with clean Manhattan orthogonal routing.
   - `Trang-3`: Flat Full-Detail ERD displaying all 47 full-attribute tables across a 4-zone unclustered layout with wide corridors.
+
+
+---
+
+## 16. CORE FLOW 1 TO CORE FLOW 5 REAL-TIME WRITE-THROUGH SYNCHRONIZATION
+- **Unified Diagnostic Persistence (`SubmitDiagnosticCommandHandler.cs`)**:
+  - Supports both Content Service canonical exams and AI-generated 30-question diagnostic assessments via optional per-question grading metadata (`CorrectOption`, `SkillId`, `DomainId`, `DifficultyLevel`) and deterministic MD5 skill UUID mapping.
+  - Immediately synchronizes completed diagnostic priors into `LearningProfiles`, `ClassSkillHeatmaps` (across `DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`), and `StudentDailyActivities` (`MockExamsTaken`, `StudyTimeMinutes`, `IsStreakCounted = true`).
+- **Authentic Student Analytics Aggregation (`GetStudentDashboardQueryHandler.cs`)**:
+  - Evaluates `NeedsOnboarding` strictly against real `ExamSubmissions`, `ClassSkillHeatmaps`, and `StudentDailyActivities`.
+  - Computes proportional V-ACT 1200-scale score estimates (`TotalCorrect / TotalQuestions * 1200` for 30-question diagnostics with `±45` SEM margin), authentic 4-domain radar competencies, merged consecutive active streaks, and chronological history across both diagnostic and mock exams.

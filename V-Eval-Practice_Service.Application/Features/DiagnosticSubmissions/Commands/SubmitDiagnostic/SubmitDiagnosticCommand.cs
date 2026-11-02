@@ -10,5 +10,8 @@ public record SubmitDiagnosticCommand(
     Guid StudentId,
     Guid ExamId,
     DateTime? StartedAt,
-    List<QuestionAnswerInputDto> Answers
+    List<QuestionAnswerInputDto> Answers,
+    string? ExamTitle = null,
+    int? TargetScore = null,
+    DateTime? CompletedAt = null
 ) : IRequest<Result<SubmitDiagnosticResponseDto>>;

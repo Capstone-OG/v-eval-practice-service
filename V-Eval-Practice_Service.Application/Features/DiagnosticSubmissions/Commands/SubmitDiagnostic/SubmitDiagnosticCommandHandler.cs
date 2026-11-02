@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
@@ -16,9 +18,14 @@ namespace V_Eval_Practice_Service.Application.Features.DiagnosticSubmissions.Com
 
 public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCommand, Result<SubmitDiagnosticResponseDto>>
 {
+    private const string DefaultCampusId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    private const string DefaultCampusName = "Cơ sở 1: ĐHQG TP.HCM";
+
     private readonly IExamSubmissionRepository _submissionRepository;
     private readonly ILearningProfileRepository _learningProfileRepository;
     private readonly IClassEnrollmentRepository _classEnrollmentRepository;
+    private readonly IClassHeatmapRepository _heatmapRepository;
+    private readonly IStudentActivityRepository _activityRepository;
     private readonly IIdentityGrpcClient _identityGrpcClient;
     private readonly IContentGrpcClient _contentGrpcClient;
     private readonly IAiDiagnosticClient _aiDiagnosticClient;
@@ -28,6 +35,8 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
         IExamSubmissionRepository submissionRepository,
         ILearningProfileRepository learningProfileRepository,
         IClassEnrollmentRepository classEnrollmentRepository,
+        IClassHeatmapRepository heatmapRepository,
+        IStudentActivityRepository activityRepository,
         IIdentityGrpcClient identityGrpcClient,
         IContentGrpcClient contentGrpcClient,
         IAiDiagnosticClient aiDiagnosticClient,
@@ -36,6 +45,8 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
         _submissionRepository = submissionRepository;
         _learningProfileRepository = learningProfileRepository;
         _classEnrollmentRepository = classEnrollmentRepository;
+        _heatmapRepository = heatmapRepository;
+        _activityRepository = activityRepository;
         _identityGrpcClient = identityGrpcClient;
         _contentGrpcClient = contentGrpcClient;
         _aiDiagnosticClient = aiDiagnosticClient;
@@ -49,48 +60,59 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
         _logger.LogInformation("Processing diagnostic submission for Student {StudentId}, Exam {ExamId}",
             request.StudentId, request.ExamId);
 
-        // 1. Kiểm tra học sinh và điều kiện chọn Campus qua Identity gRPC
-        var (exists, campusId, campusName, targetScore) = await _identityGrpcClient.GetStudentProfileAsync(request.StudentId, cancellationToken);
-        if (!exists)
+        if (request.StudentId == Guid.Empty)
         {
             return Result<SubmitDiagnosticResponseDto>.Failure(
-                Error.NotFound("Student.NotFound", $"Không tìm thấy thông tin học sinh {request.StudentId} trong hệ thống."));
+                Error.Validation("Student.Invalid", "Mã định danh học sinh không hợp lệ."));
         }
 
-        if (string.IsNullOrWhiteSpace(campusId))
+        // 1. Lấy thông tin học sinh & Campus qua Identity gRPC (hỗ trợ fallback mềm nếu học sinh mới chưa gán Campus)
+        string campusId = DefaultCampusId;
+        string campusName = DefaultCampusName;
+        int targetScore = request.TargetScore is > 0 ? request.TargetScore.Value : 900;
+
+        try
         {
-            return Result<SubmitDiagnosticResponseDto>.Failure(
-                Error.Validation("Student.CampusRequired", "Học sinh cần chọn cơ sở đào tạo (Campus) trước khi thực hiện bài kiểm tra chẩn đoán năng lực."));
-        }
+            var profile = await _identityGrpcClient.GetStudentProfileAsync(request.StudentId, cancellationToken);
+            if (profile.Exists)
+            {
+                if (!string.IsNullOrWhiteSpace(profile.CampusId))
+                {
+                    campusId = profile.CampusId;
+                    campusName = !string.IsNullOrWhiteSpace(profile.CampusName) ? profile.CampusName : DefaultCampusName;
+                }
 
-        // 2. Kiểm tra kịch bản ngoại lệ (Unhappy Cases): Khóa bài thi đã hết hạn hoặc đã hoàn thành
-        var existingSubmissions = await _submissionRepository.GetByStudentIdAsync(request.StudentId, cancellationToken);
-        var previousExpired = existingSubmissions.FirstOrDefault(s => s.ExamId == request.ExamId && s.Status == "EXPIRED");
-        if (previousExpired != null)
+                if (profile.TargetScore > 0)
+                {
+                    targetScore = profile.TargetScore;
+                }
+            }
+        }
+        catch (Exception ex)
         {
-            return Result<SubmitDiagnosticResponseDto>.Failure(
-                Error.Validation("Exam.Locked", $"Bài kiểm tra chẩn đoán {request.ExamId} đã bị khóa do hết hạn trước đó (EXPIRED). Vui lòng làm lại một bài chẩn đoán ngẫu nhiên khác để đảm bảo dữ liệu năng lực theta_0 không bị sai lệch."));
+            _logger.LogWarning(ex,
+                "Identity gRPC unavailable when submitting diagnostic for Student {StudentId}. Using default campus {CampusId}.",
+                request.StudentId, campusId);
         }
 
-        var previousCompleted = existingSubmissions.FirstOrDefault(s => s.ExamId == request.ExamId && s.Status == "COMPLETED");
-        if (previousCompleted != null)
-        {
-            return Result<SubmitDiagnosticResponseDto>.Failure(
-                Error.Conflict("Exam.AlreadyCompleted", $"Học sinh đã hoàn thành bài kiểm tra chẩn đoán này trước đó (Mã bài nộp: {previousCompleted.SubmissionId}). Không thể nộp lại."));
-        }
+        // 2. Kiểm tra trường hợp phiên làm bài hiện tại quá 24 giờ (Unhappy Case: EXPIRED)
+        DateTime completedAtUtc = request.CompletedAt.HasValue
+            ? DateTime.SpecifyKind(request.CompletedAt.Value.ToUniversalTime(), DateTimeKind.Utc)
+            : DateTime.UtcNow;
 
-        // Kiểm tra Unhappy Case 2: Học sinh thoát app hoặc bỏ dở bài kiểm tra quá 24 giờ
         bool isExpired = false;
-        DateTime startTime = request.StartedAt ?? DateTime.UtcNow;
-        if (request.StartedAt.HasValue && (DateTime.UtcNow - request.StartedAt.Value).TotalHours > 24)
+        DateTime startTime = request.StartedAt.HasValue
+            ? DateTime.SpecifyKind(request.StartedAt.Value.ToUniversalTime(), DateTimeKind.Utc)
+            : completedAtUtc;
+
+        if (request.StartedAt.HasValue && (completedAtUtc - startTime).TotalHours > 24)
         {
             isExpired = true;
-            startTime = request.StartedAt.Value;
         }
-        else if (request.Answers != null && request.Answers.Sum(a => a.TimeSpentSeconds) > 86400) // 24 giờ = 86400 giây
+        else if (request.Answers != null && request.Answers.Sum(a => a.TimeSpentSeconds) > 86400)
         {
             isExpired = true;
-            startTime = DateTime.UtcNow.AddSeconds(-request.Answers.Sum(a => a.TimeSpentSeconds));
+            startTime = completedAtUtc.AddSeconds(-request.Answers.Sum(a => a.TimeSpentSeconds));
         }
 
         if (isExpired)
@@ -104,27 +126,86 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                 TotalScore = 0,
                 TotalCorrect = 0,
                 TotalQuestions = request.Answers?.Count ?? 0,
-                TotalTimeSpentSeconds = (int)Math.Min((DateTime.UtcNow - startTime).TotalSeconds, int.MaxValue),
+                TotalTimeSpentSeconds = (int)Math.Min(Math.Max(0, (completedAtUtc - startTime).TotalSeconds), int.MaxValue),
                 StartedAt = startTime,
-                CompletedAt = DateTime.UtcNow,
+                CompletedAt = completedAtUtc,
                 Status = "EXPIRED",
                 Theta0 = null,
                 PlacementClass = null,
-                AiCommentary = "Bài kiểm tra chẩn đoán đã quá thời hạn 24 giờ do học sinh bỏ dở (EXPIRED). Hệ thống đã tự động khóa bài kiểm tra cũ để bảo vệ độ tin cậy của tham số năng lực theta_0."
+                AiCommentary = "Bài kiểm tra chẩn đoán đã quá thời hạn 24 giờ do học sinh bỏ dở (EXPIRED). Hệ thống đã tự động khóa phiên làm bài quá hạn để bảo vệ độ tin cậy của tham số năng lực theta_0."
             };
 
             await _submissionRepository.AddAsync(expiredSubmission, cancellationToken);
             await _submissionRepository.SaveChangesAsync(cancellationToken);
 
-            _logger.LogWarning("Diagnostic exam submission for Student {StudentId}, Exam {ExamId} expired (>24h). Locked and marked as EXPIRED.",
-                request.StudentId, request.ExamId);
-
             return Result<SubmitDiagnosticResponseDto>.Failure(
-                Error.Validation("Exam.Expired", "Phiên làm bài kiểm tra chẩn đoán đã quá 24 giờ và đã hết hạn (EXPIRED). Hệ thống đã khóa bài test cũ. Vui lòng làm lại một bài chẩn đoán ngẫu nhiên khác để đảm bảo dữ liệu theta_0 không sai lệch."));
+                Error.Validation("Exam.Expired", "Phiên làm bài kiểm tra chẩn đoán đã quá 24 giờ và đã hết hạn (EXPIRED). Vui lòng làm một bài chẩn đoán mới."));
         }
 
-        // 3. Lấy bảng đáp án và metadata từ Content Service gRPC
-        var answerKeys = await _contentGrpcClient.GetExamAnswerKeysAsync(request.ExamId, cancellationToken);
+        // 3. Lấy bảng đáp án từ Content Service gRPC hoặc tổng hợp từ metadata đề thi AI (Gemini / Fallback)
+        var answersList = request.Answers ?? new List<QuestionAnswerInputDto>();
+        IReadOnlyDictionary<Guid, ExamQuestionKeyDto> answerKeys = new Dictionary<Guid, ExamQuestionKeyDto>();
+
+        try
+        {
+            if (request.ExamId != Guid.Empty)
+            {
+                answerKeys = await _contentGrpcClient.GetExamAnswerKeysAsync(request.ExamId, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Content gRPC unavailable for Exam {ExamId}. Falling back to client-supplied question metadata if available.",
+                request.ExamId);
+        }
+
+        var normalizedInputAnswers = new List<(Guid ResolvedQuestionId, QuestionAnswerInputDto Input)>();
+        var usedQuestionIds = new HashSet<Guid>();
+        for (int idx = 0; idx < answersList.Count; idx++)
+        {
+            var item = answersList[idx];
+            var qId = item.QuestionId;
+            if (qId == Guid.Empty || !usedQuestionIds.Add(qId))
+            {
+                qId = ToDeterministicGuid($"q:{request.ExamId}:{idx + 1}:{item.SkillId}");
+                usedQuestionIds.Add(qId);
+            }
+            normalizedInputAnswers.Add((qId, item));
+        }
+
+        if (answerKeys.Count == 0 && normalizedInputAnswers.Any(x => !string.IsNullOrWhiteSpace(x.Input.CorrectOption)))
+        {
+            var syntheticKeys = new Dictionary<Guid, ExamQuestionKeyDto>();
+            for (int idx = 0; idx < normalizedInputAnswers.Count; idx++)
+            {
+                var (qId, input) = normalizedInputAnswers[idx];
+                string domainCode = NormalizeDomainCode(input.DomainId, input.DomainName);
+                string domainName = !string.IsNullOrWhiteSpace(input.DomainName)
+                    ? input.DomainName!
+                    : GetDefaultDomainName(domainCode);
+                string skillId = !string.IsNullOrWhiteSpace(input.SkillId)
+                    ? input.SkillId!
+                    : $"sk_{domainCode.ToLowerInvariant()}";
+                string skillName = !string.IsNullOrWhiteSpace(input.SkillName)
+                    ? input.SkillName!
+                    : domainName;
+                int diff = Math.Clamp(input.DifficultyLevel ?? 2, 1, 6);
+
+                syntheticKeys[qId] = new ExamQuestionKeyDto(
+                    QuestionId: qId,
+                    QuestionOrder: idx + 1,
+                    CorrectOption: (input.CorrectOption ?? "A").Trim().ToUpperInvariant(),
+                    SkillId: skillId,
+                    DifficultyLevel: diff,
+                    SkillName: skillName,
+                    DomainId: domainCode,
+                    DomainName: domainName
+                );
+            }
+            answerKeys = syntheticKeys;
+        }
+
         if (answerKeys.Count == 0)
         {
             return Result<SubmitDiagnosticResponseDto>.Failure(
@@ -132,14 +213,15 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
         }
 
         // 4. Tiến hành chấm điểm và ghi nhận vi mô từng câu
-        var answersList = request.Answers ?? new List<QuestionAnswerInputDto>();
-        var studentAnswersMap = answersList.ToDictionary(a => a.QuestionId, a => a);
+        var studentAnswersMap = normalizedInputAnswers
+            .GroupBy(a => a.ResolvedQuestionId)
+            .ToDictionary(g => g.Key, g => g.First().Input);
+
         var submissionAnswers = new List<SubmissionAnswer>();
         var questionResults = new List<QuestionResultDto>();
 
         int totalCorrect = 0;
         int totalTimeSpent = 0;
-
         var submissionId = Guid.NewGuid();
 
         foreach (var key in answerKeys.Values.OrderBy(k => k.QuestionOrder))
@@ -147,7 +229,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             studentAnswersMap.TryGetValue(key.QuestionId, out var studentAns);
 
             string? selectedOption = studentAns?.SelectedOption?.Trim().ToUpperInvariant();
-            int timeSpent = studentAns?.TimeSpentSeconds ?? 0;
+            int timeSpent = Math.Max(0, studentAns?.TimeSpentSeconds ?? 0);
             totalTimeSpent += timeSpent;
 
             bool isCorrect = !string.IsNullOrEmpty(selectedOption) &&
@@ -158,7 +240,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                 totalCorrect++;
             }
 
-            var answerEntity = new SubmissionAnswer
+            submissionAnswers.Add(new SubmissionAnswer
             {
                 AnswerId = Guid.NewGuid(),
                 SubmissionId = submissionId,
@@ -166,8 +248,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                 SelectedOption = selectedOption,
                 IsCorrect = isCorrect,
                 TimeSpentSeconds = timeSpent
-            };
-            submissionAnswers.Add(answerEntity);
+            });
 
             questionResults.Add(new QuestionResultDto
             {
@@ -190,9 +271,9 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             ? Math.Round((totalCorrect / (double)totalQuestions) * 100, 2)
             : 0;
 
-        // 4. Phân tích chẩn đoán theo Kỹ năng (Skill Breakdown & Weak Skills)
+        // 5. Phân tích chẩn đoán theo Kỹ năng & Độ khó
         var skillBreakdowns = questionResults
-            .GroupBy(q => q.SkillId)
+            .GroupBy(q => string.IsNullOrWhiteSpace(q.SkillId) ? "sk_default" : q.SkillId)
             .Select(g =>
             {
                 var first = g.First();
@@ -203,7 +284,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                 return new SkillDiagnosticDto
                 {
                     SkillId = g.Key,
-                    SkillName = first.SkillName,
+                    SkillName = !string.IsNullOrWhiteSpace(first.SkillName) ? first.SkillName : g.Key,
                     DomainId = first.DomainId,
                     DomainName = first.DomainName,
                     TotalQuestions = count,
@@ -214,11 +295,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             })
             .ToList();
 
-        var weakSkillIds = skillBreakdowns
-            .Where(s => s.IsWeak)
-            .Select(s => s.SkillId)
-            .ToList();
-
+        var weakSkillIds = skillBreakdowns.Where(s => s.IsWeak).Select(s => s.SkillId).ToList();
         var weakSkills = skillBreakdowns
             .Where(s => s.IsWeak)
             .Select(s => new WeakSkillDto
@@ -232,7 +309,6 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             })
             .ToList();
 
-        // 5. Phân tích chẩn đoán theo Độ khó (Difficulty Breakdown)
         var difficultyBreakdowns = questionResults
             .GroupBy(q => q.DifficultyLevel)
             .OrderBy(g => g.Key)
@@ -241,12 +317,10 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                 int count = g.Count();
                 int correct = g.Count(x => x.IsCorrect);
                 double pct = Math.Round((correct / (double)count) * 100, 2);
-                string levelName = BloomTaxonomy.GetName(g.Key);
-
                 return new DifficultyBreakdownDto
                 {
                     DifficultyLevel = g.Key,
-                    LevelName = levelName,
+                    LevelName = BloomTaxonomy.GetName(g.Key),
                     TotalQuestions = count,
                     CorrectCount = correct,
                     AccuracyPercentage = pct
@@ -254,7 +328,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             })
             .ToList();
 
-        // 6. Gửi dữ liệu sang AI Subsystem ước lượng theta_0 (IRT 2PL), BKT Prior P(L0), Radar Chart (Core Flow 1 - Bước 4)
+        // 6. Gửi dữ liệu sang AI Subsystem ước lượng theta_0 (IRT 2PL) & BKT P(L0) (có fallback tất định)
         var domainNamePayloads = questionResults
             .Where(q => !string.IsNullOrEmpty(q.DomainId))
             .GroupBy(q => q.DomainId)
@@ -265,69 +339,103 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
         {
             domainNamePayloads = new List<DiagnosticDomainNamePayload>
             {
-                new("dom_math", "Toán học & Logic"),
-                new("dom_lang", "Sử dụng ngôn ngữ"),
-                new("dom_nat_sci", "Khoa học tự nhiên"),
-                new("dom_soc_sci", "Khoa học xã hội")
+                new("DOM_LANG", "Sử dụng Ngôn ngữ"),
+                new("DOM_MATH", "Toán & Tư duy Logic"),
+                new("DOM_NAT_SCI", "Khoa học Tự nhiên"),
+                new("DOM_SOC_SCI", "Khoa học Xã hội")
             };
         }
 
-        var aiPayload = new DiagnosticAnalyzeRequestPayload(
-            StudentId: request.StudentId.ToString(),
-            SubmissionId: submissionId.ToString(),
-            TargetScore: targetScore > 0 ? targetScore : 800,
-            Answers: questionResults.Select(q => new DiagnosticAnswerItemPayload(
-                QuestionId: q.QuestionId.ToString(),
-                SkillId: q.SkillId,
-                DomainId: q.DomainId,
-                DifficultyLevel: q.DifficultyLevel,
-                IsCorrect: q.IsCorrect,
-                TimeSpentSeconds: q.TimeSpentSeconds
-            )).ToList(),
-            DomainNames: domainNamePayloads,
-            AllSkillIds: new Dictionary<string, string>()
-        );
+        DiagnosticAnalyzeResponsePayload? aiResult = null;
+        try
+        {
+            var aiPayload = new DiagnosticAnalyzeRequestPayload(
+                StudentId: request.StudentId.ToString(),
+                SubmissionId: submissionId.ToString(),
+                TargetScore: targetScore,
+                Answers: questionResults.Select(q => new DiagnosticAnswerItemPayload(
+                    QuestionId: q.QuestionId.ToString(),
+                    SkillId: q.SkillId,
+                    DomainId: q.DomainId,
+                    DifficultyLevel: q.DifficultyLevel,
+                    IsCorrect: q.IsCorrect,
+                    TimeSpentSeconds: q.TimeSpentSeconds
+                )).ToList(),
+                DomainNames: domainNamePayloads,
+                AllSkillIds: new Dictionary<string, string>()
+            );
 
-        var aiResult = await _aiDiagnosticClient.AnalyzeDiagnosticAsync(aiPayload, cancellationToken);
-        double theta0 = aiResult?.Theta0 ?? 0.0;
-        string placementClass = aiResult?.PlacementClass ?? "ACCELERATION";
-        string aiCommentary = aiResult?.AiCommentary ?? string.Empty;
+            aiResult = await _aiDiagnosticClient.AnalyzeDiagnosticAsync(aiPayload, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "AI Diagnostic Subsystem unavailable for Submission {SubmissionId}. Using deterministic IRT 2PL logit calculation.",
+                submissionId);
+        }
 
-        // 7. Lưu trữ bài thi vào CSDL Supabase
+        double clampedP = Math.Clamp(totalQuestions > 0 ? totalCorrect / (double)totalQuestions : 0.5, 0.04, 0.96);
+        double fallbackTheta0 = Math.Round(Math.Log(clampedP / (1.0 - clampedP)), 2);
+        double theta0 = aiResult?.Theta0 ?? fallbackTheta0;
+        string placementClass = aiResult?.PlacementClass
+            ?? (theta0 >= 0.5 ? "BREAKTHROUGH" : theta0 >= -0.5 ? "ACCELERATION" : "FOUNDATION");
+        string aiCommentary = !string.IsNullOrWhiteSpace(aiResult?.AiCommentary)
+            ? aiResult!.AiCommentary
+            : $"Hoàn thành {totalCorrect}/{totalQuestions} câu ({accuracyPercentage}%), năng lực ước tính IRT theta_0 = {theta0:0.##}.";
+
+        // 7. Lưu trữ bài thi vào PostgreSQL
+        DateTime actualStartedAt = request.StartedAt.HasValue
+            ? startTime
+            : completedAtUtc.AddSeconds(-Math.Max(1, totalTimeSpent));
+
         var submission = new ExamSubmission
         {
             SubmissionId = submissionId,
             StudentId = request.StudentId,
-            ExamId = request.ExamId,
+            ExamId = request.ExamId == Guid.Empty ? ToDeterministicGuid(request.ExamTitle ?? "diagnostic_default") : request.ExamId,
             ExamType = "DIAGNOSTIC",
-            TotalScore = totalCorrect, // Thang điểm 0 - 30
+            TotalScore = totalCorrect,
             TotalCorrect = totalCorrect,
             TotalQuestions = totalQuestions,
             TotalTimeSpentSeconds = totalTimeSpent,
-            StartedAt = request.StartedAt ?? DateTime.UtcNow.AddSeconds(-totalTimeSpent),
-            CompletedAt = DateTime.UtcNow,
+            StartedAt = actualStartedAt,
+            CompletedAt = completedAtUtc,
             Status = "COMPLETED",
             Theta0 = theta0,
             PlacementClass = placementClass,
             AiCommentary = aiCommentary,
+            MentorNotes = !string.IsNullOrWhiteSpace(request.ExamTitle) ? request.ExamTitle.Trim() : null,
             Answers = submissionAnswers
         };
 
         await _submissionRepository.AddAsync(submission, cancellationToken);
         await _submissionRepository.SaveChangesAsync(cancellationToken);
 
-        // 8. Lưu giá trị tiên nghiệm BKT P(L0) vào LearningProfiles
+        // 8. Lưu giá trị tiên nghiệm BKT P(L0) vào LearningProfiles (hỗ trợ cả SkillId dạng chuỗi lẫn UUID)
+        var priorsBySkillKey = new Dictionary<Guid, double>();
         if (aiResult?.SkillPriors != null && aiResult.SkillPriors.Count > 0)
         {
-            var priorsToUpsert = aiResult.SkillPriors
-                .Where(sp => Guid.TryParse(sp.SkillId, out _))
-                .Select(sp => (SkillId: Guid.Parse(sp.SkillId), MasteryScore: sp.PL0))
-                .ToList();
-
-            if (priorsToUpsert.Count > 0)
+            foreach (var sp in aiResult.SkillPriors)
             {
-                await _learningProfileRepository.UpsertSkillPriorsAsync(request.StudentId, priorsToUpsert, cancellationToken);
+                var skGuid = ToSkillGuid(sp.SkillId);
+                priorsBySkillKey[skGuid] = Math.Clamp(sp.PL0, 0.05, 0.98);
             }
+        }
+        else
+        {
+            foreach (var sb in skillBreakdowns)
+            {
+                var skGuid = ToSkillGuid(sb.SkillId);
+                priorsBySkillKey[skGuid] = Math.Clamp(sb.AccuracyPercentage / 100.0, 0.05, 0.98);
+            }
+        }
+
+        if (priorsBySkillKey.Count > 0)
+        {
+            var priorsToUpsert = priorsBySkillKey
+                .Select(kv => (SkillId: kv.Key, MasteryScore: kv.Value))
+                .ToList();
+            await _learningProfileRepository.UpsertSkillPriorsAsync(request.StudentId, priorsToUpsert, cancellationToken);
         }
 
         // 9. Tự động xếp học sinh vào lớp học tại cơ sở (Core Flow 1 - Bước 5)
@@ -336,23 +444,109 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             campusId,
             placementClass,
             submissionId,
-            campusName ?? string.Empty,
+            campusName,
             cancellationToken);
 
         submission.EnrolledClassId = classId;
         await _submissionRepository.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Diagnostic submission {SubmissionId} finalized: theta_0={Theta0}, placement={Placement}, class={ClassName}",
-            submissionId, theta0, placementClass, className);
+        // 10. Đồng bộ sang Core Flow 5: Cập nhật ClassSkillHeatmaps & StudentDailyActivities (Streak)
+        var heatmapCells = new List<ClassSkillHeatmap>();
+        foreach (var sb in skillBreakdowns)
+        {
+            var skGuid = ToSkillGuid(sb.SkillId);
+            double plt = priorsBySkillKey.TryGetValue(skGuid, out var pVal)
+                ? pVal
+                : Math.Clamp(sb.AccuracyPercentage / 100.0, 0.05, 0.98);
 
-        // 10. Tạo DTO phản hồi hoàn chỉnh cho Client bao gồm Biểu đồ Radar (Happy case < 2s)
+            string canonicalDomain = NormalizeDomainCode(sb.DomainId, sb.DomainName);
+            string masteryLevel = plt < 0.30
+                ? "CRITICAL"
+                : plt < 0.50
+                    ? "WEAK"
+                    : plt < 0.70
+                        ? "DEVELOPING"
+                        : "MASTERED";
+
+            heatmapCells.Add(new ClassSkillHeatmap
+            {
+                Id = Guid.NewGuid(),
+                ClassId = classId,
+                StudentId = request.StudentId,
+                SkillId = skGuid,
+                SkillName = !string.IsNullOrWhiteSpace(sb.SkillName) ? sb.SkillName : GetDefaultDomainName(canonicalDomain),
+                DomainCode = canonicalDomain,
+                PltValue = Math.Round(plt, 4),
+                MasteryLevel = masteryLevel,
+                LastAssessmentType = "DIAGNOSTIC",
+                UpdatedAt = completedAtUtc
+            });
+        }
+
+        if (heatmapCells.Count > 0)
+        {
+            // Gộp trùng theo SkillId trước khi batch upsert để tránh xung đột unique constraint (class_id, student_id, skill_id)
+            var deduplicatedCells = heatmapCells
+                .GroupBy(c => c.SkillId)
+                .Select(g =>
+                {
+                    var first = g.First();
+                    double avgPlt = Math.Round(g.Average(x => x.PltValue), 4);
+                    first.PltValue = avgPlt;
+                    first.MasteryLevel = avgPlt < 0.30 ? "CRITICAL" : avgPlt < 0.50 ? "WEAK" : avgPlt < 0.70 ? "DEVELOPING" : "MASTERED";
+                    return first;
+                })
+                .ToList();
+
+            await _heatmapRepository.BatchUpsertHeatmapCellsAsync(deduplicatedCells, cancellationToken);
+        }
+
+        var activityDate = DateTime.SpecifyKind(completedAtUtc.Date, DateTimeKind.Utc);
+        var existingActivity = await _activityRepository.GetDailyActivityAsync(request.StudentId, activityDate, cancellationToken);
+        int addedMinutes = Math.Max(1, (int)Math.Ceiling(totalTimeSpent / 60.0));
+
+        var dailyActivity = existingActivity ?? new StudentDailyActivity
+        {
+            Id = Guid.NewGuid(),
+            StudentId = request.StudentId,
+            ActivityDate = activityDate,
+            CreatedAt = completedAtUtc
+        };
+
+        dailyActivity.StudyTimeMinutes += addedMinutes;
+        dailyActivity.PracticeQuestionsSolved += totalQuestions;
+        dailyActivity.MockExamsTaken += 1;
+        dailyActivity.IsStreakCounted = true;
+        dailyActivity.UpdatedAt = completedAtUtc;
+
+        await _activityRepository.UpsertDailyActivityAsync(dailyActivity, cancellationToken);
+
+        _logger.LogInformation(
+            "Diagnostic submission {SubmissionId} persisted & synced to Flow 5: correct={Correct}/{Total}, theta_0={Theta0}, class={ClassName}",
+            submissionId, totalCorrect, totalQuestions, theta0, className);
+
+        // 11. Tạo DTO phản hồi hoàn chỉnh cho Client
         var radarDtos = aiResult?.RadarChart?.Select(r => new DiagnosticRadarAxisDto
         {
             DomainId = r.DomainId,
             DomainName = r.DomainName,
             StudentPct = r.StudentPct,
             BenchmarkPct = r.BenchmarkPct
-        }).ToList() ?? new List<DiagnosticRadarAxisDto>();
+        }).ToList();
+
+        if (radarDtos == null || radarDtos.Count == 0)
+        {
+            radarDtos = questionResults
+                .GroupBy(q => NormalizeDomainCode(q.DomainId, q.DomainName))
+                .Select(g => new DiagnosticRadarAxisDto
+                {
+                    DomainId = g.Key,
+                    DomainName = GetDefaultDomainName(g.Key),
+                    StudentPct = Math.Round((g.Count(x => x.IsCorrect) / (double)Math.Max(1, g.Count())) * 100.0, 1),
+                    BenchmarkPct = g.Key == "DOM_MATH" ? 85.0 : 80.0
+                })
+                .ToList();
+        }
 
         var skillNameMap = questionResults
             .Where(q => !string.IsNullOrEmpty(q.SkillId))
@@ -382,7 +576,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             ExamType = submission.ExamType,
             Status = submission.Status,
             CampusId = campusId,
-            CampusName = campusName ?? string.Empty,
+            CampusName = campusName,
             TotalScore = submission.TotalScore,
             TotalCorrect = submission.TotalCorrect,
             TotalQuestions = submission.TotalQuestions,
@@ -407,4 +601,45 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
 
         return Result<SubmitDiagnosticResponseDto>.Success(responseDto);
     }
+
+    private static Guid ToSkillGuid(string? rawSkillId)
+    {
+        if (!string.IsNullOrWhiteSpace(rawSkillId) && Guid.TryParse(rawSkillId, out var parsed))
+        {
+            return parsed;
+        }
+        return ToDeterministicGuid($"skill:{rawSkillId ?? "default"}");
+    }
+
+    private static Guid ToDeterministicGuid(string input)
+    {
+        var bytes = MD5.HashData(Encoding.UTF8.GetBytes(input));
+        return new Guid(bytes);
+    }
+
+    private static string NormalizeDomainCode(string? domainId, string? domainName)
+    {
+        string raw = $"{domainId} {domainName}".ToLowerInvariant();
+        if (raw.Contains("dom_lang") || raw.Contains("ngôn ngữ") || raw.Contains("tiếng việt") || raw.Contains("english") || raw.Contains("văn"))
+        {
+            return "DOM_LANG";
+        }
+        if (raw.Contains("dom_nat") || raw.Contains("tự nhiên") || raw.Contains("vật lý") || raw.Contains("hóa") || raw.Contains("sinh"))
+        {
+            return "DOM_NAT_SCI";
+        }
+        if (raw.Contains("dom_soc") || raw.Contains("xã hội") || raw.Contains("lịch sử") || raw.Contains("địa lý"))
+        {
+            return "DOM_SOC_SCI";
+        }
+        return "DOM_MATH";
+    }
+
+    private static string GetDefaultDomainName(string domainCode) => domainCode switch
+    {
+        "DOM_LANG" => "Sử dụng Ngôn ngữ (Việt - Anh)",
+        "DOM_NAT_SCI" => "Giải quyết vấn đề - Khoa học Tự nhiên",
+        "DOM_SOC_SCI" => "Giải quyết vấn đề - Khoa học Xã hội",
+        _ => "Toán học, Tư duy Logic & Phân tích số liệu"
+    };
 }
