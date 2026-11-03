@@ -204,7 +204,44 @@ public class AiTutorClient : IAiTutorClient
             ? $"{payload.StudentSelectedOption} ({sVal})"
             : payload.StudentSelectedOption;
 
+        string q = (payload.QuestionLatex ?? string.Empty).ToLowerInvariant();
         var sb = new StringBuilder();
+
+        if (q.Contains(@"p \Rightarrow q") || q.Contains("kéo theo") || q.Contains("mệnh đề") || q.Contains("bảng chân trị"))
+        {
+            sb.AppendLine("💡 **Gợi ý phương pháp giải Socratic (Toán logic mệnh đề & suy luận kéo theo):**\n");
+            sb.AppendLine($"- **Phân tích lựa chọn:** Em đang chọn phương án **{selectedText}** cho câu hỏi về phép kéo theo $P \\Rightarrow Q$.");
+            sb.AppendLine("- **Kiến thức trọng tâm:** Bảng chân trị mệnh đề kéo theo $P \\Rightarrow Q$ chỉ nhận giá trị **Sai** duy nhất khi $P$ Đúng và $Q$ Sai ($1 \\Rightarrow 0 = 0$). Trong mọi trường hợp khác, mệnh đề kéo theo luôn Đúng.");
+            sb.AppendLine("- **Lưu ý bẫy thường gặp:** Nhiều bạn lầm tưởng khi $Q$ sai thì $P$ có thể đúng hoặc sai. Nếu $P$ đúng thì $P \\Rightarrow Q$ sẽ bị sai mâu thuẫn với giả thiết đề bài.");
+            sb.AppendLine($"\n👉 *Câu hỏi gợi mở:* Đề bài cho biết $P \\Rightarrow Q$ là Đúng và $Q$ là Sai. Nếu $P$ nhận giá trị Đúng thì mệnh đề $P \\Rightarrow Q$ sẽ mang giá trị Đúng hay Sai?");
+            return sb.ToString();
+        }
+        else if (q.Contains("cấp số cộng") || q.Contains("công sai") || q.Contains("u_n"))
+        {
+            sb.AppendLine("💡 **Gợi ý phương pháp giải Socratic (Dãy số & Cấp số cộng):**\n");
+            sb.AppendLine($"- **Phân tích lựa chọn:** Em đang chọn phương án **{selectedText}**.");
+            sb.AppendLine("- **Kiến thức trọng tâm:** Số hạng tổng quát của cấp số cộng $(u_n)$ được xác định theo công thức $u_n = u_1 + (n - 1)d$.");
+            sb.AppendLine("- **Lưu ý bẫy thường gặp:** Cẩn thận lỗi quên trừ 1 ở chỉ số số hạng (dùng $n \\times d$ thay vì $(n-1)d$).");
+            sb.AppendLine("\n👉 *Câu hỏi gợi mở:* Khoảng cách giữa số hạng đầu $u_1$ và số hạng thứ $n$ là bao nhiêu lần công sai $d$?");
+            return sb.ToString();
+        }
+        else if (q.Contains("log") || q.Contains("tập xác định"))
+        {
+            sb.AppendLine("💡 **Gợi ý phương pháp giải Socratic (Hàm số Lũy thừa, Mũ & Logarit):**\n");
+            sb.AppendLine($"- **Phân tích lựa chọn:** Em đang chọn phương án **{selectedText}**.");
+            sb.AppendLine("- **Kiến thức trọng tâm:** Biểu thức $\\log_a f(x)$ xác định khi và chỉ khi biểu thức dưới dấu logarit dương nghiêm ngặt $f(x) > 0$ và cơ số $0 < a \\neq 1$.");
+            sb.AppendLine("\n👉 *Câu hỏi gợi mở:* Khi giải bất phương trình $f(x) > 0$, tập nghiệm của tam thức bậc hai lấy khoảng phía trong hay phía ngoài hai nghiệm?");
+            return sb.ToString();
+        }
+        else if (q.Contains("chính tả") || q.Contains("xán lạn") || q.Contains("sáng lạng"))
+        {
+            sb.AppendLine("💡 **Gợi ý phương pháp giải Socratic (Chính tả Tiếng Việt):**\n");
+            sb.AppendLine($"- **Phân tích lựa chọn:** Em đang chọn phương án **{selectedText}**.");
+            sb.AppendLine("- **Kiến thức trọng tâm:** Từ Hán Việt chuẩn là 'Xán lạn' ('xán' nghĩa là rực rỡ, 'lạn' nghĩa là sáng sủa, viết x-l). Trong từ điển tiếng Việt chuẩn không có từ 'sáng lạng'.");
+            sb.AppendLine("\n👉 *Câu hỏi gợi mở:* Trong từ điển chính tả tiếng Việt, từ chỉ tương lai rực rỡ bắt đầu bằng âm 'x' hay 's'?");
+            return sb.ToString();
+        }
+
         sb.AppendLine("💡 **Gợi ý tư duy Socratic:**\n");
         sb.AppendLine($"- **Phân tích lựa chọn:** Em đang chọn phương án **{selectedText}** cho câu hỏi này.");
         sb.AppendLine("- **Bản chất vấn đề:** Hãy đối chiếu kỹ giả thiết bài toán với các điều kiện ràng buộc. Một kết luận trắc nghiệm chỉ đúng khi nó thỏa mãn trong mọi trường hợp và không mâu thuẫn với bất kỳ giả thiết ban đầu nào.");
