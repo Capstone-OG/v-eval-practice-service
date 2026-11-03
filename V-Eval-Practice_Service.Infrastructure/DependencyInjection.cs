@@ -43,6 +43,10 @@ public static class DependencyInjection
         services.AddScoped<Application.Common.Interfaces.Services.IClassHeatmapAggregatorService, Services.ClassHeatmapAggregatorService>();
         services.AddHostedService<BackgroundJobs.ClassHeatmapAggregationWorker>();
 
+        // Core Flow: Payment & Enrollment (PayOS VietQR)
+        services.AddScoped<IPaymentRepository, PaymentRepository>();
+        services.AddScoped<Application.Common.Interfaces.Services.IPayOsPaymentService, Services.PayOsPaymentService>();
+
         return services;
     }
 }
