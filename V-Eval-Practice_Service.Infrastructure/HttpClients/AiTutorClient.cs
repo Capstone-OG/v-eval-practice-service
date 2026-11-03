@@ -204,10 +204,12 @@ public class AiTutorClient : IAiTutorClient
             ? $"{payload.StudentSelectedOption} ({sVal})"
             : payload.StudentSelectedOption;
 
-        return $"💡 **Gợi ý phương pháp giải Socratic:**\n\n" +
-               $"- **Phân tích lựa chọn:** Em đã chọn phương án **{selectedText}** cho câu hỏi: *{payload.QuestionLatex}*.\n" +
-               $"- **Kiến thức cốt lõi cần đối chiếu:** Hãy kiểm tra lại định lý/công thức nền tảng của dạng bài này (điều kiện xác định, dấu của đạo hàm hoặc biến đổi tương đương) xem phương án **{payload.StudentSelectedOption}** có thỏa mãn trên toàn miền xác định hay chỉ đúng tại một vài giá trị đặc biệt.\n\n" +
-               $"👉 *Câu hỏi gợi mở:* Nếu thử kiểm tra lại điều kiện cần và đủ của bài toán trên từng phương án, em thấy phương án **{payload.StudentSelectedOption}** gặp mâu thuẫn ở bước nào?";
+        var sb = new StringBuilder();
+        sb.AppendLine("💡 **Gợi ý tư duy Socratic:**\n");
+        sb.AppendLine($"- **Phân tích lựa chọn:** Em đang chọn phương án **{selectedText}** cho câu hỏi này.");
+        sb.AppendLine("- **Bản chất vấn đề:** Hãy đối chiếu kỹ giả thiết bài toán với các điều kiện ràng buộc. Một kết luận trắc nghiệm chỉ đúng khi nó thỏa mãn trong mọi trường hợp và không mâu thuẫn với bất kỳ giả thiết ban đầu nào.");
+        sb.AppendLine($"\n👉 *Câu hỏi gợi mở:* Nếu giả sử phương án **{selectedText}** là đúng, em hãy thử kiểm tra xem có trường hợp nào làm nảy sinh mâu thuẫn với giả thiết đề bài không?");
+        return sb.ToString();
     }
 
     /// <summary>

@@ -13,7 +13,8 @@ public record SocraticAskRequestPayload(
     [property: JsonPropertyName("options")] Dictionary<string, string> Options,
     [property: JsonPropertyName("student_selected_option")] string StudentSelectedOption,
     [property: JsonPropertyName("correct_option")] string CorrectOption,
-    [property: JsonPropertyName("skill_id")] Guid? SkillId
+    [property: JsonPropertyName("skill_id")] Guid? SkillId,
+    [property: JsonPropertyName("student_query")] string? StudentQuery = null
 );
 
 public record SocraticAskResponseDto(

@@ -91,7 +91,8 @@ public class AiTutorController : ApiControllerBase
             Options: request.Options ?? new Dictionary<string, string>(),
             StudentSelectedOption: request.StudentWrongOption?.Trim().ToUpper() ?? "A",
             CorrectOption: request.CorrectOption?.Trim().ToUpper() ?? "A",
-            SkillId: request.SkillId
+            SkillId: request.SkillId,
+            StudentQuery: request.StudentQuery
         );
 
         try
@@ -157,7 +158,8 @@ public class AiTutorController : ApiControllerBase
             Options: request.Options ?? new Dictionary<string, string>(),
             StudentSelectedOption: request.StudentWrongOption?.Trim().ToUpper() ?? "A",
             CorrectOption: request.CorrectOption?.Trim().ToUpper() ?? "A",
-            SkillId: request.SkillId
+            SkillId: request.SkillId,
+            StudentQuery: request.StudentQuery
         );
 
         var result = await _aiTutorClient.AskSocraticGuidanceAsync(payload, cancellationToken);
@@ -241,7 +243,8 @@ public record AskTutorRequest(
     Dictionary<string, string>? Options,
     string StudentWrongOption,
     string CorrectOption,
-    Guid? SkillId
+    Guid? SkillId,
+    string? StudentQuery = null
 );
 
 /// <summary>

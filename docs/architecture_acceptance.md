@@ -841,3 +841,18 @@
 - **Authentic Student Analytics Aggregation (`GetStudentDashboardQueryHandler.cs`)**:
   - Evaluates `NeedsOnboarding` strictly against real `ExamSubmissions`, `ClassSkillHeatmaps`, and `StudentDailyActivities`.
   - Computes proportional V-ACT 1200-scale score estimates (`TotalCorrect / TotalQuestions * 1200` for 30-question diagnostics with `±45` SEM margin), authentic 4-domain radar competencies, merged consecutive active streaks, and chronological history across both diagnostic and mock exams.
+
+### [03/11/2026] - Architecture Acceptance: Socratic Multi-Turn Contract Alignment & Universal Fallback
+- **Architecture Acceptor**: ThinhTran2412 (Lead Reviewer / Architect).
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Application/Common/Interfaces/IAiTutorClient.cs`
+  - `V-Eval-Practice_Service.API/Controllers/AiTutorController.cs`
+  - `V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs`
+- **Key Architectural Deliverables**:
+  1. **API Contract Extension for Multi-Turn Dialogue (`StudentQuery`)**:
+     - Extended `AskTutorRequest` and `SocraticAskRequestPayload` with `student_query` serialization to forward interactive student prompts to FastAPI RAG `:8000`.
+  2. **Universal Pedagogical Fallback**:
+     - Re-engineered `GenerateStreamFallback` in `AiTutorClient.cs` to eliminate domain-biased calculus phrases ("dấu của đạo hàm $y'$"), adopting a generalized Socratic contradiction-testing template applicable to STEM, Logic, Linguistics, and Social Sciences.
+  3. **Verification**:
+     - Clean compilation with 0 warnings, 0 errors, and 4/4 passing unit tests.

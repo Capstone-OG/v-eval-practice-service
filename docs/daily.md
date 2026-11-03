@@ -1,5 +1,16 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [03/11/2026] - Mở Rộng Hợp Đồng API AI Tutor Cho Hội Thoại Đa Lượt & Nâng Cấp Fallback Socratic Phổ Quát
+
+- **Bổ Sung Trường Thắc Mắc Hội Thoại `StudentQuery` ([`IAiTutorClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IAiTutorClient.cs), [`AiTutorController.cs`](../V-Eval-Practice_Service.API/Controllers/AiTutorController.cs), [`AiTutorClient.cs`](../V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs))**:
+  - Mở rộng DTO `AskTutorRequest` và `SocraticAskRequestPayload` hỗ trợ trường `StudentQuery` (nội dung học sinh gõ trong chat), chuyển tiếp an toàn sang Python FastAPI RAG Service qua giao thức SSE stream và JSON.
+- **Chuẩn Hóa Phản Hồi Dự Phòng `GenerateStreamFallback` Phổ Quát ([`AiTutorClient.cs`](../V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs))**:
+  - Xóa bỏ văn bản mẫu cứng nhắc *"dấu của đạo hàm"* trong `GenerateStreamFallback`; thay thế bằng cấu trúc phản biện sư phạm bản chất (đối chiếu giả thiết, tìm mâu thuẫn) tương thích với mọi môn học trong kỳ thi ĐGNL (Toán, Logic, Đọc hiểu Tiếng Việt, Khoa học Tự nhiên, Khoa học Xã hội).
+- **Kiểm Thử & Xác Thực**:
+  - Thực thi `dotnet build --nologo` (**0 Warning, 0 Error**) và `dotnet test --nologo` (**4/4 tests pass**).
+
+---
+
 ## [02/11/2026] - Đồng Bộ Trực Tuyến Bài Nộp Khảo Sát Chẩn Đoán (Core Flow 1) Sang Trung Tâm Phân Tích Học Tập & Ma Trận Nhiệt (Core Flow 5)
 
 - **Nâng Cấp Luồng Chấm Điểm & Đồng Bộ Write-Through Sang Core Flow 5 ([`SubmitDiagnosticCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/Commands/SubmitDiagnostic/SubmitDiagnosticCommandHandler.cs), [`DiagnosticSubmissionDtos.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/DTOs/DiagnosticSubmissionDtos.cs), [`SubmitDiagnosticCommand.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/Commands/SubmitDiagnostic/SubmitDiagnosticCommand.cs))**:
