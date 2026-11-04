@@ -89,8 +89,8 @@ public class AiTutorController : ApiControllerBase
             QuestionId: request.QuestionId,
             QuestionLatex: request.QuestionLatex,
             Options: request.Options ?? new Dictionary<string, string>(),
-            StudentSelectedOption: request.StudentWrongOption?.Trim().ToUpper() ?? "A",
-            CorrectOption: request.CorrectOption?.Trim().ToUpper() ?? "A",
+            StudentSelectedOption: string.IsNullOrWhiteSpace(request.StudentWrongOption) ? "NONE" : request.StudentWrongOption.Trim().ToUpper(),
+            CorrectOption: string.IsNullOrWhiteSpace(request.CorrectOption) ? "NONE" : request.CorrectOption.Trim().ToUpper(),
             SkillId: request.SkillId,
             StudentQuery: request.StudentQuery
         );
@@ -156,8 +156,8 @@ public class AiTutorController : ApiControllerBase
             QuestionId: request.QuestionId,
             QuestionLatex: request.QuestionLatex,
             Options: request.Options ?? new Dictionary<string, string>(),
-            StudentSelectedOption: request.StudentWrongOption?.Trim().ToUpper() ?? "A",
-            CorrectOption: request.CorrectOption?.Trim().ToUpper() ?? "A",
+            StudentSelectedOption: string.IsNullOrWhiteSpace(request.StudentWrongOption) ? "NONE" : request.StudentWrongOption.Trim().ToUpper(),
+            CorrectOption: string.IsNullOrWhiteSpace(request.CorrectOption) ? "NONE" : request.CorrectOption.Trim().ToUpper(),
             SkillId: request.SkillId,
             StudentQuery: request.StudentQuery
         );

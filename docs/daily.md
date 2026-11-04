@@ -1,5 +1,18 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [04/11/2026] - Nâng Cấp AiTutor Hỗ Trợ Hội Thoại Tự Do, Tiếp Nhận Tuỳ Chọn Không Có Phương Án ('NONE') & Tích Hợp Chặn Lời Chào Tức Thì
+
+- **Tiếp Nhận Tuỳ Chọn Không Có Phương Án ('NONE') & Bổ Sung Nullable Contract ([`AiTutorController.cs`](../V-Eval-Practice_Service.API/Controllers/AiTutorController.cs))**:
+  - Nâng cấp `AskTutorRequest` cho phép `StudentWrongOption` và `CorrectOption` là nullable (`string?`), mặc định gán `null`.
+  - Trong cả 2 endpoint `POST /api/practice/ai-tutor/ask-stream` và `POST /api/practice/ai-tutor/ask`: tự động chuẩn hoá giá trị rỗng/khoảng trắng thành `"NONE"`, đảm bảo tương thích tuyệt đối với Pydantic validator của FastAPI RAG mà không bắt buộc học sinh phải chọn đáp án khi trò chuyện tự do.
+- **Bộ Chặn Lời Chào Tức Thì Trong Cơ Chế Dự Phòng ([`AiTutorClient.cs`](../V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs))**:
+  - Bổ sung regex nhận diện lời chào (`hi`, `hello`, `chào`, `alo`...) bên trong `GenerateStreamFallback`.
+  - Khi học sinh gửi lời chào ở chế độ ngoại tuyến/dự phòng, dịch vụ lập tức phản hồi thông điệp chào mừng sư phạm tự nhiên, ấm áp, mời học sinh nêu rõ vấn đề bài tập cần hỗ trợ mà không ép buộc giải thích phương án A.
+- **Kiểm Thử Tự Động**:
+  - `dotnet test` đạt 4/4 passed (100%), biên dịch sạch sẽ trên toàn bộ solution.
+
+---
+
 ## [03/11/2026] - Nâng Cấp Bộ Suy Luận Socratic Theo Ngữ Cảnh & Liên Thông Dữ Liệu Khảo Sát Học Sinh (Flow 5)
 
 - **Suy Luận Socratic Đa Chuyên Đề Linh Hoạt ([`AiTutorClient.cs`](../V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs))**:

@@ -856,3 +856,17 @@
      - Re-engineered `GenerateStreamFallback` in `AiTutorClient.cs` to eliminate domain-biased calculus phrases ("dấu của đạo hàm $y'$"), adopting a generalized Socratic contradiction-testing template applicable to STEM, Logic, Linguistics, and Social Sciences.
   3. **Verification**:
      - Clean compilation with 0 warnings, 0 errors, and 4/4 passing unit tests.
+
+### [04/11/2026] - Architecture Acceptance: Decoupling Freeform Socratic Dialogue & Nullable Option Interception
+- **Architecture Acceptor**: ThinhTran2412 (Lead Reviewer / Architect).
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.API/Controllers/AiTutorController.cs`
+  - `V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs`
+- **Key Architectural Deliverables**:
+  1. **Nullable Option Payload Normalization**:
+     - Upgraded `AskTutorRequest` schema so `StudentWrongOption` and `CorrectOption` default to nullable. In endpoints `POST /api/practice/ai-tutor/ask` and `ask-stream`, whitespace or null options are converted into `"NONE"`, preventing false accusations while adhering to FastAPI Pydantic constraints.
+  2. **Streaming Fallback Greeting Interceptor**:
+     - Embedded greeting detection in `GenerateStreamFallback` that returns a friendly, pedagogical Socratic greeting directly without vector database matching or misaligned math trap discussions.
+  3. **Verification**:
+     - `dotnet test` passed 4/4 (100%).
