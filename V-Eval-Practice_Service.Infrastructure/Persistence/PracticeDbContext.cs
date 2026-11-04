@@ -32,6 +32,12 @@ public class PracticeDbContext : DbContext
     public DbSet<StudentDailyActivity> StudentDailyActivities => Set<StudentDailyActivity>();
     public DbSet<StudentReadinessMetric> StudentReadinessMetrics => Set<StudentReadinessMetric>();
 
+    // Enrollment & Payment (v_eval_enrollment)
+    public DbSet<Course> Courses => Set<Course>();
+    public DbSet<CourseRegistration> CourseRegistrations => Set<CourseRegistration>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -134,6 +140,7 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.EnrollmentId).HasColumnName("enrollment_id");
             entity.Property(e => e.ClassId).HasColumnName("class_id").IsRequired();
             entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.RegistrationId).HasColumnName("registration_id");
             entity.Property(e => e.DiagnosticSubmissionId).HasColumnName("diagnostic_submission_id");
             entity.Property(e => e.ApprovedBy).HasColumnName("approved_by");
             entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(50);
@@ -226,6 +233,7 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.StepOrder).HasColumnName("step_order").IsRequired();
             entity.Property(e => e.MaterialId).HasColumnName("material_id");
             entity.Property(e => e.QuizExamId).HasColumnName("quiz_exam_id");
+            entity.Property(e => e.DailyExamId).HasColumnName("daily_exam_id");
             entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(50).IsRequired();
             entity.Property(e => e.IsPruned).HasColumnName("is_pruned");
             entity.Property(e => e.UnlockedAt).HasColumnName("unlocked_at");
@@ -515,6 +523,111 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.ResolvedAt).HasColumnName("resolved_at");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
         });
+
+        // ==========================================
+        // SCHEMA: v_eval_enrollment (Courses, Registrations, Payments, PaymentTransactions)
+        // ==========================================
+        modelBuilder.Entity<Course>(entity =>
+        {
+            entity.ToTable("Courses", "v_eval_enrollment");
+            entity.HasKey(e => e.CourseId);
+
+            entity.Property(e => e.CourseId).HasColumnName("course_id");
+            entity.Property(e => e.CampusId).HasColumnName("campus_id").IsRequired();
+            entity.Property(e => e.Code).HasColumnName("code").HasMaxLength(50).IsRequired();
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.PlanType).HasColumnName("plan_type").HasMaxLength(20).IsRequired();
+            entity.Property(e => e.DurationWeeks).HasColumnName("duration_weeks").IsRequired();
+            entity.Property(e => e.TuitionFee).HasColumnName("tuition_fee").HasColumnType("numeric(12,2)").IsRequired();
+            entity.Property(e => e.RetakePolicy).HasColumnName("retake_policy").HasMaxLength(20).IsRequired();
+            entity.Property(e => e.RetakeFee).HasColumnName("retake_fee").HasColumnType("numeric(12,2)").IsRequired();
+            entity.Property(e => e.MaxClassSize).HasColumnName("max_class_size").IsRequired();
+            entity.Property(e => e.IsActive).HasColumnName("is_active").IsRequired();
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+
+            entity.HasIndex(e => e.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<CourseRegistration>(entity =>
+        {
+            entity.ToTable("CourseRegistrations", "v_eval_enrollment");
+            entity.HasKey(e => e.RegistrationId);
+
+            entity.Property(e => e.RegistrationId).HasColumnName("registration_id");
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.CourseId).HasColumnName("course_id").IsRequired();
+            entity.Property(e => e.PreviousRegistrationId).HasColumnName("previous_registration_id");
+            entity.Property(e => e.AttemptNo).HasColumnName("attempt_no").IsRequired();
+            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(30).IsRequired();
+            entity.Property(e => e.RegisteredAt).HasColumnName("registered_at");
+            entity.Property(e => e.StartDate).HasColumnName("start_date");
+            entity.Property(e => e.EndDate).HasColumnName("end_date");
+
+            entity.HasOne(e => e.Course)
+                  .WithMany(c => c.Registrations)
+                  .HasForeignKey(e => e.CourseId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PreviousRegistration)
+                  .WithMany()
+                  .HasForeignKey(e => e.PreviousRegistrationId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => new { e.StudentId, e.CourseId, e.AttemptNo })
+                  .IsUnique()
+                  .HasDatabaseName("uq_courseregistrations");
+        });
+
+        modelBuilder.Entity<Payment>(entity =>
+        {
+            entity.ToTable("Payments", "v_eval_enrollment");
+            entity.HasKey(e => e.PaymentId);
+
+            entity.Property(e => e.PaymentId).HasColumnName("payment_id");
+            entity.Property(e => e.RegistrationId).HasColumnName("registration_id").IsRequired();
+            entity.Property(e => e.ParentId).HasColumnName("parent_id").IsRequired();
+            entity.Property(e => e.PaymentType).HasColumnName("payment_type").HasMaxLength(20).IsRequired();
+            entity.Property(e => e.Amount).HasColumnName("amount").HasColumnType("numeric(12,2)").IsRequired();
+            entity.Property(e => e.Method).HasColumnName("method").HasMaxLength(30).IsRequired();
+            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+            entity.Property(e => e.TransactionRef).HasColumnName("transaction_ref").HasMaxLength(100);
+            entity.Property(e => e.OrderCode).HasColumnName("order_code");
+            entity.Property(e => e.CheckoutUrl).HasColumnName("checkout_url");
+            entity.Property(e => e.PaymentLinkId).HasColumnName("payment_link_id").HasMaxLength(100);
+            entity.Property(e => e.CounterAccountBankName).HasColumnName("counter_account_bank_name").HasMaxLength(100);
+            entity.Property(e => e.CounterAccountName).HasColumnName("counter_account_name").HasMaxLength(255);
+            entity.Property(e => e.CounterAccountNumber).HasColumnName("counter_account_number").HasMaxLength(100);
+            entity.Property(e => e.IdempotencyKey).HasColumnName("idempotency_key").HasMaxLength(100);
+            entity.Property(e => e.PaidAt).HasColumnName("paid_at");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+
+            entity.HasIndex(e => e.OrderCode).IsUnique();
+            entity.HasIndex(e => e.TransactionRef).IsUnique();
+            entity.HasIndex(e => e.IdempotencyKey).IsUnique();
+
+            entity.HasOne(e => e.Registration)
+                  .WithMany(r => r.Payments)
+                  .HasForeignKey(e => e.RegistrationId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.Transactions)
+                  .WithOne(t => t.Payment)
+                  .HasForeignKey(t => t.PaymentId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PaymentTransaction>(entity =>
+        {
+            entity.ToTable("PaymentTransactions", "v_eval_enrollment");
+            entity.HasKey(e => e.TransactionId);
+
+            entity.Property(e => e.TransactionId).HasColumnName("transaction_id");
+            entity.Property(e => e.PaymentId).HasColumnName("payment_id").IsRequired();
+            entity.Property(e => e.EventType).HasColumnName("event_type").HasMaxLength(50).IsRequired();
+            entity.Property(e => e.RawPayload).HasColumnName("raw_payload");
+            entity.Property(e => e.Signature).HasColumnName("signature");
+            entity.Property(e => e.IpAddress).HasColumnName("ip_address").HasMaxLength(50);
+            entity.Property(e => e.LoggedAt).HasColumnName("logged_at");
+        });
     }
 }
-

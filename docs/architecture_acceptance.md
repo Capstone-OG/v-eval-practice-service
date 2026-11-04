@@ -834,7 +834,44 @@
 
 ---
 
-## 16. CORE FLOW 1 TO CORE FLOW 5 REAL-TIME WRITE-THROUGH SYNCHRONIZATION
+## 16. PAYOS PAYMENT INTEGRATION, COURSE REGISTRATION & ATOMIC PLAR ACTIVATION (SCHEMA V5.0)
+
+### 16.1 Architecture Overview
+- **Service Responsibility**: Coordinates tuition payments via VietQR/PayOS, lifecycle states of `CourseRegistration`, automated physical class assignment (`ClassEnrollment`), and initial milestone activation for the 4-step PLAR adaptive learning cycle.
+- **Bounded Context Schema**: `v_eval_enrollment` (Entities: `Courses`, `CourseRegistrations`, `Payments`, `PaymentTransactions`).
+- **Clean Architecture Transaction Abstraction**:
+  - `IExecutionTransaction`: Application-layer interface abstracting `BeginTransactionAsync`, `CommitAsync`, and `RollbackAsync` without tying use cases directly to EF Core `IDbContextTransaction`.
+  - `EfExecutionTransaction`: Infrastructure implementation wrapping PostgreSQL database transactions (`IsolationLevel.ReadCommitted`).
+
+### 16.2 Core Use Cases (CQRS)
+1. **CreatePaymentLinkCommand**:
+   - Validates that the requested `Course` exists and is marked active.
+   - Enforces business rule: rejects requests if student already possesses an active registration for the course.
+   - Generates JavaScript-safe integer `orderCode` (`Random.Shared.NextInt64(1000000000, 9007199254740991)`).
+   - Sanitizes and truncates description to maximum 25 characters without accents (e.g. `VEVAL CRS 1234567890`).
+   - Dispatches payment request to `PayOSClient.PaymentRequests.CreateAsync` and returns the generated VietQR checkout URL.
+2. **ProcessPayOsWebhookCommand (All-or-Nothing ACID Transaction)**:
+   - **Step 1: HMAC-SHA512 Signature Verification**: Validates the cryptographic payload signature using `PayOSClient.Webhooks.VerifyAsync`.
+   - **Step 2: Transaction Boundary**: Opens an explicit PostgreSQL transaction.
+   - **Step 3: Idempotency Check**: If `Payment.Status == "SUCCESS"`, commits immediately and returns HTTP 200 without duplicate execution.
+   - **Step 4: Payment State Update**: Sets `Status = "SUCCESS"`, records counter account details (`CounterAccountBankName`, `CounterAccountName`, `CounterAccountNumber`), and records `PaidAt = DateTime.UtcNow`.
+   - **Step 5: Registration Activation**: Changes `CourseRegistration.Status` to `ACTIVE`, computing `StartDate` and `EndDate` based on course duration weeks.
+   - **Step 6: Automated Class Allocation**: Allocates student into an active `Class` with available capacity (`ClassEnrollment`).
+   - **Step 7: PLAR Roadmap Initialization**: Generates a 4-milestone `LearningRoadmap`, immediately unlocking Milestone 1 (`Status = "IN_PROGRESS"`) while keeping downstream nodes `LOCKED`.
+   - **Step 8: Financial Audit Trail**: Appends an audit log into `PaymentTransactions` storing raw payload, IP address, and timestamp.
+   - **Step 9: Atomic Commit**: Commits all state changes atomically. Any unexpected exception triggers a full rollback.
+3. **GetPaymentStatusQuery**:
+   - Queries current status from database with fallback active polling to PayOS API if status is pending.
+4. **GetPaymentTransactionsQuery**:
+   - Retrieves chronological audit trail for finance compliance.
+
+### 16.3 Verification & Quality Assurance
+- **Unit Test Suite**: 8 specialized unit tests in `Commands/Payments/` covering happy path link creation, conflict handling, signature spoofing rejection, webhook idempotency, and transactional rollback on database faults.
+- **Test Metrics**: 12/12 test cases passing (100% success rate), zero build warnings or compiler errors.
+
+---
+
+## 17. CORE FLOW 1 TO CORE FLOW 5 REAL-TIME WRITE-THROUGH SYNCHRONIZATION
 - **Unified Diagnostic Persistence (`SubmitDiagnosticCommandHandler.cs`)**:
   - Supports both Content Service canonical exams and AI-generated 30-question diagnostic assessments via optional per-question grading metadata (`CorrectOption`, `SkillId`, `DomainId`, `DifficultyLevel`) and deterministic MD5 skill UUID mapping.
   - Immediately synchronizes completed diagnostic priors into `LearningProfiles`, `ClassSkillHeatmaps` (across `DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`), and `StudentDailyActivities` (`MockExamsTaken`, `StudyTimeMinutes`, `IsStreakCounted = true`).
@@ -855,7 +892,7 @@
   2. **Universal Pedagogical Fallback**:
      - Re-engineered `GenerateStreamFallback` in `AiTutorClient.cs` to eliminate domain-biased calculus phrases ("dấu của đạo hàm $y'$"), adopting a generalized Socratic contradiction-testing template applicable to STEM, Logic, Linguistics, and Social Sciences.
   3. **Verification**:
-     - Clean compilation with 0 warnings, 0 errors, and 4/4 passing unit tests.
+     - Clean compilation with 0 warnings, 0 errors, and 12/12 passing unit tests.
 
 ### [04/11/2026] - Architecture Acceptance: Decoupling Freeform Socratic Dialogue & Nullable Option Interception
 - **Architecture Acceptor**: ThinhTran2412 (Lead Reviewer / Architect).
@@ -869,4 +906,4 @@
   2. **Streaming Fallback Greeting Interceptor**:
      - Embedded greeting detection in `GenerateStreamFallback` that returns a friendly, pedagogical Socratic greeting directly without vector database matching or misaligned math trap discussions.
   3. **Verification**:
-     - `dotnet test` passed 4/4 (100%).
+     - `dotnet test` passed 12/12 (100%).

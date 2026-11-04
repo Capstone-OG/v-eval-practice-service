@@ -7,6 +7,7 @@ public class ClassEnrollment
     public Guid EnrollmentId { get; set; } = Guid.NewGuid();
     public Guid ClassId { get; set; }
     public Guid StudentId { get; set; }
+    public Guid? RegistrationId { get; set; }
     public Guid? DiagnosticSubmissionId { get; set; }
     public Guid? ApprovedBy { get; set; }
     public string Status { get; set; } = "ENROLLED";

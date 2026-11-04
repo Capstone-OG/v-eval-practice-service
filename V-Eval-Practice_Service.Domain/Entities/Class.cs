@@ -6,6 +6,7 @@ public class Class
 {
     public Guid ClassId { get; set; } = Guid.NewGuid();
     public Guid CampusId { get; set; }
+    public Guid? CourseId { get; set; }
     public Guid? TeacherId { get; set; }
     public Guid? AssignedBy { get; set; }
     public string Name { get; set; } = string.Empty;
