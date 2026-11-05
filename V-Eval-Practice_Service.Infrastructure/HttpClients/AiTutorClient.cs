@@ -201,7 +201,7 @@ public class AiTutorClient : IAiTutorClient
     private static string GenerateStreamFallback(SocraticAskRequestPayload payload)
     {
         string rawQ = (payload.StudentQuery ?? payload.QuestionLatex ?? string.Empty).Trim().ToLowerInvariant().TrimEnd('!', '.', '?', '~', '^', ':', ';');
-        if (rawQ == "hi" || rawQ == "hello" || rawQ == "chào" || rawQ == "chao" || rawQ == "chào thầy" || rawQ == "chào cô" || rawQ == "alo" || rawQ == "hey" || rawQ == "xin chào")
+        if (rawQ == "hi" || rawQ == "hello" || rawQ == "chào" || rawQ == "chao" || rawQ == "chào thầy" || rawQ == "chào cô" || rawQ == "alo" || rawQ == "hey" || rawQ == "xin chào" || rawQ == "hi gia sư" || rawQ == "chào gia sư" || rawQ == "thầy ơi" || (rawQ.Length <= 25 && (rawQ.StartsWith("hi ") || rawQ.StartsWith("chào ") || rawQ.StartsWith("alo "))))
         {
             return "Chào em! Thầy là **Gia Sư AI Socratic**. Rất vui được đồng hành cùng em ôn luyện ĐGNL. Em đang gặp khó khăn ở dạng bài tập nào hay chuyên đề nào (Toán học, Tư duy Logic, Tiếng Việt, Khoa học Tự nhiên/Xã hội) cần thầy cùng gợi mở không? Em cứ gửi đề bài hoặc thắc mắc cho thầy nhé!";
         }

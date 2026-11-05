@@ -66,16 +66,24 @@ public class AiTutorController : ApiControllerBase
             return;
         }
 
-        if (request.QuestionId == Guid.Empty || string.IsNullOrWhiteSpace(request.QuestionLatex))
+        if (string.IsNullOrWhiteSpace(request.QuestionLatex) && string.IsNullOrWhiteSpace(request.StudentQuery))
         {
             Response.StatusCode = StatusCodes.Status400BadRequest;
             Response.ContentType = "application/json";
             await Response.WriteAsJsonAsync(new
             {
-                error = "QuestionId và QuestionLatex không được để trống."
+                error = "Vui lòng nhập nội dung câu hỏi hoặc thắc mắc."
             }, cancellationToken);
             return;
         }
+
+        var resolvedQuestionLatex = !string.IsNullOrWhiteSpace(request.QuestionLatex)
+            ? request.QuestionLatex.Trim()
+            : (!string.IsNullOrWhiteSpace(request.StudentQuery) ? request.StudentQuery.Trim() : "Câu hỏi ôn tập ĐGNL");
+
+        var resolvedQuestionId = (request.QuestionId.HasValue && request.QuestionId.Value != Guid.Empty)
+            ? request.QuestionId.Value
+            : Guid.NewGuid();
 
         Response.Headers.Append("Content-Type", "text/event-stream; charset=utf-8");
         Response.Headers.Append("Cache-Control", "no-cache, no-transform");
@@ -86,8 +94,8 @@ public class AiTutorController : ApiControllerBase
 
         var payload = new SocraticAskRequestPayload(
             StudentId: studentId,
-            QuestionId: request.QuestionId,
-            QuestionLatex: request.QuestionLatex,
+            QuestionId: resolvedQuestionId,
+            QuestionLatex: resolvedQuestionLatex,
             Options: request.Options ?? new Dictionary<string, string>(),
             StudentSelectedOption: string.IsNullOrWhiteSpace(request.StudentWrongOption) ? "NONE" : request.StudentWrongOption.Trim().ToUpper(),
             CorrectOption: string.IsNullOrWhiteSpace(request.CorrectOption) ? "NONE" : request.CorrectOption.Trim().ToUpper(),
@@ -146,15 +154,23 @@ public class AiTutorController : ApiControllerBase
                 Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (X-User-Id header hoặc studentId payload).")));
         }
 
-        if (request.QuestionId == Guid.Empty || string.IsNullOrWhiteSpace(request.QuestionLatex))
+        if (string.IsNullOrWhiteSpace(request.QuestionLatex) && string.IsNullOrWhiteSpace(request.StudentQuery))
         {
-            return BadRequest(new { error = "QuestionId và QuestionLatex không được để trống." });
+            return BadRequest(new { error = "Vui lòng nhập nội dung câu hỏi hoặc thắc mắc." });
         }
+
+        var resolvedQuestionLatex = !string.IsNullOrWhiteSpace(request.QuestionLatex)
+            ? request.QuestionLatex.Trim()
+            : (!string.IsNullOrWhiteSpace(request.StudentQuery) ? request.StudentQuery.Trim() : "Câu hỏi ôn tập ĐGNL");
+
+        var resolvedQuestionId = (request.QuestionId.HasValue && request.QuestionId.Value != Guid.Empty)
+            ? request.QuestionId.Value
+            : Guid.NewGuid();
 
         var payload = new SocraticAskRequestPayload(
             StudentId: studentId,
-            QuestionId: request.QuestionId,
-            QuestionLatex: request.QuestionLatex,
+            QuestionId: resolvedQuestionId,
+            QuestionLatex: resolvedQuestionLatex,
             Options: request.Options ?? new Dictionary<string, string>(),
             StudentSelectedOption: string.IsNullOrWhiteSpace(request.StudentWrongOption) ? "NONE" : request.StudentWrongOption.Trim().ToUpper(),
             CorrectOption: string.IsNullOrWhiteSpace(request.CorrectOption) ? "NONE" : request.CorrectOption.Trim().ToUpper(),
@@ -238,12 +254,12 @@ public class AiTutorController : ApiControllerBase
 /// </summary>
 public record AskTutorRequest(
     Guid? StudentId,
-    Guid QuestionId,
-    string QuestionLatex,
+    Guid? QuestionId,
+    string? QuestionLatex,
     Dictionary<string, string>? Options,
-    string StudentWrongOption,
-    string CorrectOption,
-    Guid? SkillId,
+    string? StudentWrongOption = null,
+    string? CorrectOption = null,
+    Guid? SkillId = null,
     string? StudentQuery = null
 );
 

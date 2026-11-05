@@ -907,3 +907,23 @@
      - Embedded greeting detection in `GenerateStreamFallback` that returns a friendly, pedagogical Socratic greeting directly without vector database matching or misaligned math trap discussions.
   3. **Verification**:
      - `dotnet test` passed 12/12 (100%).
+
+### [05/11/2026] - Architecture Acceptance: Resilient Payload Normalization, Greeting Interception & Adaptive DAG Generation
+- **Architecture Acceptor**: ThinhTran2412 (Lead Reviewer / Architect).
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.API/Controllers/AiTutorController.cs`
+  - `V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs`
+- **Key Architectural Deliverables**:
+  1. **Model Binding Resilience & Automatic Fallback**:
+     - Marked all fields in `AskTutorRequest` (`QuestionId`, `QuestionLatex`, `StudentWrongOption`, `CorrectOption`) as optional nullable types.
+     - Implemented seamless server-side resolution: if `QuestionLatex` is omitted, it automatically falls back to `StudentQuery`; if `QuestionId` is missing, a fresh UUID is dynamically synthesized.
+     - Completely eliminated ASP.NET Core automatic 400 Bad Request rejection on freeform dialogues or immediate quick-action prompts.
+  2. **Enhanced Vietnamese Greeting Detection**:
+     - Extended `GenerateStreamFallback` in `AiTutorClient.cs` to match common Vietnamese honorific greetings (`"hi gia sư"`, `"chào gia sư"`, `"thầy ơi"`), guaranteeing that network failover returns an encouraging teacher greeting instead of formulaic question analysis.
+  3. **Adaptive Learning DAG Initialization**:
+     - Successfully triggered `POST /api/practice/roadmaps/generate` with the student's completed diagnostic assessment, persisting an active 470-milestone DAG path in PostgreSQL `v_eval_practice.learning_roadmaps` and resolving 404 queries on `/my-roadmap`.
+  4. **Verification**:
+     - .NET 9 clean build (0 warning, 0 error).
+     - 12/12 xUnit tests passed in `V-Eval-Practice_Service.Tests`.
+     - Validated live via Gateway HTTP POST `/api/practice/ai-tutor/ask-stream`.
