@@ -958,3 +958,34 @@
   3. **Verification**:
      - .NET 9 clean build (0 warning, 0 error).
      - 12/12 xUnit unit tests passed in `V-Eval-Practice_Service.Tests`.
+
+### [06/11/2026] - Architecture Acceptance: Automated Background Early Warning Sweep Worker & Resilient Multi-Channel Notification Dispatcher (Email & FCM Push)
+- **Architecture Acceptor**: ThinhTran2412 (Lead Reviewer / Architect).
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **SDD Compliance**: Figures 56 & 57 (Core Flow 6: Early Warning Sweep & Multi-Channel Intervention Dispatch, SDD Checklist Item 07).
+- **Target Files**:
+  - `V-Eval-Practice_Service.Application/Common/Interfaces/Services/INotificationDispatcher.cs`
+  - `V-Eval-Practice_Service.Application/Common/Interfaces/Services/IEarlyWarningSweepService.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Services/NotificationDispatcher.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Services/EarlyWarningSweepService.cs`
+  - `V-Eval-Practice_Service.Infrastructure/BackgroundJobs/EarlyWarningSweepWorker.cs`
+  - `V-Eval-Practice_Service.Infrastructure/DependencyInjection.cs`
+  - `V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs`
+- **Key Architectural Deliverables**:
+  1. **Automated Background Early Warning Sweep Worker (`EarlyWarningSweepWorker`)**:
+     - Inherits from `BackgroundService` (`IHostedService`) to execute automated background sweeps without blocking service bootstrap (incorporates a 25-second warm-up delay and runs periodically every 30 minutes or configured schedule).
+     - Evaluates 3-tier business rule **BR-04** against real student telemetry:
+       - `UNREALISTIC_GOAL`: Goal deficit `` `\Delta \ge 200` `` or Target `` `\ge 1000` `` with Predicted `` `< 750` ``. Recommends 3-way counseling (Parent - Student - Mentor).
+       - `RED` (High Risk): Weekly self-study time `< 2.0h` or readiness score `` `R_{\text{exam}} < 40.0` ``. Urgent intervention required.
+       - `YELLOW` (Warning): Weekly self-study `< 6.0h` or readiness score `` `R_{\text{exam}} < 60.0` ``. Study discipline reminder.
+     - Implements 24-hour deduplication guard per student & alert type, commits `SystemAlert` records into PostgreSQL `v_eval_practice."SystemAlerts"`, and automatically triggers multi-channel external dispatch.
+  2. **Resilient Multi-Channel Notification Dispatcher (`NotificationDispatcher`)**:
+     - **Email Channel (MailKit / MimeKit 4.17.0)**: Crafts responsive V-Eval branded HTML emails with color-coded risk indicators (Red `#dc2626`, Amber `#d97706`, Violet `#7c3aed`), score deficit telemetry breakdown, pedagogical counseling guidance, and 1-click CTA deep links to Parent/Student Portals. Dispatches simultaneously to student email and all linked parent emails retrieved via Identity Service gRPC.
+     - **Mobile Push Channel (Firebase Cloud Messaging - FCM)**: Prepares high-priority push payloads targeted at `/topics/student_{id}` with deep link metadata (`click_action: "/parent/dashboard"`).
+     - **Resilient Fallback Audit Logging**: Gracefully intercepts missing/unconfigured SMTP relay credentials or FCM keys by emitting structured audit events (`[NOTIFICATION DISPATCHER - EMAIL AUDIT]` & `[NOTIFICATION DISPATCHER - FCM AUDIT]`), ensuring zero daemon crash risk in air-gapped or staging environments.
+  3. **On-Demand REST Trigger Endpoint**:
+     - Exposed `POST /api/practice/early-warnings/sweep?classId={guid}` on `EarlyWarningsController` for immediate manual or integration testing triggers.
+  4. **Verification**:
+     - .NET 9 clean build: 0 Warnings, 0 Errors.
+     - 12/12 xUnit unit tests in `V-Eval-Practice_Service.Tests` passed (100%).
+     - Live daemon runtime verification: Successfully executed automated background sweep, evaluated rule BR-04, persisted alerts, and generated resilient multi-channel notification audit events.
