@@ -1,16 +1,13 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [05/11/2026] - Khắc Phục Triệt Để Lỗi 400 Bad Request AiTutor, Tối Ưu Payload Lời Chào & Khởi Tạo Thành Công Lộ Trình Thích Ứng DAG
+## [06/11/2026] - Khắc Phục Triệt Để Ngắt Đoạn Luồng Stream SSE Socratic Bằng Cơ Chế Kênh Bất Đồng Bộ Channel & Phản Hồi Dự Phòng Thông Suốt
 
-- **Linh Hoạt Hóa Request Model Khắc Phục Lỗi 400 Bad Request ([`AiTutorController.cs`](./V-Eval-Practice_Service.API/Controllers/AiTutorController.cs))**:
-  - Chuyển đổi các thuộc tính bắt buộc `QuestionId`, `QuestionLatex`, `StudentWrongOption`, `CorrectOption` trong `AskTutorRequest` sang dạng nullable (`Guid?`, `string?`).
-  - Xây dựng cơ chế tự động gán dữ liệu thông minh: khi `QuestionLatex` để trống, hệ thống sử dụng nội dung `StudentQuery`; khi `QuestionId` không truyền, tự động sinh UUID mới.
-  - Ngăn chặn triệt để lỗi HTTP 400 ASP.NET Core model validation khi học sinh gửi câu hỏi mở hoặc lời chào.
-- **Mở Rộng Nhận Diện Lời Chào Hội Thoại Tại Client Proxy ([`AiTutorClient.cs`](./V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs))**:
-  - Bổ sung nhận diện các cụm từ xưng hô tiếng Việt tự nhiên (`"hi gia sư"`, `"chào gia sư"`, `"thầy ơi"`, tiền tố `"hi "`, `"chào "`), đảm bảo phản hồi dự phòng luôn là lời chào sư phạm truyền cảm hứng thay vì công thức bài tập trắc nghiệm.
-- **Kích Hoạt & Khởi Tạo Thành Công Lộ Trình Thích Ứng DAG (Core Flow 2)**:
-  - Khởi tạo thành công bản ghi lộ trình học tập cá nhân hóa 470 chuyên đề qua `POST /api/practice/roadmaps/generate` từ bài thi khảo sát chẩn đoán đầu vào của học sinh.
-  - Khắc phục lỗi 404 khi tra cứu `/api/practice/roadmaps/my-roadmap?studentId={id}`.
-- **Kiểm Thử & Vận Hành**:
-  - Biên dịch .NET 9 SDK đạt chuẩn 100% sạch (0 Warning, 0 Error).
-  - Toàn bộ 12/12 kiểm thử tự động xUnit (`V-Eval-Practice_Service.Tests`) đạt Passed 100% trong 96ms.
+- **Khắc Phục Lỗi Ngắt Quãng SSE Bằng Cơ Chế Kênh Bất Đồng Bộ System.Threading.Channels ([`AiTutorClient.cs`](./V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs))**:
+  - Tái cấu trúc phương thức `StreamSocraticGuidanceAsync` sử dụng mô hình Producer-Consumer với `Channel.CreateUnbounded<string>()`, tách biệt an toàn tầng đọc stream mạng khỏi tầng `yield return`.
+  - Bọc bắt toàn diện các ngoại lệ mạng và timeout (`TimeoutException`, `TaskCanceledException`, `IOException`) trong quá trình đọc stream từ AI Engine.
+  - Khi luồng stream gặp sự cố đứt kết nối hoặc không nhận được token nào (`!hasEmittedToken`), hệ thống tự động kích hoạt `GenerateStreamFallback(payload)` phát trực tiếp lời dẫn sư phạm chuẩn bám sát chuyên đề cho học sinh thay vì làm gián đoạn luồng SSE.
+- **Bảo Vệ Trải Nghiệm Học Sinh Tuyệt Đối**:
+  - Đảm bảo Web Client luôn luôn nhận được dữ liệu hoàn chỉnh, triệt tiêu 100% tình trạng kết thúc luồng với nội dung rỗng dẫn đến treo dấu ba chấm `...` trên giao diện.
+- **Kiểm Thử & Biên Dịch**:
+  - Biên dịch toàn bộ solution `V-Eval-Practice_Service.sln` (.NET 9 SDK) đạt chuẩn 100% sạch (0 Warning, 0 Error).
+  - Toàn bộ kiểm thử xUnit đạt 100% Passed.

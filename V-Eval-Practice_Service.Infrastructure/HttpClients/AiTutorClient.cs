@@ -81,70 +81,97 @@ public class AiTutorClient : IAiTutorClient
             yield break;
         }
 
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var reader = new StreamReader(stream, Encoding.UTF8);
+        var channel = System.Threading.Channels.Channel.CreateUnbounded<string>();
 
-        bool hasEmittedToken = false;
-
-        while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+        _ = Task.Run(async () =>
         {
-            string? line = await reader.ReadLineAsync(cancellationToken);
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            if (line.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                string dataContent = line.Substring(5).Trim();
-                if (dataContent == "[DONE]")
-                {
-                    break;
-                }
+                await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                using var reader = new StreamReader(stream, Encoding.UTF8);
 
-                string? parsedToken = null;
-                bool isDoneEvent = false;
-
-                try
+                while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
                 {
-                    using var doc = JsonDocument.Parse(dataContent);
-                    var root = doc.RootElement;
-                    if (root.ValueKind == JsonValueKind.Object)
+                    string? line = await reader.ReadLineAsync(cancellationToken);
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    if (line.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
                     {
-                        if (root.TryGetProperty("type", out var typeProp))
+                        string dataContent = line.Substring(5).Trim();
+                        if (dataContent == "[DONE]")
                         {
-                            string? type = typeProp.GetString();
-                            if (type == "token" && root.TryGetProperty("token", out var tokenProp))
+                            break;
+                        }
+
+                        string? parsedToken = null;
+                        bool isDoneEvent = false;
+
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(dataContent);
+                            var root = doc.RootElement;
+                            if (root.ValueKind == JsonValueKind.Object)
                             {
-                                parsedToken = tokenProp.GetString();
-                            }
-                            else if (type == "done")
-                            {
-                                isDoneEvent = true;
-                            }
-                            else if (type == "error" && root.TryGetProperty("error", out var errProp))
-                            {
-                                _logger.LogWarning("Stream error payload từ AI Tutor: {Error}", errProp.GetString());
+                                if (root.TryGetProperty("type", out var typeProp))
+                                {
+                                    string? type = typeProp.GetString();
+                                    if (type == "token" && root.TryGetProperty("token", out var tokenProp))
+                                    {
+                                        parsedToken = tokenProp.GetString();
+                                    }
+                                    else if (type == "done")
+                                    {
+                                        isDoneEvent = true;
+                                    }
+                                    else if (type == "error" && root.TryGetProperty("error", out var errProp))
+                                    {
+                                        _logger.LogWarning("Stream error payload từ AI Tutor: {Error}", errProp.GetString());
+                                    }
+                                }
+                                else if (root.TryGetProperty("token", out var directTokenProp))
+                                {
+                                    parsedToken = directTokenProp.GetString();
+                                }
                             }
                         }
-                        else if (root.TryGetProperty("token", out var directTokenProp))
+                        catch (JsonException)
                         {
-                            parsedToken = directTokenProp.GetString();
+                            parsedToken = dataContent;
+                        }
+
+                        if (isDoneEvent)
+                        {
+                            break;
+                        }
+
+                        if (!string.IsNullOrEmpty(parsedToken))
+                        {
+                            await channel.Writer.WriteAsync(parsedToken, cancellationToken);
                         }
                     }
                 }
-                catch (JsonException)
-                {
-                    parsedToken = dataContent;
-                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Aborted by caller
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Đứt đoạn luồng stream SSE từ AI Tutor cho học sinh {StudentId}. Kích hoạt bổ sung fallback.", payload.StudentId);
+            }
+            finally
+            {
+                channel.Writer.Complete();
+            }
+        }, cancellationToken);
 
-                if (isDoneEvent)
-                {
-                    break;
-                }
-
-                if (!string.IsNullOrEmpty(parsedToken))
-                {
-                    hasEmittedToken = true;
-                    yield return parsedToken;
-                }
+        bool hasEmittedToken = false;
+        while (await channel.Reader.WaitToReadAsync(cancellationToken))
+        {
+            while (channel.Reader.TryRead(out var token))
+            {
+                hasEmittedToken = true;
+                yield return token;
             }
         }
 

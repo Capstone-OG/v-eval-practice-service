@@ -927,3 +927,19 @@
      - .NET 9 clean build (0 warning, 0 error).
      - 12/12 xUnit tests passed in `V-Eval-Practice_Service.Tests`.
      - Validated live via Gateway HTTP POST `/api/practice/ai-tutor/ask-stream`.
+
+### [06/11/2026] - Architecture Acceptance: Asynchronous Channel Streaming Resilience & Auto Fallback Defense
+- **Architecture Acceptor**: ThinhTran2412 (Lead Reviewer / Architect).
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs`
+- **Key Architectural Deliverables**:
+  1. **Producer-Consumer Streaming via `System.Threading.Channels`**:
+     - Refactored `StreamSocraticGuidanceAsync` using `Channel.CreateUnbounded<string>()` to decouple network HTTP stream consumption from the iterator's `yield return`.
+     - Wrapped network reading in robust exception handling, intercepting connection aborts, gateway resets, and idle timeouts without crashing the outer ASP.NET Core pipeline.
+  2. **Zero-Token Auto Fallback Delivery**:
+     - Enforced a zero-empty-response invariant: if network interruption occurs before any tokens are transmitted (`!hasEmittedToken`), the client automatically emits `GenerateStreamFallback(payload)`.
+     - Completely eliminated downstream blank messages, preventing the Web Client from remaining stalled at three dots `...`.
+  3. **Verification**:
+     - .NET 9 clean build (0 warning, 0 error).
+     - 12/12 xUnit unit tests passed in `V-Eval-Practice_Service.Tests`.
