@@ -928,6 +928,21 @@
      - 12/12 xUnit tests passed in `V-Eval-Practice_Service.Tests`.
      - Validated live via Gateway HTTP POST `/api/practice/ai-tutor/ask-stream`.
 
+### [06/11/2026] - Architecture Acceptance: Zero-Mock Data Invariant & Pure Database Integrity for Parent Companion Portal
+- **Architecture Acceptor**: ThinhTran2412 (Lead Reviewer / Architect).
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs`
+- **Key Architectural Deliverables**:
+  1. **Strict Elimination of Synthetic Student Injection**:
+     - Removed the synthetic test fallback that injected a demo student (`Phạm Minh Hoàng`, `3fa85f64-5717-4562-b3fc-2c963f66afa6`) when gRPC returned an empty student list.
+     - For new parent registrations or parents with unlinked accounts, `GetParentDashboardQueryHandler` returns an empty array `children: []`, directly driving the authentic unlinked state on the frontend with the 3 real linking methods (Account code/PIN, Link/QR, 2-way in-app confirmation).
+  2. **Authentic Metric Invariants**:
+     - Defaulted non-existent student metrics to `0.0` and status to `"PREPARING"`, replacing hardcoded numbers (`82.4`, `14.5` study hours, `12` day streak).
+     - Generated dynamic AI pedagogical parent alerts based on actual student readiness and study hours.
+  3. **Verification**:
+     - Solution compilation: 0 Error(s).
+
 ### [06/11/2026] - Architecture Acceptance: Asynchronous Channel Streaming Resilience & Auto Fallback Defense
 - **Architecture Acceptor**: ThinhTran2412 (Lead Reviewer / Architect).
 - **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.

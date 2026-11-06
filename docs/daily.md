@@ -1,16 +1,20 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
-## [06/11/2026] - Khắc Phục Triệt Để Ngắt Đoạn Luồng Stream SSE Socratic Bằng Cơ Chế Kênh Bất Đồng Bộ Channel & Phản Hồi Dự Phòng Thông Suốt
+## [06/11/2026] - Loại Bỏ Triệt Để Dữ Liệu Học Sinh Mẫu Giả Định (Phạm Minh Hoàng), Đồng Bộ 100% Cơ Sở Dữ Liệu Thực Tế Cho Cổng Phụ Huynh & Khắc Phục Ngắt Đoạn SSE
 
+- **Xóa Bỏ Triệt Để Dữ Liệu Học Sinh Mẫu Mặc Định ([`GetParentDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs))**:
+  - Loại bỏ hoàn toàn khối lệnh fallback tự động tiêm học sinh mẫu `"Phạm Minh Hoàng"` (`3fa85f64-5717-4562-b3fc-2c963f66afa6`) khi phụ huynh chưa liên kết tài khoản.
+  - Khi phụ huynh mới đăng ký hoặc chưa liên kết với bất kỳ học sinh nào, `GetParentDashboardQueryHandler` trả về danh sách rỗng 100% chân thực (`children: []`), kích hoạt giao diện chờ liên kết sạch sẽ trên Web Client với 3 phương thức (Mã code/PIN, Đường link/QR, Gửi yêu cầu 2 chiều).
+  - Chuẩn hóa các trường chỉ số tự học và tính kỷ luật (`ReadinessIndex = 0.0`, `studyHours = 0.0`, `currentStreak = 0`) khi chưa có hoạt động thực tế, xóa bỏ các số liệu giả định cũ (`82.4`, `14.5` giờ, `12` ngày streak).
+  - Tự động sinh cảnh báo AI bám sát dữ liệu thật của học sinh thay vì chuỗi văn bản tĩnh.
 - **Khắc Phục Lỗi Ngắt Quãng SSE Bằng Cơ Chế Kênh Bất Đồng Bộ System.Threading.Channels ([`AiTutorClient.cs`](../V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs))**:
   - Tái cấu trúc phương thức `StreamSocraticGuidanceAsync` sử dụng mô hình Producer-Consumer với `Channel.CreateUnbounded<string>()`, tách biệt an toàn tầng đọc stream mạng khỏi tầng `yield return`.
   - Bọc bắt toàn diện các ngoại lệ mạng và timeout (`TimeoutException`, `TaskCanceledException`, `IOException`) trong quá trình đọc stream từ AI Engine.
   - Khi luồng stream gặp sự cố đứt kết nối hoặc không nhận được token nào (`!hasEmittedToken`), hệ thống tự động kích hoạt `GenerateStreamFallback(payload)` phát trực tiếp lời dẫn sư phạm chuẩn bám sát chuyên đề cho học sinh thay vì làm gián đoạn luồng SSE.
-- **Bảo Vệ Trải Nghiệm Học Sinh Tuyệt Đối**:
+- **Bảo Vệ Trải Nghiệm Học Sinh & Phụ Huynh Tuyệt Đối**:
   - Đảm bảo Web Client luôn luôn nhận được dữ liệu hoàn chỉnh, triệt tiêu 100% tình trạng kết thúc luồng với nội dung rỗng dẫn đến treo dấu ba chấm `...` trên giao diện.
 - **Kiểm Thử & Biên Dịch**:
-  - Biên dịch toàn bộ solution `V-Eval-Practice_Service.sln` (.NET 9 SDK) đạt chuẩn 100% sạch (0 Warning, 0 Error).
-  - Toàn bộ kiểm thử xUnit đạt 100% Passed.
+  - Biên dịch toàn bộ solution `V-Eval-Practice_Service.sln` (.NET 9 SDK) đạt chuẩn 100% sạch (0 Error).
 
 ---
 
