@@ -158,4 +158,23 @@ public class EarlyWarningsController : ApiControllerBase
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }
+
+    /// <summary>
+    /// Kích hoạt chu kỳ quét tự động phát hiện cảnh báo sớm BR-04 và điều phối thông báo đa kênh (Checklist mục 07, SDD Figure 56 &amp; 57)
+    /// </summary>
+    /// <remarks>
+    /// Thực hiện quét toàn bộ học sinh (hoặc theo lớp học chỉ định), phát hiện các nguy cơ học tập (Mức Đỏ, Mức Vàng, Mục tiêu không tưởng), lưu bản ghi SystemAlert và kích hoạt bắn thông báo Email &amp; FCM Push.
+    /// </remarks>
+    /// <param name="sweepService">Dịch vụ quét cảnh báo sớm</param>
+    /// <param name="classId">Mã định danh lớp học cần quét (để trống nếu muốn quét toàn bộ)</param>
+    /// <returns>Báo cáo kết quả chu kỳ quét và số lượng thông báo đã phát đi</returns>
+    [HttpPost("sweep")]
+    [ProducesResponseType(typeof(Result<V_Eval_Practice_Service.Application.Common.Interfaces.Services.EarlyWarningSweepResultDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExecuteEarlyWarningSweep(
+        [FromServices] V_Eval_Practice_Service.Application.Common.Interfaces.Services.IEarlyWarningSweepService sweepService,
+        [FromQuery] Guid? classId = null)
+    {
+        var result = await sweepService.ExecuteSweepAsync(classId, HttpContext.RequestAborted);
+        return HandleResult(Result<V_Eval_Practice_Service.Application.Common.Interfaces.Services.EarlyWarningSweepResultDto>.Success(result));
+    }
 }

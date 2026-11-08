@@ -1,5 +1,7 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [06/11/2026] - Triển Khai Hoàn Chỉnh Background Worker Quét Cảnh Báo Sớm Tự Động BR-04 (`EarlyWarningSweepWorker`) & Bộ Điều Phối Bắn Thông Báo Đa Kênh Email SMTP / Mobile Push FCM (`NotificationDispatcher`) Theo Bản Vẽ SDD (Figure 56 & 57, Checklist Mục 07)
+
 ## [08/11/2026] - Khắc Phục Toàn Diện Lỗi Core Flow 6 Trên Backend & API Gateway: Đồng Bộ Cột `status` MistakeNotebooks, Xác Thực Kép JWT + `X-User-Id` & Tự Động Khởi Tạo Dự Báo Điểm SEM
 
 - **Khắc Phục Triệt Để Lỗi `500 Internal Server Error` (`42703: column m.Status / c.CourseId does not exist`) Trên Core Flow 6 & Bảng `Classes` ([`PracticeDbContext.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs), [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs))**:
@@ -21,15 +23,33 @@
 
 ## [06/11/2026] - Khắc Phục Triệt Để Ngắt Đoạn Luồng Stream SSE Socratic Bằng Cơ Chế Kênh Bất Đồng Bộ Channel & Phản Hồi Dự Phòng Thông Suốt
 
+- **Triển Khai Background Worker Quét Tự Động Định Kỳ Ngầm ([`EarlyWarningSweepWorker.cs`](../V-Eval-Practice_Service.Infrastructure/BackgroundJobs/EarlyWarningSweepWorker.cs))**:
+  - Kế thừa `BackgroundService`, khởi chạy sau 25s làm ấm hệ thống và lặp lại chu kỳ quét tự động mỗi 30 phút (hoặc cấu hình qua `EarlyWarning:SweepIntervalMinutes`).
+  - Tự động quét toàn bộ học sinh đang hoạt động trong CSDL, nạp hồ sơ năng lực, nhật ký tự học 7 ngày (`StudentDailyActivities`), chỉ số sẵn sàng thi (`StudentReadinessMetrics`) và dải điểm dự báo (`ScorePredictions`).
+  - Đánh giá nghiêm ngặt theo quy tắc cảnh báo sớm 3 cấp **BR-04**:
+    - **`UNREALISTIC_GOAL`**: Thâm hụt điểm `\Delta \ge 200` điểm hoặc mục tiêu `\ge 1000` mà dự báo `< 750`. Tự động tạo cảnh báo đề xuất họp tư vấn 3 bên (Phụ huynh - Học sinh - Mentor) để định hướng lại mục tiêu.
+    - **`RED` (Nguy cơ cao)**: Thời lượng tự học tuần `< 2.0` giờ (dưới định mức tối thiểu 10h/tuần) hoặc chỉ số sẵn sàng thi `R_{\text{exam}} < 40.0`. Cảnh báo nguy cơ sa sút nghiêm trọng cần can thiệp khẩn cấp.
+    - **`YELLOW` (Cảnh báo tiến độ)**: Thời lượng tự học tuần `< 6.0` giờ hoặc chỉ số sẵn sàng `R_{\text{exam}} < 60.0`. Nhắc nhở kỷ luật học tập.
+  - Tích hợp cơ chế kiểm tra chống sinh trùng lặp trong vòng 24 giờ, tự động tạo bản ghi `SystemAlert` vào PostgreSQL `v_eval_practice."SystemAlerts"` và kích hoạt bắn thông báo ra bên ngoài.
+- **Triển Khai Bộ Điều Phối Thông Báo Đa Kênh Ra Bên Ngoài ([`INotificationDispatcher.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Services/INotificationDispatcher.cs), [`NotificationDispatcher.cs`](../V-Eval-Practice_Service.Infrastructure/Services/NotificationDispatcher.cs))**:
+  - **Kênh Email SMTP (MailKit / MimeKit 4.17.0)**:
+    - Soạn thảo và gửi email HTML thương hiệu V-Eval chuẩn nhận diện, hiển thị thẻ màu phân cấp rủi ro (Đỏ `#dc2626`, Vàng `#d97706`, Tím `#7c3aed`), bảng chi tiết điểm mục tiêu, điểm dự báo, thâm hụt điểm, thời gian học tuần, chỉ số sẵn sàng, lời khuyên sư phạm và nút CTA dẫn thẳng vào Cổng Phụ Huynh / Cổng Học Viên (`http://localhost:5173`).
+    - Bắn đồng thời tới Email của học sinh VÀ Email của tất cả Phụ huynh liên kết được nạp từ Identity Service.
+    - Thiết kế cơ chế phục hồi cao (Resilient Fallback): nếu chưa có tài khoản SMTP trong môi trường thử nghiệm, hệ thống tự động ghi nhật ký kiểm toán có cấu trúc `[NOTIFICATION DISPATCHER - EMAIL AUDIT]`, triệt tiêu 100% nguy cơ crash worker.
+  - **Kênh Mobile Push Notification (Firebase Cloud Messaging - FCM)**:
+    - Xây dựng payload FCM chuẩn (`title`, `body`, `sound: "default"`, `data: { alertId, studentId, alertType, click_action: "/parent/dashboard" }`).
+    - Hỗ trợ gửi HTTP POST tới FCM API khi có cấu hình `Fcm:ServerKey`, đồng thời lưu vết kiểm toán chi tiết `[NOTIFICATION DISPATCHER - FCM AUDIT]`.
+- **Bổ Sung Dịch Vụ Quét Theo Yêu Cầu & Endpoint API Kích Hoạt Tức Thì ([`IEarlyWarningSweepService.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Services/IEarlyWarningSweepService.cs), [`EarlyWarningSweepService.cs`](../V-Eval-Practice_Service.Infrastructure/Services/EarlyWarningSweepService.cs), [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs))**:
+  - Bổ sung endpoint `POST /api/practice/early-warnings/sweep?classId={guid}` cho phép Mentor, Quản trị viên hoặc kiểm thử tự động kích hoạt chu kỳ quét ngay lập tức theo yêu cầu.
+- **Xóa Bỏ Triệt Để Dữ Liệu Học Sinh Mẫu Mặc Định ([`GetParentDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs))**:
+  - Loại bỏ hoàn toàn khối lệnh fallback tự động tiêm học sinh mẫu `"Phạm Minh Hoàng"` (`3fa85f64-5717-4562-b3fc-2c963f66afa6`) khi phụ huynh chưa liên kết tài khoản.
+  - Trả về danh sách rỗng 100% chân thực (`children: []`), kích hoạt giao diện chờ liên kết sạch sẽ trên Web Client với 3 phương thức (Mã code/PIN, Đường link/QR, Gửi yêu cầu 2 chiều).
+  - Chuẩn hóa các trường chỉ số tự học và tính kỷ luật (`ReadinessIndex = 0.0`, `studyHours = 0.0`, `currentStreak = 0`) khi chưa có hoạt động thực tế.
 - **Khắc Phục Lỗi Ngắt Quãng SSE Bằng Cơ Chế Kênh Bất Đồng Bộ System.Threading.Channels ([`AiTutorClient.cs`](../V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs))**:
-  - Tái cấu trúc phương thức `StreamSocraticGuidanceAsync` sử dụng mô hình Producer-Consumer với `Channel.CreateUnbounded<string>()`, tách biệt an toàn tầng đọc stream mạng khỏi tầng `yield return`.
-  - Bọc bắt toàn diện các ngoại lệ mạng và timeout (`TimeoutException`, `TaskCanceledException`, `IOException`) trong quá trình đọc stream từ AI Engine.
-  - Khi luồng stream gặp sự cố đứt kết nối hoặc không nhận được token nào (`!hasEmittedToken`), hệ thống tự động kích hoạt `GenerateStreamFallback(payload)` phát trực tiếp lời dẫn sư phạm chuẩn bám sát chuyên đề cho học sinh thay vì làm gián đoạn luồng SSE.
-- **Bảo Vệ Trải Nghiệm Học Sinh Tuyệt Đối**:
-  - Đảm bảo Web Client luôn luôn nhận được dữ liệu hoàn chỉnh, triệt tiêu 100% tình trạng kết thúc luồng với nội dung rỗng dẫn đến treo dấu ba chấm `...` trên giao diện.
+  - Tái cấu trúc phương thức `StreamSocraticGuidanceAsync` sử dụng mô hình Producer-Consumer với `Channel.CreateUnbounded<string>()`.
 - **Kiểm Thử & Biên Dịch**:
-  - Biên dịch toàn bộ solution `V-Eval-Practice_Service.sln` (.NET 9 SDK) đạt chuẩn 100% sạch (0 Warning, 0 Error).
-  - Toàn bộ kiểm thử xUnit đạt 100% Passed.
+  - Biên dịch toàn bộ solution `V-Eval-Practice_Service.sln` (.NET 9 SDK) đạt chuẩn 100% sạch (0 Error).
+  - Toàn bộ 12/12 kiểm thử xUnit đạt 100% Passed.
 
 ---
 
