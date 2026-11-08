@@ -79,6 +79,11 @@ public class SubmitDailyReviewCommandHandler : IRequestHandler<SubmitDailyReview
         item.IntervalDays = sm2Result.IntervalDays;
         item.EaseFactor = sm2Result.EaseFactor;
         item.IsMastered = sm2Result.IsMastered;
+        item.Status = sm2Result.IsMastered
+            ? Domain.Entities.MistakeLifecycleState.Mastered
+            : isCorrect
+                ? Domain.Entities.MistakeLifecycleState.Retained
+                : Domain.Entities.MistakeLifecycleState.Relapsed;
         item.NextReviewDate = sm2Result.NextReviewDate;
         item.LastReviewedAt = DateTime.UtcNow;
 

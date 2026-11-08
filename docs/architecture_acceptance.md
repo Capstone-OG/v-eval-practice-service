@@ -943,3 +943,30 @@
   3. **Verification**:
      - .NET 9 clean build (0 warning, 0 error).
      - 12/12 xUnit unit tests passed in `V-Eval-Practice_Service.Tests`.
+
+### [08/11/2026] - Architecture Acceptance: Core Flow 6 Backend & Gateway Alignment (Schema Sync, Dual JWT/Header Auth & Forecast Auto-Initialization)
+- **Architecture Acceptor**: ThinhTran2412 (Lead Reviewer / Architect).
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs`
+  - `V-Eval-Practice_Service.API/Program.cs`
+  - `V-Eval-Practice_Service.API/Controllers/Base/ApiControllerBase.cs`
+  - `V-Eval-Practice_Service.API/Controllers/PredictionsController.cs`
+  - `V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs`
+  - `V-Eval-Practice_Service.API/Controllers/MistakesController.cs`
+  - `V-Eval-Practice_Service.Application/Features/Predictions/Queries/GetMyForecast/GetMyForecastQueryHandler.cs`
+  - `V-Eval-Practice_Service.Application/Features/Predictions/Commands/RecalculatePrediction/RecalculatePredictionCommandHandler.cs`
+- **Key Architectural Deliverables**:
+  1. **PostgreSQL `MistakeNotebooks.status` & `Classes.course_id` Schema & Fluent API Synchronization**:
+     - Mapped `MistakeNotebook.Status` to snake-case column `status` (`VARCHAR(50) NOT NULL DEFAULT 'NEW_MISTAKE'`) and `Class.CourseId` to `course_id` in `PracticeDbContext.cs`, alongside idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` DDL in `Program.cs`, completely resolving PostgreSQL `42703` runtime and startup exceptions across `POST /api/practice/predictions/recalculate`, `MistakesController`, `Classes`, and class-filtered `EarlyWarningsController` endpoints.
+     - Synchronized lifecycle transitions (`MistakeLifecycleState`) across `TagCognitiveErrorCommandHandler` and `SubmitDailyReviewCommandHandler`.
+  2. **Dual-Mode Identity Resolution (Gateway Trusted `X-User-Id` + Direct JWT Bearer)**:
+     - Registered `Microsoft.AspNetCore.Authentication.JwtBearer` aligned with `Identity Service` and `API Gateway` `JwtSettings`, while exposing both `Bearer` and `X-User-Id` security schemes in Swagger UI (`AddSwaggerGen`).
+     - Added `ResolveUserId(Guid? explicitUserId)` in `ApiControllerBase` (resolving `X-User-Id` header -> authenticated JWT `sub` / `NameIdentifier` claim -> explicit query/body fallback) and applied it uniformly across `PredictionsController`, `EarlyWarningsController`, and `MistakesController`.
+  3. **Zero-404 Automatic Score Prediction Initialization**:
+     - Enhanced `GetMyForecastQueryHandler` to automatically dispatch `RecalculatePredictionCommand` (`TriggerSource = "AUTO_INIT"`) when a valid student queries `GET /api/practice/predictions/my-forecast` before any forecast row exists.
+     - Upgraded `RecalculatePredictionCommandHandler` to derive the initial 1200-scale base score from the student's latest completed `ExamSubmission` and synthesize Knapsack ROI prescriptions.
+  4. **Verification**:
+     - Clean .NET 9 compilation (`0 Warning(s), 0 Error(s)`).
+     - `14/14` xUnit unit tests passed in `V-Eval-Practice_Service.Tests` (including `CoreFlow6PredictionTests.cs`).
+     - Verified live end-to-end against Supabase PostgreSQL both directly on `:5261` and through YARP API Gateway `:5212` (`200 OK` across all Core Flow 6 endpoints while preserving Gateway `401` anti-spoofing enforcement).

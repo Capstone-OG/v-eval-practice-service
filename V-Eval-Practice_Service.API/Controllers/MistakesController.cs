@@ -34,15 +34,23 @@ public class MistakesController : ApiControllerBase
     [HttpGet]
     [ProducesResponseType(typeof(Result<MistakeNotebookListResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Result<MistakeNotebookListResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<MistakeNotebookListResponseDto>), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetMistakeNotebook(
-        [FromQuery] Guid studentId,
+        [FromQuery] Guid? studentId = null,
         [FromQuery] Guid? skillId = null,
         [FromQuery] string? cognitiveErrorTag = null,
         [FromQuery] bool? isMastered = null,
         [FromQuery] int pageIndex = 1,
         [FromQuery] int pageSize = 10)
     {
-        var query = new GetMistakeNotebookQuery(studentId, skillId, cognitiveErrorTag, isMastered, pageIndex, pageSize);
+        var effectiveStudentId = ResolveUserId(studentId);
+        if (effectiveStudentId == Guid.Empty)
+        {
+            return HandleResult(Result<MistakeNotebookListResponseDto>.Failure(
+                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (cần đăng nhập Bearer Token, truyền X-User-Id header hoặc query param studentId).")));
+        }
+
+        var query = new GetMistakeNotebookQuery(effectiveStudentId, skillId, cognitiveErrorTag, isMastered, pageIndex, pageSize);
         var result = await Mediator.Send(query);
         return HandleResult(result);
     }
@@ -53,17 +61,25 @@ public class MistakesController : ApiControllerBase
     /// <remarks>
     /// Quét các câu hỏi đến hạn ôn tập theo lịch SM-2 và tự động bốc câu hỏi biến thể (Isomorphic Variant) từ Ngân hàng đề của Content Service để học sinh củng cố trí nhớ dài hạn.
     /// </remarks>
-    /// <param name="studentId">Mã định danh học sinh</param>
+    /// <param name="studentId">Mã định danh học sinh (tùy chọn nếu đã truyền qua Bearer Token / header X-User-Id)</param>
     /// <param name="targetDate">Ngày kiểm tra nhiệm vụ ôn tập (mặc định hôm nay UTC)</param>
     /// <returns>Danh sách các câu hỏi biến thể cần ôn tập hôm nay</returns>
     [HttpGet("daily-review")]
     [ProducesResponseType(typeof(Result<DailyReviewListResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Result<DailyReviewListResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<DailyReviewListResponseDto>), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetDailyReview(
-        [FromQuery] Guid studentId,
+        [FromQuery] Guid? studentId = null,
         [FromQuery] DateTime? targetDate = null)
     {
-        var query = new GetDailyReviewQuery(studentId, targetDate);
+        var effectiveStudentId = ResolveUserId(studentId);
+        if (effectiveStudentId == Guid.Empty)
+        {
+            return HandleResult(Result<DailyReviewListResponseDto>.Failure(
+                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (cần đăng nhập Bearer Token, truyền X-User-Id header hoặc query param studentId).")));
+        }
+
+        var query = new GetDailyReviewQuery(effectiveStudentId, targetDate);
         var result = await Mediator.Send(query);
         return HandleResult(result);
     }

@@ -17,6 +17,7 @@ public class RecalculatePredictionCommandHandler : IRequestHandler<RecalculatePr
 {
     private readonly IScorePredictionRepository _predictionRepository;
     private readonly IMockExamRepository _mockExamRepository;
+    private readonly IExamSubmissionRepository _examSubmissionRepository;
     private readonly IMistakeNotebookRepository _mistakeRepository;
     private readonly ILearningProfileRepository _learningProfileRepository;
     private readonly IContentGrpcClient _contentGrpcClient;
@@ -30,12 +31,14 @@ public class RecalculatePredictionCommandHandler : IRequestHandler<RecalculatePr
     public RecalculatePredictionCommandHandler(
         IScorePredictionRepository predictionRepository,
         IMockExamRepository mockExamRepository,
+        IExamSubmissionRepository examSubmissionRepository,
         IMistakeNotebookRepository mistakeRepository,
         ILearningProfileRepository learningProfileRepository,
         IContentGrpcClient contentGrpcClient)
     {
         _predictionRepository = predictionRepository;
         _mockExamRepository = mockExamRepository;
+        _examSubmissionRepository = examSubmissionRepository;
         _mistakeRepository = mistakeRepository;
         _learningProfileRepository = learningProfileRepository;
         _contentGrpcClient = contentGrpcClient;
@@ -79,7 +82,32 @@ public class RecalculatePredictionCommandHandler : IRequestHandler<RecalculatePr
         }
         else
         {
-            int baseScore = previousPrediction?.PredictedScore ?? 800;
+            int baseScore;
+            if (previousPrediction?.PredictedScore.HasValue == true)
+            {
+                baseScore = previousPrediction.PredictedScore.Value;
+            }
+            else
+            {
+                var studentSubs = await _examSubmissionRepository.GetByStudentIdAsync(studentId, cancellationToken);
+                var latestCompletedSub = studentSubs
+                    .Where(s => s.TotalQuestions > 0)
+                    .OrderByDescending(s => s.CompletedAt)
+                    .FirstOrDefault();
+
+                if (latestCompletedSub != null)
+                {
+                    int scaled = latestCompletedSub.TotalScore > 100
+                        ? latestCompletedSub.TotalScore
+                        : (int)Math.Round(((double)latestCompletedSub.TotalCorrect / latestCompletedSub.TotalQuestions) * 1200);
+                    baseScore = Math.Clamp(scaled, 300, 1200);
+                }
+                else
+                {
+                    baseScore = 800;
+                }
+            }
+
             // Tự động gia tăng điểm dự báo khi học sinh đã hoàn thành các bài tập bù điểm trong toa thuốc
             if (previousPrediction != null && !string.IsNullOrWhiteSpace(previousPrediction.PrescriptionItems))
             {

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MediatR;
 using V_Eval_Practice_Service.Application.Common.Interfaces.Repositories;
 using V_Eval_Practice_Service.Application.Common.Models;
+using V_Eval_Practice_Service.Application.Features.Predictions.Commands.RecalculatePrediction;
 using V_Eval_Practice_Service.Application.Features.Predictions.DTOs;
 
 namespace V_Eval_Practice_Service.Application.Features.Predictions.Queries.GetMyForecast;
@@ -13,15 +14,17 @@ namespace V_Eval_Practice_Service.Application.Features.Predictions.Queries.GetMy
 public class GetMyForecastQueryHandler : IRequestHandler<GetMyForecastQuery, Result<MyForecastResponseDto>>
 {
     private readonly IScorePredictionRepository _predictionRepository;
+    private readonly ISender _sender;
     private static readonly JsonSerializerOptions JsonOptions = new() 
     { 
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower, 
         PropertyNameCaseInsensitive = true 
     };
 
-    public GetMyForecastQueryHandler(IScorePredictionRepository predictionRepository)
+    public GetMyForecastQueryHandler(IScorePredictionRepository predictionRepository, ISender sender)
     {
         _predictionRepository = predictionRepository;
+        _sender = sender;
     }
 
     public async Task<Result<MyForecastResponseDto>> Handle(GetMyForecastQuery request, CancellationToken cancellationToken)
@@ -35,8 +38,26 @@ public class GetMyForecastQueryHandler : IRequestHandler<GetMyForecastQuery, Res
         var prediction = await _predictionRepository.GetLatestByStudentIdAsync(request.StudentId, cancellationToken);
         if (prediction == null)
         {
-            return Result<MyForecastResponseDto>.Failure(
-                Error.NotFound("Prediction.NotFound", "Chưa tìm thấy dữ liệu dự báo điểm cho học sinh này. Vui lòng hoàn thành bài thi thử chuẩn hóa hoặc kích hoạt tính toán."));
+            var bootstrapCmd = new RecalculatePredictionCommand(
+                request.StudentId,
+                new RecalculatePredictionRequestDto
+                {
+                    StudentId = request.StudentId,
+                    TriggerSource = "AUTO_INIT"
+                });
+
+            var bootstrapResult = await _sender.Send(bootstrapCmd, cancellationToken);
+            if (!bootstrapResult.IsSuccess)
+            {
+                return Result<MyForecastResponseDto>.Failure(bootstrapResult.Error);
+            }
+
+            prediction = await _predictionRepository.GetLatestByStudentIdAsync(request.StudentId, cancellationToken);
+            if (prediction == null)
+            {
+                return Result<MyForecastResponseDto>.Failure(
+                    Error.NotFound("Prediction.NotFound", "Chưa tìm thấy dữ liệu dự báo điểm cho học sinh này."));
+            }
         }
 
         List<PrescriptionItemDto> prescriptions = new();
