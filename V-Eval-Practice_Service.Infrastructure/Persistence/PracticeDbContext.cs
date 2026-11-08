@@ -118,6 +118,7 @@ public class PracticeDbContext : DbContext
 
             entity.Property(e => e.ClassId).HasColumnName("class_id");
             entity.Property(e => e.CampusId).HasColumnName("campus_id").IsRequired();
+            entity.Property(e => e.CourseId).HasColumnName("course_id");
             entity.Property(e => e.TeacherId).HasColumnName("teacher_id");
             entity.Property(e => e.AssignedBy).HasColumnName("assigned_by");
             entity.Property(e => e.Name).HasColumnName("name").IsRequired();

@@ -251,7 +251,10 @@ using (var scope = app.Services.CreateScope())
                 joined_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
             );
 
-            -- Bổ sung các cột mới cho Core Flow 2 nếu chưa tồn tại
+            -- Bổ sung các cột mới cho Core Flow 2 & Enrollment nếu chưa tồn tại
+            ALTER TABLE v_eval_practice.""Classes"" ADD COLUMN IF NOT EXISTS course_id UUID;
+            ALTER TABLE v_eval_practice.""ClassEnrollments"" ADD COLUMN IF NOT EXISTS registration_id UUID;
+            ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS daily_exam_id UUID;
             ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS video_watched_seconds INT DEFAULT 0;
             ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS video_total_seconds INT DEFAULT 0;
             ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS is_video_completed BOOLEAN DEFAULT FALSE;
