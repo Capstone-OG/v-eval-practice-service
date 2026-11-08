@@ -32,22 +32,12 @@ public class PredictionsController : ApiControllerBase
     [ProducesResponseType(typeof(Result<MyForecastResponseDto>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMyForecast([FromQuery] Guid? studentId = null)
     {
-        Guid effectiveStudentId = Guid.Empty;
-
-        // Ưu tiên trích xuất StudentId từ Gateway Header (X-User-Id)
-        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
-        {
-            effectiveStudentId = parsedId;
-        }
-        else if (studentId.HasValue && studentId.Value != Guid.Empty)
-        {
-            effectiveStudentId = studentId.Value;
-        }
+        Guid effectiveStudentId = ResolveUserId(studentId);
 
         if (effectiveStudentId == Guid.Empty)
         {
             return HandleResult(Result<MyForecastResponseDto>.Failure(
-                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (cần truyền X-User-Id header hoặc query param studentId).")));
+                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (cần đăng nhập Bearer Token, truyền X-User-Id header hoặc query param studentId).")));
         }
 
         var query = new GetMyForecastQuery(effectiveStudentId);
@@ -73,22 +63,12 @@ public class PredictionsController : ApiControllerBase
         [FromRoute] string patternId,
         [FromQuery] Guid? studentId = null)
     {
-        Guid effectiveStudentId = Guid.Empty;
-
-        // Ưu tiên trích xuất StudentId từ Gateway Header (X-User-Id)
-        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
-        {
-            effectiveStudentId = parsedId;
-        }
-        else if (studentId.HasValue && studentId.Value != Guid.Empty)
-        {
-            effectiveStudentId = studentId.Value;
-        }
+        Guid effectiveStudentId = ResolveUserId(studentId);
 
         if (effectiveStudentId == Guid.Empty)
         {
             return HandleResult(Result<PrescriptionSessionResponseDto>.Failure(
-                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (cần truyền X-User-Id header hoặc query param studentId).")));
+                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (cần đăng nhập Bearer Token, truyền X-User-Id header hoặc query param studentId).")));
         }
 
         var query = new GetPrescriptionSessionQuery(effectiveStudentId, patternId);
@@ -116,22 +96,12 @@ public class PredictionsController : ApiControllerBase
         [FromBody] SubmitPrescriptionSessionRequestDto request,
         [FromQuery] Guid? studentId = null)
     {
-        Guid effectiveStudentId = Guid.Empty;
-
-        // Ưu tiên trích xuất StudentId từ Gateway Header (X-User-Id)
-        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
-        {
-            effectiveStudentId = parsedId;
-        }
-        else if (studentId.HasValue && studentId.Value != Guid.Empty)
-        {
-            effectiveStudentId = studentId.Value;
-        }
+        Guid effectiveStudentId = ResolveUserId(studentId);
 
         if (effectiveStudentId == Guid.Empty)
         {
             return HandleResult(Result<SubmitPrescriptionSessionResponseDto>.Failure(
-                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (cần truyền X-User-Id header hoặc query param studentId).")));
+                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (cần đăng nhập Bearer Token, truyền X-User-Id header hoặc query param studentId).")));
         }
 
         var command = new SubmitPrescriptionSessionCommand(effectiveStudentId, patternId, request);
@@ -152,14 +122,9 @@ public class PredictionsController : ApiControllerBase
     [ProducesResponseType(typeof(Result<RecalculatePredictionResponseDto>), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> RecalculatePrediction([FromBody] RecalculatePredictionRequestDto? request = null)
     {
-        Guid effectiveStudentId = Guid.Empty;
-
-        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
-        {
-            effectiveStudentId = parsedId;
-        }
-
         var effectiveRequest = request ?? new RecalculatePredictionRequestDto();
+        Guid effectiveStudentId = ResolveUserId(effectiveRequest.StudentId);
+
         var command = new RecalculatePredictionCommand(effectiveStudentId, effectiveRequest);
         var result = await Mediator.Send(command);
         return HandleResult(result);

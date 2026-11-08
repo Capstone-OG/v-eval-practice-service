@@ -77,8 +77,8 @@ public record DailyReviewListResponseDto(
 /// Request gắn nhãn nhận thức nguyên nhân sai
 /// </summary>
 public record TagCognitiveErrorRequestDto(
-    string CognitiveErrorTag,
-    string? StudentNotes
+    string CognitiveErrorTag = "CARELESS",
+    string? StudentNotes = null
 );
 
 /// <summary>
@@ -95,8 +95,8 @@ public record TagCognitiveErrorResponseDto(
 /// Request nộp bài câu hỏi ôn tập
 /// </summary>
 public record SubmitDailyReviewRequestDto(
-    string SelectedOption,
-    int TimeSpentSeconds
+    string SelectedOption = "A",
+    int TimeSpentSeconds = 25
 );
 
 /// <summary>

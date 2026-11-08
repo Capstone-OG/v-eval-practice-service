@@ -347,6 +347,7 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.QuestionId).HasColumnName("question_id").IsRequired();
             entity.Property(e => e.SkillId).HasColumnName("skill_id").IsRequired();
             entity.Property(e => e.PatternId).HasColumnName("pattern_id").HasMaxLength(100);
+            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(50).HasDefaultValue("NEW_MISTAKE");
             entity.Property(e => e.CognitiveErrorTag).HasColumnName("cognitive_error_tag").HasMaxLength(50);
             entity.Property(e => e.StudentNotes).HasColumnName("student_notes");
             entity.Property(e => e.NextReviewDate).HasColumnName("next_review_date").HasColumnType("date");

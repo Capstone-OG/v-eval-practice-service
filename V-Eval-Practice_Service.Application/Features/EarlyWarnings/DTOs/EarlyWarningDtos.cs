@@ -92,7 +92,7 @@ public class ScheduleCounselingRequestDto
     public Guid? MentorId { get; set; }
 
     [System.Text.Json.Serialization.JsonPropertyName("counseling_date")]
-    public DateTime CounselingDate { get; set; }
+    public DateTime CounselingDate { get; set; } = DateTime.UtcNow.AddDays(2);
 
     [System.Text.Json.Serialization.JsonPropertyName("counseling_location")]
     public string CounselingLocation { get; set; } = "Phòng Tư Vấn Học Đường - Cơ sở chính";
