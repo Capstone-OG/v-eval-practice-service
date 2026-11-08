@@ -957,8 +957,8 @@
   - `V-Eval-Practice_Service.Application/Features/Predictions/Queries/GetMyForecast/GetMyForecastQueryHandler.cs`
   - `V-Eval-Practice_Service.Application/Features/Predictions/Commands/RecalculatePrediction/RecalculatePredictionCommandHandler.cs`
 - **Key Architectural Deliverables**:
-  1. **PostgreSQL `MistakeNotebooks.status` Schema & Fluent API Synchronization**:
-     - Mapped `MistakeNotebook.Status` to snake-case column `status` (`VARCHAR(50) NOT NULL DEFAULT 'NEW_MISTAKE'`) in `PracticeDbContext.cs` and added idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS status` DDL in `Program.cs`, completely resolving PostgreSQL `42703` runtime exceptions on `POST /api/practice/predictions/recalculate` and all 4 `MistakesController` endpoints.
+  1. **PostgreSQL `MistakeNotebooks.status` & `Classes.course_id` Schema & Fluent API Synchronization**:
+     - Mapped `MistakeNotebook.Status` to snake-case column `status` (`VARCHAR(50) NOT NULL DEFAULT 'NEW_MISTAKE'`) and `Class.CourseId` to `course_id` in `PracticeDbContext.cs`, alongside idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` DDL in `Program.cs`, completely resolving PostgreSQL `42703` runtime and startup exceptions across `POST /api/practice/predictions/recalculate`, `MistakesController`, `Classes`, and class-filtered `EarlyWarningsController` endpoints.
      - Synchronized lifecycle transitions (`MistakeLifecycleState`) across `TagCognitiveErrorCommandHandler` and `SubmitDailyReviewCommandHandler`.
   2. **Dual-Mode Identity Resolution (Gateway Trusted `X-User-Id` + Direct JWT Bearer)**:
      - Registered `Microsoft.AspNetCore.Authentication.JwtBearer` aligned with `Identity Service` and `API Gateway` `JwtSettings`, while exposing both `Bearer` and `X-User-Id` security schemes in Swagger UI (`AddSwaggerGen`).

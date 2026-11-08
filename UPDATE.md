@@ -2,8 +2,8 @@
 
 ## [08/11/2026] - Khắc Phục Toàn Diện Lỗi Core Flow 6 Trên Backend & API Gateway: Đồng Bộ Cột `status` MistakeNotebooks, Xác Thực Kép JWT + `X-User-Id` & Tự Động Khởi Tạo Dự Báo Điểm SEM
 
-- **Đồng Bộ Schema PostgreSQL `MistakeNotebooks.status` & Khắc Phục Lỗi `500 (42703)` ([`PracticeDbContext.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs), [`Program.cs`](./V-Eval-Practice_Service.API/Program.cs))**:
-  - Bổ sung mapping `.HasColumnName("status").HasMaxLength(50).HasDefaultValue("NEW_MISTAKE")` cho thực thể `MistakeNotebook` và lệnh tự động di trú `ALTER TABLE v_eval_practice."MistakeNotebooks" ADD COLUMN IF NOT EXISTS status` khi khởi động.
+- **Đồng Bộ Schema PostgreSQL `MistakeNotebooks.status` & `Classes.course_id` — Xóa Sạch Lỗi `500 (42703)` ([`PracticeDbContext.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs), [`Program.cs`](./V-Eval-Practice_Service.API/Program.cs))**:
+  - Bổ sung mapping `.HasColumnName("status").HasMaxLength(50).HasDefaultValue("NEW_MISTAKE")` cho `MistakeNotebook` và `.HasColumnName("course_id")` cho `Class`, kèm lệnh tự động di trú `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` khi khởi động dịch vụ.
   - Đồng bộ trạng thái vòng đời `MistakeLifecycleState` trong [`TagCognitiveErrorCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Mistakes/Commands/TagCognitiveError/TagCognitiveErrorCommandHandler.cs) và [`SubmitDailyReviewCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Mistakes/Commands/SubmitDailyReview/SubmitDailyReviewCommandHandler.cs), khôi phục hoạt động `200 OK` cho `POST /predictions/recalculate` và 4 API Sổ tay lỗi sai SM-2.
 - **Xác Thực Kép JWT Bearer + `X-User-Id` & Nút `Authorize` Trên Swagger UI ([`Program.cs`](./V-Eval-Practice_Service.API/Program.cs), [`ApiControllerBase.cs`](./V-Eval-Practice_Service.API/Controllers/Base/ApiControllerBase.cs))**:
   - Tích hợp `JwtBearer` authentication đồng bộ `JwtSettings` với `Identity Service` và `API Gateway`, đồng thời cấu hình 2 phương thức `Authorize` (`Bearer` JWT và `X-User-Id` Header) trên Swagger UI.
