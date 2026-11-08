@@ -2,6 +2,27 @@
 
 ## [06/11/2026] - Triển Khai Hoàn Chỉnh Background Worker Quét Cảnh Báo Sớm Tự Động BR-04 (`EarlyWarningSweepWorker`) & Bộ Điều Phối Bắn Thông Báo Đa Kênh Email SMTP / Mobile Push FCM (`NotificationDispatcher`) Theo Bản Vẽ SDD (Figure 56 & 57, Checklist Mục 07)
 
+## [08/11/2026] - Khắc Phục Toàn Diện Lỗi Core Flow 6 Trên Backend & API Gateway: Đồng Bộ Cột `status` MistakeNotebooks, Xác Thực Kép JWT + `X-User-Id` & Tự Động Khởi Tạo Dự Báo Điểm SEM
+
+- **Khắc Phục Triệt Để Lỗi `500 Internal Server Error` (`42703: column m.Status / c.CourseId does not exist`) Trên Core Flow 6 & Bảng `Classes` ([`PracticeDbContext.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs), [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs))**:
+  - Bổ sung mapping Fluent API `.Property(e => e.Status).HasColumnName("status").HasMaxLength(50).HasDefaultValue("NEW_MISTAKE")` cho thực thể `MistakeNotebook` và `.Property(e => e.CourseId).HasColumnName("course_id")` cho thực thể `Class`.
+  - Bổ sung các câu lệnh tự động di trú `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (`MistakeNotebooks.status`, `Classes.course_id`, `ClassEnrollments.registration_id`, `RoadmapNodes.daily_exam_id`) và khởi tạo dữ liệu mẫu Sổ tay lỗi sai SM-2 độc lập khi khởi động dịch vụ, xóa sạch 100% lỗi `42703` lúc startup và trên các API lọc theo lớp.
+  - Đồng bộ cập nhật vòng đời trạng thái `MistakeLifecycleState` trong [`TagCognitiveErrorCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Mistakes/Commands/TagCognitiveError/TagCognitiveErrorCommandHandler.cs) và [`SubmitDailyReviewCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Mistakes/Commands/SubmitDailyReview/SubmitDailyReviewCommandHandler.cs), khôi phục hoạt động `200 OK` cho `POST /predictions/recalculate` và trọn bộ 4 API `MistakesController`.
+- **Tích Hợp Xác Thực Kép JWT Bearer + Trusted Header `X-User-Id` & Nút `Authorize` Trên Swagger UI ([`Program.cs`](../V-Eval-Practice_Service.API/Program.cs), [`ApiControllerBase.cs`](../V-Eval-Practice_Service.API/Controllers/Base/ApiControllerBase.cs))**:
+  - Đăng ký `Microsoft.AspNetCore.Authentication.JwtBearer` đọc cấu hình `JwtSettings` đồng bộ với `Identity Service` và `API Gateway`.
+  - Tích hợp 2 chế độ xác thực trên Swagger UI (`Bearer` JWT Token và `X-User-Id` Header) giúp kiểm thử trực tiếp trên `:5261/swagger` hoặc qua cổng tập trung `:5212/swagger` không còn bị lỗi `401 Auth.StudentIdRequired` / `Auth.MentorIdRequired`.
+  - Bổ sung hàm `ResolveUserId(Guid? explicitUserId)` tại `ApiControllerBase` và áp dụng xuyên suốt [`PredictionsController.cs`](../V-Eval-Practice_Service.API/Controllers/PredictionsController.cs), [`EarlyWarningsController.cs`](../V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs), [`MistakesController.cs`](../V-Eval-Practice_Service.API/Controllers/MistakesController.cs) (chuyển `studentId` trên query sang tuỳ chọn `Guid?`).
+  - Gán giá trị mặc định hợp lệ trên DTO Swagger ([`EarlyWarningDtos.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/DTOs/EarlyWarningDtos.cs), [`MistakeDtos.cs`](../V-Eval-Practice_Service.Application/Features/Mistakes/DTOs/MistakeDtos.cs)) tránh lỗi validation `400 Bad Request` khi bấm Execute mẫu.
+- **Tự Động Khởi Tạo Dự Báo Điểm SEM Lần Đầu Cho Học Sinh Thực Tế ([`GetMyForecastQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Predictions/Queries/GetMyForecast/GetMyForecastQueryHandler.cs), [`RecalculatePredictionCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Predictions/Commands/RecalculatePrediction/RecalculatePredictionCommandHandler.cs))**:
+  - Khi học sinh hợp lệ gọi `GET /api/practice/predictions/my-forecast` nhưng chưa có bản ghi trong `ScorePredictions`, hệ thống tự động kích hoạt `RecalculatePredictionCommand` (`TriggerSource = "AUTO_INIT"`), ước lượng điểm cơ sở thang 1200 từ bài nộp `ExamSubmission` gần nhất và sinh Toa thuốc bù điểm Knapsack ROI thay vì trả lỗi `404 NotFound`.
+- **Kiểm Thử Đơn Vị & Kiểm Thử Tích Hợp Đầu-Cuối**:
+  - Bổ sung bộ unit test [`CoreFlow6PredictionTests.cs`](../V-Eval-Practice_Service.Tests/Features/Predictions/CoreFlow6PredictionTests.cs), nâng tổng số kiểm thử xUnit đạt **14/14 Passed (100%)**, biên dịch sạch `0 Warning, 0 Error`.
+  - Kiểm thử HTTP thực tế trực tiếp (`:5261`) và xuyên qua YARP API Gateway (`:5212`) với Supabase PostgreSQL đạt `200 OK` trên toàn bộ các API Core Flow 6.
+
+---
+
+## [06/11/2026] - Khắc Phục Triệt Để Ngắt Đoạn Luồng Stream SSE Socratic Bằng Cơ Chế Kênh Bất Đồng Bộ Channel & Phản Hồi Dự Phòng Thông Suốt
+
 - **Triển Khai Background Worker Quét Tự Động Định Kỳ Ngầm ([`EarlyWarningSweepWorker.cs`](../V-Eval-Practice_Service.Infrastructure/BackgroundJobs/EarlyWarningSweepWorker.cs))**:
   - Kế thừa `BackgroundService`, khởi chạy sau 25s làm ấm hệ thống và lặp lại chu kỳ quét tự động mỗi 30 phút (hoặc cấu hình qua `EarlyWarning:SweepIntervalMinutes`).
   - Tự động quét toàn bộ học sinh đang hoạt động trong CSDL, nạp hồ sơ năng lực, nhật ký tự học 7 ngày (`StudentDailyActivities`), chỉ số sẵn sàng thi (`StudentReadinessMetrics`) và dải điểm dự báo (`ScorePredictions`).

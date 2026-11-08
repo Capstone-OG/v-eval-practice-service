@@ -34,6 +34,10 @@ public class TagCognitiveErrorCommandHandler : IRequestHandler<TagCognitiveError
         string tag = request.Request.CognitiveErrorTag.ToUpperInvariant();
         item.CognitiveErrorTag = tag;
         item.StudentNotes = request.Request.StudentNotes;
+        if (!item.IsMastered && item.Status == Domain.Entities.MistakeLifecycleState.NewMistake)
+        {
+            item.Status = Domain.Entities.MistakeLifecycleState.DueForReview;
+        }
         item.UpdatedAt = DateTime.UtcNow;
 
         await _mistakeNotebookRepository.UpdateAsync(item, ct);

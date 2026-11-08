@@ -1,7 +1,10 @@
 using System;
 using System.IO;
 using System.Reflection;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
@@ -20,14 +23,84 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// 2. Cấu hình Swagger UI trực quan
+// 1.5. Cấu hình xác thực JWT Bearer đồng bộ với Identity Service & API Gateway
+var jwtSecret = builder.Configuration["JwtSettings:SecretKey"]
+                ?? builder.Configuration["Jwt:SecretKey"]
+                ?? "V-Eval_Secure_JWT_Key_2026_Identity_Service_Capstone_Secret!";
+var jwtIssuer = builder.Configuration["JwtSettings:Issuer"]
+                ?? builder.Configuration["Jwt:Issuer"]
+                ?? "V-Eval-IdentityService";
+var jwtAudience = builder.Configuration["JwtSettings:Audience"]
+                  ?? builder.Configuration["Jwt:Audience"]
+                  ?? "V-Eval-Clients";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+        ValidateIssuer = !string.IsNullOrEmpty(jwtIssuer),
+        ValidIssuer = jwtIssuer,
+        ValidateAudience = !string.IsNullOrEmpty(jwtAudience),
+        ValidAudience = jwtAudience,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.FromMinutes(1)
+    };
+});
+builder.Services.AddAuthorization();
+
+// 2. Cấu hình Swagger UI trực quan (Hỗ trợ cả JWT Bearer qua API Gateway & Header X-User-Id trực tiếp)
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "V-Eval Practice Service API",
         Version = "v1",
-        Description = "Microservice tiếp nhận bài thi, chấm điểm tự động và lưu trữ kết quả kiểm tra năng lực (V-Eval Core Flow 1 - Bước 3)."
+        Description = "Microservice tiếp nhận bài thi, chấm điểm tự động, theo dõi năng lực, dự báo điểm SEM/Knapsack ROI, cảnh báo sớm BR-04 và Sổ tay lỗi sai SM-2 (Core Flows 1 - 6)."
+    });
+
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Dán JWT Access Token (không cần gõ chữ 'Bearer ') để kiểm thử qua API Gateway (:5212) hoặc trực tiếp.",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+
+    c.AddSecurityDefinition("X-User-Id", new OpenApiSecurityScheme
+    {
+        Description = "Khi bấm thử trực tiếp tại Swagger Practice Service (:5261), có thể điền nhanh StudentId/MentorId mẫu (VD: b0a218d2-1111-4000-8000-000000000001).",
+        Name = "X-User-Id",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        },
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "X-User-Id" }
+            },
+            Array.Empty<string>()
+        }
     });
 
     c.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
@@ -76,6 +149,8 @@ app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 app.UseCors("AllowAll");
 app.UseRateLimiter();
 app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
 
 // 6. Kích hoạt Swagger UI
 app.UseSwagger();
@@ -176,7 +251,10 @@ using (var scope = app.Services.CreateScope())
                 joined_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
             );
 
-            -- Bổ sung các cột mới cho Core Flow 2 nếu chưa tồn tại
+            -- Bổ sung các cột mới cho Core Flow 2 & Enrollment nếu chưa tồn tại
+            ALTER TABLE v_eval_practice.""Classes"" ADD COLUMN IF NOT EXISTS course_id UUID;
+            ALTER TABLE v_eval_practice.""ClassEnrollments"" ADD COLUMN IF NOT EXISTS registration_id UUID;
+            ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS daily_exam_id UUID;
             ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS video_watched_seconds INT DEFAULT 0;
             ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS video_total_seconds INT DEFAULT 0;
             ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS is_video_completed BOOLEAN DEFAULT FALSE;
@@ -215,13 +293,14 @@ using (var scope = app.Services.CreateScope())
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
             );
 
-            -- Core Flow 3: Khởi tạo bảng MistakeNotebooks phục vụ Sổ tay lỗi sai & Spaced Repetition (Module 2)
+            -- Core Flow 3 & 6: Khởi tạo bảng MistakeNotebooks phục vụ Sổ tay lỗi sai & Spaced Repetition (SM-2)
             CREATE TABLE IF NOT EXISTS v_eval_practice.""MistakeNotebooks"" (
                 id UUID PRIMARY KEY,
                 student_id UUID NOT NULL,
                 question_id UUID NOT NULL,
                 skill_id UUID NOT NULL,
                 pattern_id VARCHAR(100),
+                status VARCHAR(50) NOT NULL DEFAULT 'NEW_MISTAKE',
                 cognitive_error_tag VARCHAR(50),
                 student_notes TEXT,
                 next_review_date DATE NOT NULL,
@@ -234,6 +313,8 @@ using (var scope = app.Services.CreateScope())
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
             );
+
+            ALTER TABLE v_eval_practice.""MistakeNotebooks"" ADD COLUMN IF NOT EXISTS status VARCHAR(50) NOT NULL DEFAULT 'NEW_MISTAKE';
 
             CREATE INDEX IF NOT EXISTS idx_mistake_notebook_daily_review 
             ON v_eval_practice.""MistakeNotebooks"" (student_id, next_review_date, is_mastered);
@@ -384,6 +465,63 @@ using (var scope = app.Services.CreateScope())
             ON v_eval_practice.""SystemAlerts"" (student_id);
         ");
         logger.LogInformation("Đã xác thực và khởi tạo thành công CSDL schema practice trên Supabase.");
+
+        // Khởi tạo độc lập bản ghi mẫu Sổ tay lỗi sai SM-2 phục vụ kiểm thử Core Flow 6
+        try
+        {
+            var demoMistakeStudentId = Guid.Parse("b0a218d2-1111-4000-8000-000000000001");
+            var hasSampleMistakes = await dbContext.MistakeNotebooks.AnyAsync(m => m.StudentId == demoMistakeStudentId);
+            if (!hasSampleMistakes)
+            {
+                var dueToday = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+                await dbContext.MistakeNotebooks.AddRangeAsync(
+                    new MistakeNotebook
+                    {
+                        Id = Guid.NewGuid(),
+                        StudentId = demoMistakeStudentId,
+                        QuestionId = Guid.Parse("a1111111-1111-4000-8000-000000000001"),
+                        SkillId = Guid.Parse("a0000001-0000-0000-0000-000000000007"),
+                        PatternId = "PAT_TOAN_LOGIC_01",
+                        Status = MistakeLifecycleState.DueForReview,
+                        CognitiveErrorTag = "MISREAD_QUESTION",
+                        StudentNotes = "Cần gạch chân điều kiện phủ định của mệnh đề kéo theo trước khi chọn đáp án.",
+                        NextReviewDate = dueToday,
+                        ReviewCount = 1,
+                        ConsecutiveCorrectReviews = 1,
+                        IntervalDays = 1,
+                        EaseFactor = 2.50,
+                        IsMastered = false,
+                        CreatedAt = DateTime.UtcNow.AddDays(-1),
+                        UpdatedAt = DateTime.UtcNow
+                    },
+                    new MistakeNotebook
+                    {
+                        Id = Guid.NewGuid(),
+                        StudentId = demoMistakeStudentId,
+                        QuestionId = Guid.Parse("a2222222-2222-4000-8000-000000000002"),
+                        SkillId = Guid.Parse("a0000001-0000-0000-0000-000000000010"),
+                        PatternId = "PAT_HOA_PH_03",
+                        Status = MistakeLifecycleState.NewMistake,
+                        CognitiveErrorTag = "MISSING_CONCEPT",
+                        StudentNotes = "Ôn lại phương trình Henderson-Hasselbalch cho hệ đệm axit yếu.",
+                        NextReviewDate = dueToday,
+                        ReviewCount = 0,
+                        ConsecutiveCorrectReviews = 0,
+                        IntervalDays = 1,
+                        EaseFactor = 2.50,
+                        IsMastered = false,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    }
+                );
+                await dbContext.SaveChangesAsync();
+                logger.LogInformation("Đã khởi tạo dữ liệu mẫu MistakeNotebooks SM-2 cho học sinh {StudentId}.", demoMistakeStudentId);
+            }
+        }
+        catch (Exception seedMistakeEx)
+        {
+            logger.LogWarning(seedMistakeEx, "Bỏ qua khởi tạo dữ liệu mẫu MistakeNotebooks.");
+        }
 
         // Đảm bảo có dữ liệu mẫu RoadmapNode phục vụ kiểm thử Core Flow 3
         var sampleNodeId = Guid.Parse("11111111-2222-3333-4444-555555555555");

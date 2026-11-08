@@ -1,6 +1,6 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [06/11/2026] - Triển Khai Background Worker Quét Cảnh Báo Sớm BR-04 Tự Động, Bộ Điều Phối Thông Báo Đa Kênh Email SMTP / Mobile Push FCM (Khớp 100% SDD Figure 56 & 57, Mục 07), Loại Bỏ Dữ Liệu Học Sinh Mẫu & Bảo Vệ SSE Socratic
+## [08/11/2026] - Triển Khai Background Worker Quét Cảnh Báo Sớm BR-04 Tự Động, Bộ Điều Phối Thông Báo Đa Kênh Email SMTP / Mobile Push FCM (Khớp 100% SDD Figure 56 & 57, Mục 07), Loại Bỏ Dữ Liệu Học Sinh Mẫu & Bảo Vệ SSE Socratic
 
 - **Triển Khai Background Worker Quét Tự Động Định Kỳ Ngầm ([`EarlyWarningSweepWorker.cs`](./V-Eval-Practice_Service.Infrastructure/BackgroundJobs/EarlyWarningSweepWorker.cs))**:
   - Kế thừa `BackgroundService` chạy ngầm định kỳ 30 phút/lần (với độ trễ khởi động 25s chống nghẽn dịch vụ).
@@ -23,3 +23,16 @@
   - Biên dịch toàn bộ solution `V-Eval-Practice_Service.sln` (.NET 9 SDK) đạt chuẩn 100% sạch (0 Warning, 0 Error).
   - Toàn bộ 12/12 kiểm thử tự động xUnit đạt Passed 100%.
   - Xác nhận vận hành thành công trên tiến trình thực tế: Worker khởi chạy ngầm, quét dữ liệu học sinh, lưu `SystemAlert` và bắn thông báo kiểm toán an toàn.
+
+## [08/11/2026] - Khắc Phục Toàn Diện Lỗi Core Flow 6 Trên Backend & API Gateway: Đồng Bộ Cột `status` MistakeNotebooks, Xác Thực Kép JWT + `X-User-Id` & Tự Động Khởi Tạo Dự Báo Điểm SEM
+
+- **Đồng Bộ Schema PostgreSQL `MistakeNotebooks.status` & `Classes.course_id` — Xóa Sạch Lỗi `500 (42703)` ([`PracticeDbContext.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs), [`Program.cs`](./V-Eval-Practice_Service.API/Program.cs))**:
+  - Bổ sung mapping `.HasColumnName("status").HasMaxLength(50).HasDefaultValue("NEW_MISTAKE")` cho `MistakeNotebook` và `.HasColumnName("course_id")` cho `Class`, kèm lệnh tự động di trú `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` khi khởi động dịch vụ.
+  - Đồng bộ trạng thái vòng đời `MistakeLifecycleState` trong [`TagCognitiveErrorCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Mistakes/Commands/TagCognitiveError/TagCognitiveErrorCommandHandler.cs) và [`SubmitDailyReviewCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Mistakes/Commands/SubmitDailyReview/SubmitDailyReviewCommandHandler.cs), khôi phục hoạt động `200 OK` cho `POST /predictions/recalculate` và 4 API Sổ tay lỗi sai SM-2.
+- **Xác Thực Kép JWT Bearer + `X-User-Id` & Nút `Authorize` Trên Swagger UI ([`Program.cs`](./V-Eval-Practice_Service.API/Program.cs), [`ApiControllerBase.cs`](./V-Eval-Practice_Service.API/Controllers/Base/ApiControllerBase.cs))**:
+  - Tích hợp `JwtBearer` authentication đồng bộ `JwtSettings` với `Identity Service` và `API Gateway`, đồng thời cấu hình 2 phương thức `Authorize` (`Bearer` JWT và `X-User-Id` Header) trên Swagger UI.
+  - Chuẩn hóa hàm `ResolveUserId` xuyên suốt [`PredictionsController.cs`](./V-Eval-Practice_Service.API/Controllers/PredictionsController.cs), [`EarlyWarningsController.cs`](./V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs), [`MistakesController.cs`](./V-Eval-Practice_Service.API/Controllers/MistakesController.cs) và gán giá trị mặc định hợp lệ cho các DTO Swagger.
+- **Tự Động Khởi Tạo Dự Báo Điểm SEM Lần Đầu Cho Học Sinh Thực Tế ([`GetMyForecastQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/Predictions/Queries/GetMyForecast/GetMyForecastQueryHandler.cs), [`RecalculatePredictionCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Predictions/Commands/RecalculatePrediction/RecalculatePredictionCommandHandler.cs))**:
+  - Tự động kích hoạt `RecalculatePredictionCommand` (`AUTO_INIT`) khi học sinh hợp lệ gọi `GET /my-forecast` lần đầu, ước lượng điểm cơ sở thang 1200 từ bài thi `ExamSubmission` gần nhất và sinh Toa thuốc Knapsack ROI thay vì trả `404 NotFound`.
+- **Kiểm Thử & Nghiệm Thu**:
+  - Biên dịch sạch `0 Warning, 0 Error`; `dotnet test` đạt **14/14 Passed (100%)** (thêm [`CoreFlow6PredictionTests.cs`](./V-Eval-Practice_Service.Tests/Features/Predictions/CoreFlow6PredictionTests.cs)); kiểm thử HTTP trực tiếp (`:5261`) và qua API Gateway (`:5212`) đạt `200 OK` toàn diện.

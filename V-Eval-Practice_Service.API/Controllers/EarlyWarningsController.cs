@@ -37,22 +37,12 @@ public class EarlyWarningsController : ApiControllerBase
         [FromQuery] string? alertType = null,
         [FromQuery] Guid? studentId = null)
     {
-        Guid effectiveStudentId = Guid.Empty;
-
-        // Ưu tiên trích xuất StudentId từ Gateway Header (X-User-Id)
-        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
-        {
-            effectiveStudentId = parsedId;
-        }
-        else if (studentId.HasValue && studentId.Value != Guid.Empty)
-        {
-            effectiveStudentId = studentId.Value;
-        }
+        Guid effectiveStudentId = ResolveUserId(studentId);
 
         if (effectiveStudentId == Guid.Empty)
         {
             return HandleResult(Result<MyAlertsResponseDto>.Failure(
-                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (cần truyền header X-User-Id hoặc query param studentId).")));
+                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (cần đăng nhập Bearer Token, truyền header X-User-Id hoặc query param studentId).")));
         }
 
         var query = new GetMyAlertsQuery(effectiveStudentId, unreadOnly, alertType);
@@ -79,21 +69,12 @@ public class EarlyWarningsController : ApiControllerBase
         [FromRoute] Guid alertId,
         [FromQuery] Guid? studentId = null)
     {
-        Guid effectiveStudentId = Guid.Empty;
-
-        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
-        {
-            effectiveStudentId = parsedId;
-        }
-        else if (studentId.HasValue && studentId.Value != Guid.Empty)
-        {
-            effectiveStudentId = studentId.Value;
-        }
+        Guid effectiveStudentId = ResolveUserId(studentId);
 
         if (effectiveStudentId == Guid.Empty)
         {
             return HandleResult(Result<MarkAlertAsReadResponseDto>.Failure(
-                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (cần truyền header X-User-Id hoặc query param studentId).")));
+                Error.Unauthorized("Auth.StudentIdRequired", "Không tìm thấy định danh học sinh (cần đăng nhập Bearer Token, truyền header X-User-Id hoặc query param studentId).")));
         }
 
         var command = new MarkAlertAsReadCommand(alertId, effectiveStudentId);
@@ -120,12 +101,8 @@ public class EarlyWarningsController : ApiControllerBase
         [FromQuery] bool? isResolved = false,
         [FromQuery] Guid? mentorId = null)
     {
-        Guid? effectiveMentorId = mentorId;
-
-        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
-        {
-            effectiveMentorId = parsedId;
-        }
+        var resolved = ResolveUserId(mentorId);
+        Guid? effectiveMentorId = resolved != Guid.Empty ? resolved : null;
 
         var query = new GetAlertsDashboardQuery(classId, effectiveMentorId, alertType, isResolved);
         var result = await Mediator.Send(query);
@@ -150,14 +127,9 @@ public class EarlyWarningsController : ApiControllerBase
         [FromRoute] Guid alertId,
         [FromBody] ResolveAlertRequestDto request)
     {
-        Guid effectiveMentorId = Guid.Empty;
+        Guid effectiveMentorId = ResolveUserId(request?.MentorId);
 
-        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
-        {
-            effectiveMentorId = parsedId;
-        }
-
-        var command = new ResolveAlertCommand(alertId, effectiveMentorId, request);
+        var command = new ResolveAlertCommand(alertId, effectiveMentorId, request ?? new ResolveAlertRequestDto());
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }
@@ -180,14 +152,9 @@ public class EarlyWarningsController : ApiControllerBase
         [FromRoute] Guid alertId,
         [FromBody] ScheduleCounselingRequestDto request)
     {
-        Guid effectiveMentorId = Guid.Empty;
+        Guid effectiveMentorId = ResolveUserId(request?.MentorId);
 
-        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
-        {
-            effectiveMentorId = parsedId;
-        }
-
-        var command = new ScheduleCounselingCommand(alertId, effectiveMentorId, request);
+        var command = new ScheduleCounselingCommand(alertId, effectiveMentorId, request ?? new ScheduleCounselingRequestDto());
         var result = await Mediator.Send(command);
         return HandleResult(result);
     }
