@@ -1,38 +1,13 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [08/11/2026] - Triển Khai Background Worker Quét Cảnh Báo Sớm BR-04 Tự Động, Bộ Điều Phối Thông Báo Đa Kênh Email SMTP / Mobile Push FCM (Khớp 100% SDD Figure 56 & 57, Mục 07), Loại Bỏ Dữ Liệu Học Sinh Mẫu & Bảo Vệ SSE Socratic
+## [11/11/2026] - Bổ Sung Tuyến Đường Alias Nhận Webhook IPN PayOS Trực Tiếp (`/api/payments/payos-webhook`) & Khắc Phục Lỗi 404 Gateway
 
-- **Triển Khai Background Worker Quét Tự Động Định Kỳ Ngầm ([`EarlyWarningSweepWorker.cs`](./V-Eval-Practice_Service.Infrastructure/BackgroundJobs/EarlyWarningSweepWorker.cs))**:
-  - Kế thừa `BackgroundService` chạy ngầm định kỳ 30 phút/lần (với độ trễ khởi động 25s chống nghẽn dịch vụ).
-  - Tự động quét toàn bộ học sinh đang hoạt động, nạp nhật ký tự học và chỉ số sẵn sàng để đánh giá nghiêm ngặt quy tắc cảnh báo sớm 3 cấp **BR-04** (`UNREALISTIC_GOAL`, `RED`, `YELLOW`).
-  - Kiểm tra chống sinh trùng lặp trong 24 giờ, ghi nhận cảnh báo vào bảng `v_eval_practice."SystemAlerts"` và kích hoạt bắn thông báo ra bên ngoài.
-- **Triển Khai Bộ Điều Phối Bắn Thông Báo Đa Kênh Ra Bên Ngoài ([`INotificationDispatcher.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/Services/INotificationDispatcher.cs), [`NotificationDispatcher.cs`](./V-Eval-Practice_Service.Infrastructure/Services/NotificationDispatcher.cs))**:
-  - **Email Kèm Giao Diện HTML Chuẩn V-Eval (MailKit / MimeKit 4.17.0)**: Soạn thảo email HTML thương hiệu responsive, hiển thị màu phân cấp rủi ro (Đỏ/Vàng/Tím), thông số điểm mục tiêu/dự báo/sẵn sàng, lời khuyên sư phạm và nút CTA dẫn thẳng vào Cổng Phụ Huynh / Học Viên. Gửi đồng thời tới Email học sinh và Email tất cả phụ huynh liên kết.
-  - **Mobile Push (Firebase Cloud Messaging - FCM)**: Chuẩn bị payload thông báo di động chuẩn gửi tới topic `/topics/student_{id}` kèm deep link `/parent/dashboard`.
-  - **Cơ Chế Phục Hồi Cao (Resilient Fallback Audit)**: Tự động ghi log kiểm toán có cấu trúc `[NOTIFICATION DISPATCHER - EMAIL AUDIT]` & `[NOTIFICATION DISPATCHER - FCM AUDIT]` khi chưa cấu hình máy chủ SMTP hoặc khóa FCM, triệt tiêu 100% nguy cơ crash worker.
-- **Endpoint API Kích Hoạt Quét Cảnh Báo Sớm Theo Yêu Cầu ([`EarlyWarningsController.cs`](./V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs))**:
-  - Bổ sung `POST /api/practice/early-warnings/sweep?classId={guid}` cho phép Quản trị viên/Mentor kích hoạt quy trình quét tức thì.
-- **Loại Bỏ 100% Mock Học Sinh Mẫu Trong Cổng Phụ Huynh ([`GetParentDashboardQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs))**:
-  - Xóa bỏ hoàn toàn khối lệnh tự động tiêm học sinh mẫu `"Phạm Minh Hoàng"` (`3fa85f64-5717-4562-b3fc-2c963f66afa6`) khi phụ huynh chưa liên kết với học sinh trong CSDL.
-  - Trả về danh sách `children: []` rỗng thực tế khi chưa có quan hệ liên kết trong bảng `v_eval_identity."ParentStudentRelations"`, kích hoạt giao diện chờ liên kết 3 cách sạch sẽ trên Frontend.
-  - Chuẩn hóa các chỉ số tự học về `0.0` thay cho các số liệu giả định cũ (`82.4`, `14.5` giờ, `12` ngày streak).
-- **Khắc Phục Lỗi Ngắt Quãng SSE Bằng Cơ Chế Kênh Bất Đồng Bộ System.Threading.Channels ([`AiTutorClient.cs`](./V-Eval-Practice_Service.Infrastructure/HttpClients/AiTutorClient.cs))**:
-  - Tái cấu trúc phương thức `StreamSocraticGuidanceAsync` sử dụng mô hình Producer-Consumer với `Channel.CreateUnbounded<string>()`.
-  - Tự động bổ sung `GenerateStreamFallback` khi mất kết nối trước khi nhận token, triệt tiêu 100% tình trạng treo dấu ba chấm `...` trên Web Client.
-- **Kiểm Thử & Vận Hành**:
-  - Biên dịch toàn bộ solution `V-Eval-Practice_Service.sln` (.NET 9 SDK) đạt chuẩn 100% sạch (0 Warning, 0 Error).
-  - Toàn bộ 12/12 kiểm thử tự động xUnit đạt Passed 100%.
-  - Xác nhận vận hành thành công trên tiến trình thực tế: Worker khởi chạy ngầm, quét dữ liệu học sinh, lưu `SystemAlert` và bắn thông báo kiểm toán an toàn.
+- **Bổ Sung Tuyến Đường Alias Nhận Webhook IPN PayOS ([`PaymentsController.cs`](./V-Eval-Practice_Service.API/Controllers/PaymentsController.cs))**:
+  - Cổng thanh toán trực tuyến PayOS theo chuẩn tài liệu sẽ gửi Webhook IPN vào đường dẫn gốc `/api/payments/payos-webhook`.
+  - Trước đây, controller chỉ cấu hình route tương đối `[HttpPost("payos-webhook")]` dưới tiền tố lớp `[Route("api/practice/payments")]`.
+  - Bổ sung thuộc tính định tuyến tuyệt đối `[HttpPost("/api/payments/payos-webhook")]` cho phương thức `ProcessPayOsWebhook`, cho phép controller tiếp nhận đồng thời cả 2 định dạng đường dẫn IPN từ PayOS.
+  - Phối hợp cùng API Gateway route `practice-payments-route` (`/api/payments/{**catch-all}`), giải quyết triệt để lỗi `HTTP 404 Not Found` khi PayOS gửi kết quả giao dịch về hệ thống.
 
-## [08/11/2026] - Khắc Phục Toàn Diện Lỗi Core Flow 6 Trên Backend & API Gateway: Đồng Bộ Cột `status` MistakeNotebooks, Xác Thực Kép JWT + `X-User-Id` & Tự Động Khởi Tạo Dự Báo Điểm SEM
-
-- **Đồng Bộ Schema PostgreSQL `MistakeNotebooks.status` & `Classes.course_id` — Xóa Sạch Lỗi `500 (42703)` ([`PracticeDbContext.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs), [`Program.cs`](./V-Eval-Practice_Service.API/Program.cs))**:
-  - Bổ sung mapping `.HasColumnName("status").HasMaxLength(50).HasDefaultValue("NEW_MISTAKE")` cho `MistakeNotebook` và `.HasColumnName("course_id")` cho `Class`, kèm lệnh tự động di trú `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` khi khởi động dịch vụ.
-  - Đồng bộ trạng thái vòng đời `MistakeLifecycleState` trong [`TagCognitiveErrorCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Mistakes/Commands/TagCognitiveError/TagCognitiveErrorCommandHandler.cs) và [`SubmitDailyReviewCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Mistakes/Commands/SubmitDailyReview/SubmitDailyReviewCommandHandler.cs), khôi phục hoạt động `200 OK` cho `POST /predictions/recalculate` và 4 API Sổ tay lỗi sai SM-2.
-- **Xác Thực Kép JWT Bearer + `X-User-Id` & Nút `Authorize` Trên Swagger UI ([`Program.cs`](./V-Eval-Practice_Service.API/Program.cs), [`ApiControllerBase.cs`](./V-Eval-Practice_Service.API/Controllers/Base/ApiControllerBase.cs))**:
-  - Tích hợp `JwtBearer` authentication đồng bộ `JwtSettings` với `Identity Service` và `API Gateway`, đồng thời cấu hình 2 phương thức `Authorize` (`Bearer` JWT và `X-User-Id` Header) trên Swagger UI.
-  - Chuẩn hóa hàm `ResolveUserId` xuyên suốt [`PredictionsController.cs`](./V-Eval-Practice_Service.API/Controllers/PredictionsController.cs), [`EarlyWarningsController.cs`](./V-Eval-Practice_Service.API/Controllers/EarlyWarningsController.cs), [`MistakesController.cs`](./V-Eval-Practice_Service.API/Controllers/MistakesController.cs) và gán giá trị mặc định hợp lệ cho các DTO Swagger.
-- **Tự Động Khởi Tạo Dự Báo Điểm SEM Lần Đầu Cho Học Sinh Thực Tế ([`GetMyForecastQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/Predictions/Queries/GetMyForecast/GetMyForecastQueryHandler.cs), [`RecalculatePredictionCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Predictions/Commands/RecalculatePrediction/RecalculatePredictionCommandHandler.cs))**:
-  - Tự động kích hoạt `RecalculatePredictionCommand` (`AUTO_INIT`) khi học sinh hợp lệ gọi `GET /my-forecast` lần đầu, ước lượng điểm cơ sở thang 1200 từ bài thi `ExamSubmission` gần nhất và sinh Toa thuốc Knapsack ROI thay vì trả `404 NotFound`.
-- **Kiểm Thử & Nghiệm Thu**:
-  - Biên dịch sạch `0 Warning, 0 Error`; `dotnet test` đạt **14/14 Passed (100%)** (thêm [`CoreFlow6PredictionTests.cs`](./V-Eval-Practice_Service.Tests/Features/Predictions/CoreFlow6PredictionTests.cs)); kiểm thử HTTP trực tiếp (`:5261`) và qua API Gateway (`:5212`) đạt `200 OK` toàn diện.
+- **Kiểm Thử & Biên Dịch**:
+  - `POST /api/payments/payos-webhook` qua API Gateway xác thực chữ ký PayOS chuẩn xác (`{"success":false,"message":"Invalid signature"}`).
+  - Toàn bộ solution `V-Eval-Practice_Service.sln` (.NET 9 SDK) biên dịch sạch `0 Error`.

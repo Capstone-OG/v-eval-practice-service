@@ -1016,3 +1016,18 @@
      - Clean .NET 9 compilation (`0 Warning(s), 0 Error(s)`).
      - `14/14` xUnit unit tests passed in `V-Eval-Practice_Service.Tests` (including `CoreFlow6PredictionTests.cs`).
      - Verified live end-to-end against Supabase PostgreSQL both directly on `:5261` and through YARP API Gateway `:5212` (`200 OK` across all Core Flow 6 endpoints while preserving Gateway `401` anti-spoofing enforcement).
+
+---
+
+### [11/11/2026] - Architecture Acceptance: PayOS IPN Webhook Alias Route Synchronization
+- **Architecture Acceptor**: ThinhTran2412 (Lead Reviewer / Architect).
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.API/Controllers/PaymentsController.cs`
+- **Key Architectural Deliverables**:
+  1. **Dual Route Webhook IPN Reception**:
+     - Decorated `ProcessPayOsWebhook` with absolute attribute `[HttpPost("/api/payments/payos-webhook")]` alongside class-level scoped route `[HttpPost("payos-webhook")]`.
+     - Guarantees seamless interoperability with standard external PayOS payment notification callbacks and API Gateway path transforms.
+  2. **Verification**:
+     - Clean .NET 9 compilation (`0 Error(s)`).
+     - Live mock signature audit verified through API Gateway returning HTTP 200/400 expected payload.

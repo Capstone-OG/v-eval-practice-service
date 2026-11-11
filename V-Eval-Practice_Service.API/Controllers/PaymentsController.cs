@@ -63,6 +63,7 @@ public class PaymentsController : ApiControllerBase
     /// Webhook IPN nhận kết quả thanh toán từ cổng thanh toán trực tuyến PayOS
     /// </summary>
     [HttpPost("payos-webhook")]
+    [HttpPost("/api/payments/payos-webhook")]
     [AllowAnonymous]
     public async Task<IActionResult> ProcessPayOsWebhook(CancellationToken cancellationToken)
     {
