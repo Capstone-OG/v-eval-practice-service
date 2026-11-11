@@ -1,0 +1,57 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using V_Eval_Practice_Service.Application.Common.Interfaces;
+using V_Eval_Practice_Service.Application.Common.Interfaces.Repositories;
+using V_Eval_Practice_Service.Infrastructure.GrpcClients;
+using V_Eval_Practice_Service.Infrastructure.Persistence;
+using V_Eval_Practice_Service.Infrastructure.Persistence.Repositories;
+
+namespace V_Eval_Practice_Service.Infrastructure;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+
+        services.AddDbContext<PracticeDbContext>(options =>
+            options.UseNpgsql(connectionString, b =>
+                b.MigrationsHistoryTable("__EFMigrationsHistory", "practice")));
+
+        services.AddScoped<IExamSubmissionRepository, ExamSubmissionRepository>();
+        services.AddScoped<ILearningProfileRepository, LearningProfileRepository>();
+        services.AddScoped<IClassEnrollmentRepository, ClassEnrollmentRepository>();
+        services.AddScoped<IClassGroupRepository, ClassGroupRepository>();
+        services.AddScoped<ILearningRoadmapRepository, LearningRoadmapRepository>();
+        services.AddScoped<IStageProgressRepository, StageProgressRepository>();
+        services.AddScoped<IMistakeNotebookRepository, MistakeNotebookRepository>();
+        services.AddScoped<IMockExamRepository, MockExamRepository>();
+        services.AddScoped<IScorePredictionRepository, ScorePredictionRepository>();
+        services.AddScoped<ISystemAlertRepository, SystemAlertRepository>();
+        services.AddScoped<IIdentityGrpcClient, IdentityGrpcClient>();
+        services.AddScoped<IContentGrpcClient, ContentGrpcClient>();
+        services.AddScoped<IAiDiagnosticClient, HttpClients.AiDiagnosticClient>();
+        services.AddScoped<IAiTutorClient, HttpClients.AiTutorClient>();
+        services.AddScoped<IContentHttpClient, HttpClients.ContentHttpClient>();
+
+        // Core Flow 5: Analytics & Class Heatmap
+        services.AddMemoryCache();
+        services.AddScoped<IClassHeatmapRepository, ClassHeatmapRepository>();
+        services.AddScoped<IStudentActivityRepository, StudentActivityRepository>();
+        services.AddSingleton<Application.Common.Interfaces.Services.IClassHeatmapCacheService, Caching.ClassHeatmapCacheService>();
+        services.AddScoped<Application.Common.Interfaces.Services.IClassHeatmapAggregatorService, Services.ClassHeatmapAggregatorService>();
+        services.AddHostedService<BackgroundJobs.ClassHeatmapAggregationWorker>();
+
+        // Core Flow: Payment & Enrollment (PayOS VietQR)
+        services.AddScoped<IPaymentRepository, PaymentRepository>();
+        services.AddScoped<Application.Common.Interfaces.Services.IPayOsPaymentService, Services.PayOsPaymentService>();
+
+        // Core Flow 6: Early Warning Sweep Worker & External Notification Dispatcher (Email + FCM)
+        services.AddScoped<Application.Common.Interfaces.Services.INotificationDispatcher, Services.NotificationDispatcher>();
+        services.AddScoped<Application.Common.Interfaces.Services.IEarlyWarningSweepService, Services.EarlyWarningSweepService>();
+        services.AddHostedService<BackgroundJobs.EarlyWarningSweepWorker>();
+
+        return services;
+    }
+}
