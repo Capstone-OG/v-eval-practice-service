@@ -21,11 +21,11 @@
    - **gRPC Abstractions**: `IIdentityGrpcClient` and `IContentGrpcClient`.
    - **Use Cases (CQRS)**:
      - `SubmitDiagnosticCommand`: Executes auto-grading, micro-telemetry calculation, skill diagnosis, and database persistence.
-     - `GetDiagnosticSubmissionByIdQuery`: Fetches granular test results.
-     - `GetDiagnosticSubmissionsByStudentQuery`: Retrieves student submission history.
+     - `GetDiagnosticSubmissionByIdQuery`: Fetches granular test results with resilient fallback against legacy/deleted exam IDs.
+     - `GetDiagnosticSubmissionsByStudentQuery`: Retrieves student submission history enriched with `Theta0` and `PlacementClass`.
 3. **Infrastructure Layer**:
    - **Persistence**: EF Core with Npgsql provider targeting Supabase PostgreSQL schema `practice` (`exam_submissions` and `submission_answers`). Automatic schema migration on startup.
-   - **gRPC Clients**: Connects to `Identity Service` (dedicated HTTP/2 port `5156`) and `Content Service` (dedicated HTTP/2 port `5250`).
+   - **gRPC Clients**: Connects to `Identity Service` (dedicated HTTP/2 port `5156`) and `Content Service` (dedicated HTTP/2 port `5250`). Includes defensive `StatusCode.NotFound` handler in `ContentGrpcClient.GetExamAnswerKeysAsync` to prevent 500 crashes on missing exam keys.
 4. **API Layer**:
    - `ApiControllerBase`: Maps `Result<T>` to standard RFC 7807 `ProblemDetails`.
    - `DiagnosticSubmissionsController`: RESTful endpoints adhering to `/api/v1/practice/diagnostic-submissions`.

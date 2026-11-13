@@ -54,8 +54,8 @@
 | 9 | **CSDL Schema `practice`** | `Infrastructure/Persistence/` | 🟢 Hoàn thành | 100% | Tạo tự động bảng `exam_submissions` và `submission_answers` |
 | 10 | **Core Flow 1: Nộp Bài & Chấm Điểm**| `DiagnosticSubmissionsController` | 🟢 Hoàn thành | 100% | `POST /api/practice/diagnostic-submissions` chấm điểm thang 30, ghi nhận `time_spent` |
 | 11 | **Chẩn Đoán Năng Lực & Kỹ Năng Yếu**| `SubmitDiagnosticCommandHandler` | 🟢 Hoàn thành | 100% | Tách `SkillBreakdown`, `WeakSkillIds` (<60%), `DifficultyBreakdown` (6 cấp Bloom) |
-| 12 | **API Tra Cứu Bài Nộp Theo ID** | `DiagnosticSubmissionsController` | 🟢 Hoàn thành | 100% | `GET /api/practice/diagnostic-submissions/{id}` |
-| 13 | **API Lịch Sử Bài Làm Học Sinh**| `DiagnosticSubmissionsController` | 🟢 Hoàn thành | 100% | `GET /api/practice/diagnostic-submissions/student/{studentId}` |
+| 12 | **API Tra Cứu Bài Nộp Theo ID** | `DiagnosticSubmissionsController` | 🟢 Hoàn thành | 100% | `GET /api/practice/diagnostic-submissions/{id}` bọc try/catch chống sập khi đề cũ thiếu câu hỏi Content |
+| 13 | **API Lịch Sử Bài Làm Học Sinh**| `DiagnosticSubmissionsController` | 🟢 Hoàn thành | 100% | `GET /api/practice/diagnostic-submissions/student/{studentId}` bổ sung `Theta0` và `PlacementClass` |
 | 14 | **Swagger UI & ProblemDetails** | `Program.cs` / `ApiControllerBase` | 🟢 Hoàn thành | 100% | Swagger UI tại `http://localhost:5261/swagger`, RFC 7807 |
 | 15 | **Core Flow 1 (Bước 4): Tích Hợp AI Subsystem (IRT & BKT)** | `HttpClients/AiDiagnosticClient.cs` & `SubmitDiagnosticCommandHandler.cs` | 🟢 Hoàn thành | 100% | Gửi 30 câu sang `AI Engine` -> Nhận `` `\theta_0` ``, `` `P(L_0)` `` Sigmoid, Radar Chart, nhận xét Gemini |
 | 16 | **Core Flow 1 (Bước 5): Tự Động Gợi Ý Phân Lớp Tại Campus** | `Repositories/ClassEnrollmentRepository.cs` | 🟢 Hoàn thành | 100% | Phân lớp `` `\theta_0` `` (FOUNDATION / ACCELERATION / BREAKTHROUGH) -> Tự động ghi danh `ClassEnrollments` |
