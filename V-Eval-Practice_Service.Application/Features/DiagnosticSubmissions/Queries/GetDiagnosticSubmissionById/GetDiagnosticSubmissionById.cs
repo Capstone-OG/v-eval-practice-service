@@ -40,7 +40,15 @@ public class GetDiagnosticSubmissionByIdHandler
         }
 
         // Lấy bảng đáp án từ Content Service để làm giàu dữ liệu chi tiết
-        var answerKeys = await _contentGrpcClient.GetExamAnswerKeysAsync(submission.ExamId, cancellationToken);
+        IReadOnlyDictionary<Guid, ExamQuestionKeyDto> answerKeys;
+        try
+        {
+            answerKeys = await _contentGrpcClient.GetExamAnswerKeysAsync(submission.ExamId, cancellationToken);
+        }
+        catch
+        {
+            answerKeys = new Dictionary<Guid, ExamQuestionKeyDto>();
+        }
 
         var questionResults = submission.Answers
             .Select(a =>

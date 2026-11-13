@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -57,11 +58,16 @@ public class ContentGrpcClient : IContentGrpcClient
 
             return dictionary;
         }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
+        {
+            _logger.LogWarning("Content Service không tìm thấy đáp án cho exam {ExamId}. Sử dụng fallback rỗng.", examId);
+            return new Dictionary<Guid, ExamQuestionKeyDto>();
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Lỗi khi gọi gRPC Content Service ({ServiceUrl}) cho exam {ExamId}",
+            _logger.LogError(ex, "Lỗi khi gọi gRPC Content Service ({ServiceUrl}) cho exam {ExamId}. Sử dụng fallback rỗng.",
                 _serviceUrl, examId);
-            throw;
+            return new Dictionary<Guid, ExamQuestionKeyDto>();
         }
     }
 

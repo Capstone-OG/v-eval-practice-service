@@ -47,6 +47,8 @@ public class GetDiagnosticSubmissionsByStudentHandler
                 TotalQuestions = submission.TotalQuestions,
                 AccuracyPercentage = accuracy,
                 TotalTimeSpentSeconds = submission.TotalTimeSpentSeconds,
+                Theta0 = submission.Theta0 ?? 0.0,
+                PlacementClass = submission.PlacementClass ?? "ACCELERATION",
                 StartedAt = submission.StartedAt,
                 CompletedAt = submission.CompletedAt
             };
