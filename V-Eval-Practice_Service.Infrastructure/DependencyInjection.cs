@@ -47,6 +47,9 @@ public static class DependencyInjection
         services.AddScoped<IPaymentRepository, PaymentRepository>();
         services.AddScoped<Application.Common.Interfaces.Services.IPayOsPaymentService, Services.PayOsPaymentService>();
 
+        // Core Flow: Academic Terms, Courses, Class Schedules, Sessions & Attendance (Timetable Module)
+        services.AddScoped<Application.Common.Interfaces.Services.IScheduleService, Services.ScheduleService>();
+
         // Core Flow 6: Early Warning Sweep Worker & External Notification Dispatcher (Email + FCM)
         services.AddScoped<Application.Common.Interfaces.Services.INotificationDispatcher, Services.NotificationDispatcher>();
         services.AddScoped<Application.Common.Interfaces.Services.IEarlyWarningSweepService, Services.EarlyWarningSweepService>();

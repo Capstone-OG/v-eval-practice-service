@@ -1031,3 +1031,49 @@
   2. **Verification**:
      - Clean .NET 9 compilation (`0 Error(s)`).
      - Live mock signature audit verified through API Gateway returning HTTP 200/400 expected payload.
+
+
+---
+
+### [15/11/2026] - Architecture Acceptance: Enterprise Academic Terms, Weekly Class Schedules, Automated Session Generation, Substitute/Makeup Sessions & Attendance Tracking
+- **Architecture Acceptor**: ThinhTran2412 (Lead Reviewer / Architect).
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Domain/Entities/AcademicTerm.cs`
+  - `V-Eval-Practice_Service.Domain/Entities/ClassSchedule.cs`
+  - `V-Eval-Practice_Service.Domain/Entities/ClassSession.cs`
+  - `V-Eval-Practice_Service.Domain/Entities/SessionAttendance.cs`
+  - `V-Eval-Practice_Service.Domain/Entities/Class.cs`
+  - `V-Eval-Practice_Service.Domain/Entities/CourseRegistration.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs`
+  - `V-Eval-Practice_Service.Application/Features/Schedules/DTOs/ScheduleDtos.cs`
+  - `V-Eval-Practice_Service.Application/Common/Interfaces/Services/IScheduleService.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Services/ScheduleService.cs`
+  - `V-Eval-Practice_Service.API/Controllers/AcademicTermsController.cs`
+  - `V-Eval-Practice_Service.API/Controllers/CoursesController.cs`
+  - `V-Eval-Practice_Service.API/Controllers/ClassesController.cs`
+  - `V-Eval-Practice_Service.API/Controllers/SchedulesController.cs`
+  - `V-Eval-Practice_Service.API/Program.cs`
+- **Key Architectural Deliverables**:
+  1. **3-Tier Conceptual-to-Physical ERD Realization (`AcademicTerms`, `ClassSchedules`, `ClassSessions`, `SessionAttendances`)**:
+     - Introduces `v_eval_enrollment."AcademicTerms"` (`AcademicTerm`) as a first-class entity linked via foreign key `term_id` to both `v_eval_practice."Classes"` and `v_eval_enrollment."CourseRegistrations"`, cleanly decoupling the **Course/Program dimension** (`Course`) from the **Temporal Intake/Semester dimension** (`AcademicTerm`).
+     - Realizes `v_eval_practice."ClassSchedules"` (`ClassSchedule`) for recurring weekly patterns (`day_of_week`, `slot_number`, `start_time`, `end_time`, `room`) and `v_eval_practice."ClassSessions"` (`ClassSession`) for concrete dated sessions with support for substitute instructors (`teacher_id`), curriculum skill binding (`skill_id`, `topic_title`), and makeup session chains (`rescheduled_from_id`).
+     - Realizes `v_eval_practice."SessionAttendances"` (`SessionAttendance`) to resolve the conceptual many-to-many attendance relationship (`User }o--o{ Session`) with full auditability (`status`, `check_in_at`, `recorded_by`, `note`).
+  2. **Enterprise Single-Responsibility Separation of Controllers by Aggregate Root**:
+     - `AcademicTermsController` (`/api/v1/academic-terms`, `/api/practice/academic-terms`): Dedicated to `AcademicTerm` lifecycle (`GET`, `POST`, `PATCH /{termId}/status`).
+     - `CoursesController` (`/api/v1/courses`, `/api/practice/courses`): Dedicated to `Course` catalog management (`GET`, `POST`).
+     - `ClassesController` (`/api/v1/classes`, `/api/practice/classes`): Unified Aggregate Root controller for `Class` (`GET`, `POST` class creation with optional weekly patterns, teacher assignment, K-Means auto-clustering, micro-groups, and heatmaps).
+     - `SchedulesController` (`/api/v1/schedules`, `/api/practice/schedules`): Dedicated strictly to `ClassSchedules`, `ClassSessions`, `SessionAttendances`, Student Timetables, and Teacher Schedules.
+  2. **Automated Session Generation & Conflict Detection Engine (`ScheduleService`)**:
+     - Automatically expands weekly `ClassSchedules` across `[StartDate, EndDate]` into dated `ClassSessions`, enriches lesson titles from the Content Service gRPC skill tree, and detects both **Room Conflicts** and **Teacher Schedule Conflicts** across the campus.
+     - Supports atomic rescheduling (`POST /api/v1/schedules/sessions/{sessionId}/reschedule`), marking the original session `RESCHEDULED` and spawning a linked makeup session (`RescheduledFromId`).
+  3. **Attendance Write-Through to Daily Streak & Early Warning System (BR-04)**:
+     - Submitting session attendance (`POST /api/v1/schedules/sessions/{sessionId}/attendances`) automatically credits session duration into `StudentDailyActivities` (`IsStreakCounted = true`) for `PRESENT`/`LATE` students, and evaluates cumulative unexcused `ABSENT` counts to trigger `YELLOW` (2 absences) or `RED` (3+ absences) `SystemAlerts`.
+  4. **Multi-Dimensional Student Timetable & Teacher Schedule Queries**:
+     - Exposes `GET /api/v1/schedules/students/{studentId}/timetable` and `GET /api/v1/schedules/teachers/{teacherId}/schedule` supporting filtering by `termId`, `courseId`, and `[fromDate, toDate]`, returning micro-group assignments for students and distinguishing `PRIMARY`, `SUBSTITUTE_IN`, and `SUBSTITUTE_OUT` sessions for teachers.
+  5. **Full `RadarChart` and `SkillPriors` Reconstruction in Diagnostic Submission History Queries**:
+     - Extended `DiagnosticSubmissionSummaryDto`, `GetDiagnosticSubmissionByIdHandler`, `GetDiagnosticSubmissionsByStudentHandler`, and `SubmitDiagnosticCommandHandler` with deterministic `BuildRadarChart` and `BuildSkillPriors` builders so historical submission queries return complete 4-domain radar metrics and BKT `` `P(L_0)` `` / `` `\theta_{\text{skill}}` `` skill priors identical to post-test submission responses.
+  6. **Verification**:
+     - Clean .NET 9 compilation (`0 Warning(s), 0 Error(s)`).
+     - `18/18` xUnit unit tests passed in `V-Eval-Practice_Service.Tests` (100%).
+     - Live DDL execution and seed verification against Supabase PostgreSQL confirmed HTTP `200 OK` across `/api/v1/schedules/terms`, `/students/{id}/timetable`, and `/teachers/{id}/schedule`.
