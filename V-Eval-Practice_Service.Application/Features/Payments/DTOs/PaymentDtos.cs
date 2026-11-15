@@ -53,3 +53,40 @@ public record CreatePaymentLinkResponseDto(
     string CheckoutUrl,
     string Status
 );
+
+public record StudentPaymentItemDto(
+    Guid PaymentId,
+    long? OrderCode,
+    Guid RegistrationId,
+    Guid CourseId,
+    string CourseName,
+    string CourseCode,
+    decimal Amount,
+    string Status,
+    string PaymentType,
+    string Method,
+    string? TransactionRef,
+    string? CounterAccountBankName,
+    string? CounterAccountName,
+    string? CounterAccountNumber,
+    DateTime? PaidAt,
+    DateTime CreatedAt
+);
+
+public record StudentTuitionStatusDto(
+    Guid StudentId,
+    bool IsPaid,
+    Guid? ActiveRegistrationId,
+    Guid? ActiveCourseId,
+    string? CourseName,
+    string? CourseCode,
+    string? PlanType,
+    int DurationWeeks,
+    DateOnly? StartDate,
+    DateOnly? EndDate,
+    Guid? AssignedClassId,
+    string? AssignedClassName,
+    Guid? CampusId,
+    IReadOnlyList<string> UnlockedFeatures,
+    IReadOnlyList<StudentPaymentItemDto> Payments
+);

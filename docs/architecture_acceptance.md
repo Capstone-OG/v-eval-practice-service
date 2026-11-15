@@ -1077,3 +1077,23 @@
      - Clean .NET 9 compilation (`0 Warning(s), 0 Error(s)`).
      - `18/18` xUnit unit tests passed in `V-Eval-Practice_Service.Tests` (100%).
      - Live DDL execution and seed verification against Supabase PostgreSQL confirmed HTTP `200 OK` across `/api/v1/schedules/terms`, `/students/{id}/timetable`, and `/teachers/{id}/schedule`.
+
+### 10.4 [15/11/2026] - Enterprise Payment History, Unlocked Package Entitlements & Tuition Synchronization Engine
+- **Module**: `v_eval_enrollment.Payments` & `CourseRegistrations` CQRS Extensions.
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IPaymentRepository.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/PaymentRepository.cs`
+  - `V-Eval-Practice_Service.Application/Features/Payments/DTOs/PaymentDtos.cs`
+  - `V-Eval-Practice_Service.Application/Features/Payments/Queries/GetStudentPayments/GetStudentPaymentsQuery.cs`
+  - `V-Eval-Practice_Service.Application/Features/Payments/Queries/GetStudentTuitionStatus/GetStudentTuitionStatusQuery.cs`
+  - `V-Eval-Practice_Service.API/Controllers/PaymentsController.cs`
+  - `V-Eval-Practice_Service.Tests/Queries/Payments/PaymentQueriesTests.cs`
+- **Key Architectural Deliverables**:
+  1. **Historical Payment Ledger API (`GetStudentPaymentsQuery`)**:
+     - Exposes `GET /api/practice/payments/student/{studentId}` and `GET /api/practice/payments/my-payments` returning the complete ledger of real PayOS transactions from PostgreSQL (`OrderCode`, `CourseName`, `Amount`, `Status`, `PaidAt`, `CounterAccountBankName`, `CounterAccountName`, `TransactionRef`).
+  2. **Comprehensive Course Entitlement & Unlocked Capability Inspector (`GetStudentTuitionStatusQuery`)**:
+     - Exposes `GET /api/practice/payments/status-by-student/{studentId}` and `GET /api/practice/payments/my-status` returning overall tuition status (`isPaid`), active enrolled course metadata (`CourseName`, `PlanType`, `DurationWeeks`, `StartDate`, `EndDate`), assigned cohort (`AssignedClassName`), and the explicit enumeration of the 7 unlocked subsystems.
+     - Performs automated data repair: automatically transitions `CourseRegistration` from `PENDING_PAYMENT` to `ACTIVE` whenever a confirmed `SUCCESS` payment exists in the database.
+  3. **Verification**:
+     - Full xUnit suite passing with 2 new unit tests in `PaymentQueriesTests.cs` verifying DTO mapping, status calculation, and unlocked features isolation.
