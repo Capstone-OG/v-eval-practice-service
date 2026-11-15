@@ -91,6 +91,11 @@ message QuestionAnswerKey {
   string skill_name = 6;
   string domain_id = 7;
   string domain_name = 8;
+  string content = 9;
+  repeated string options = 10;
+  string explanation = 11;
+  string passage_content = 12;
+  string passage_title = 13;
 }
 
 message GetExamAnswerKeyResponse {

@@ -50,14 +50,35 @@ public class GetDiagnosticSubmissionByIdHandler
             answerKeys = new Dictionary<Guid, ExamQuestionKeyDto>();
         }
 
-        var questionResults = submission.Answers
-            .Select(a =>
+        // Nếu exam_id của bài nộp lịch sử không tìm thấy trong Content Service, tra cứu bằng Standard Diagnostic Exam ID
+        if (answerKeys.Count == 0 && string.Equals(submission.ExamType, "DIAGNOSTIC", StringComparison.OrdinalIgnoreCase))
+        {
+            try
             {
-                answerKeys.TryGetValue(a.QuestionId, out var key);
+                answerKeys = await _contentGrpcClient.GetExamAnswerKeysAsync(
+                    Guid.Parse("11111111-1111-1111-1111-111111111111"), cancellationToken);
+            }
+            catch
+            {
+                // Soft fallback
+            }
+        }
+
+        var orderedKeys = answerKeys.Values.OrderBy(k => k.QuestionOrder).ToList();
+
+        var questionResults = submission.Answers
+            .Select((a, idx) =>
+            {
+                if (!answerKeys.TryGetValue(a.QuestionId, out var key))
+                {
+                    key = idx < orderedKeys.Count ? orderedKeys[idx] : null;
+                }
+                var order = key?.QuestionOrder ?? (idx + 1);
+
                 return new QuestionResultDto
                 {
                     QuestionId = a.QuestionId,
-                    QuestionOrder = key?.QuestionOrder ?? 0,
+                    QuestionOrder = order,
                     SelectedOption = a.SelectedOption,
                     CorrectOption = key?.CorrectOption ?? string.Empty,
                     IsCorrect = a.IsCorrect,
@@ -66,7 +87,12 @@ public class GetDiagnosticSubmissionByIdHandler
                     SkillName = key?.SkillName ?? string.Empty,
                     DomainId = key?.DomainId ?? string.Empty,
                     DomainName = key?.DomainName ?? string.Empty,
-                    DifficultyLevel = key?.DifficultyLevel ?? 0
+                    DifficultyLevel = key?.DifficultyLevel ?? 0,
+                    Content = key?.Content ?? string.Empty,
+                    Options = key?.Options != null ? key.Options.ToList() : new List<string>(),
+                    Explanation = key?.Explanation ?? string.Empty,
+                    PassageContent = key?.PassageContent ?? string.Empty,
+                    PassageTitle = key?.PassageTitle ?? string.Empty
                 };
             })
             .OrderBy(q => q.QuestionOrder)

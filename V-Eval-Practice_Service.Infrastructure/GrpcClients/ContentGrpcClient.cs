@@ -51,7 +51,12 @@ public class ContentGrpcClient : IContentGrpcClient
                         key.DifficultyLevel,
                         key.SkillName,
                         key.DomainId,
-                        key.DomainName
+                        key.DomainName,
+                        key.Content,
+                        key.Options,
+                        key.Explanation,
+                        key.PassageContent,
+                        key.PassageTitle
                     );
                 }
             }
