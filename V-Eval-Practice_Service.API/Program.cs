@@ -463,6 +463,154 @@ using (var scope = app.Services.CreateScope())
 
             CREATE INDEX IF NOT EXISTS idx_system_alerts_student 
             ON v_eval_practice.""SystemAlerts"" (student_id);
+
+            -- =================================================================
+            -- MODULE HỌC KỲ (ACADEMIC TERMS), KHUNG LỊCH TUẦN (CLASS SCHEDULES),
+            -- BUỔI HỌC THỰC TẾ (CLASS SESSIONS) & ĐIỂM DANH (SESSION ATTENDANCES)
+            -- =================================================================
+            CREATE SCHEMA IF NOT EXISTS v_eval_enrollment;
+            CREATE SCHEMA IF NOT EXISTS v_eval_practice;
+
+            CREATE TABLE IF NOT EXISTS v_eval_enrollment.""AcademicTerms"" (
+                term_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                campus_id UUID NOT NULL,
+                code VARCHAR(30) UNIQUE NOT NULL,
+                name VARCHAR(150) NOT NULL,
+                academic_year VARCHAR(20) NOT NULL,
+                term_order INT NOT NULL DEFAULT 1,
+                start_date DATE NOT NULL,
+                end_date DATE NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+
+            ALTER TABLE v_eval_enrollment.""AcademicTerms""
+                ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+
+            CREATE TABLE IF NOT EXISTS v_eval_enrollment.""Courses"" (
+                course_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                campus_id UUID NOT NULL,
+                code VARCHAR(50) UNIQUE NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                plan_type VARCHAR(20) NOT NULL DEFAULT 'STANDARD',
+                duration_weeks INT NOT NULL DEFAULT 12,
+                tuition_fee NUMERIC(12,2) NOT NULL DEFAULT 0,
+                retake_policy VARCHAR(20) NOT NULL DEFAULT 'FREE_1X',
+                retake_fee NUMERIC(12,2) NOT NULL DEFAULT 0,
+                max_class_size INT NOT NULL DEFAULT 20,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS v_eval_enrollment.""CourseRegistrations"" (
+                registration_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                student_id UUID NOT NULL,
+                course_id UUID NOT NULL REFERENCES v_eval_enrollment.""Courses""(course_id) ON DELETE RESTRICT,
+                term_id UUID REFERENCES v_eval_enrollment.""AcademicTerms""(term_id) ON DELETE SET NULL,
+                previous_registration_id UUID REFERENCES v_eval_enrollment.""CourseRegistrations""(registration_id) ON DELETE SET NULL,
+                attempt_no INT NOT NULL DEFAULT 1,
+                status VARCHAR(30) NOT NULL DEFAULT 'PENDING_PAYMENT',
+                registered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                start_date DATE,
+                end_date DATE
+            );
+
+            ALTER TABLE v_eval_enrollment.""CourseRegistrations""
+                ADD COLUMN IF NOT EXISTS term_id UUID REFERENCES v_eval_enrollment.""AcademicTerms""(term_id) ON DELETE SET NULL;
+
+            ALTER TABLE v_eval_practice.""Classes""
+                ADD COLUMN IF NOT EXISTS term_id UUID REFERENCES v_eval_enrollment.""AcademicTerms""(term_id) ON DELETE SET NULL;
+            ALTER TABLE v_eval_practice.""Classes""
+                ADD COLUMN IF NOT EXISTS academic_year VARCHAR(20) DEFAULT '2026-2027';
+            ALTER TABLE v_eval_practice.""Classes""
+                ADD COLUMN IF NOT EXISTS max_capacity INT NOT NULL DEFAULT 20;
+            ALTER TABLE v_eval_practice.""Classes""
+                ADD COLUMN IF NOT EXISTS start_date DATE;
+            ALTER TABLE v_eval_practice.""Classes""
+                ADD COLUMN IF NOT EXISTS end_date DATE;
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""ClassSchedules"" (
+                schedule_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                class_id UUID NOT NULL REFERENCES v_eval_practice.""Classes""(class_id) ON DELETE CASCADE,
+                day_of_week INT NOT NULL,
+                slot_number INT NOT NULL DEFAULT 1,
+                start_time TIME NOT NULL,
+                end_time TIME NOT NULL,
+                room VARCHAR(100) NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+
+            ALTER TABLE v_eval_practice.""ClassSchedules""
+                ADD COLUMN IF NOT EXISTS slot_number INT NOT NULL DEFAULT 1;
+            ALTER TABLE v_eval_practice.""ClassSchedules""
+                ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""ClassSessions"" (
+                session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                class_id UUID NOT NULL REFERENCES v_eval_practice.""Classes""(class_id) ON DELETE CASCADE,
+                schedule_id UUID REFERENCES v_eval_practice.""ClassSchedules""(schedule_id) ON DELETE SET NULL,
+                session_no INT NOT NULL DEFAULT 1,
+                session_date DATE NOT NULL,
+                start_time TIME NOT NULL,
+                end_time TIME NOT NULL,
+                room VARCHAR(100) NOT NULL,
+                teacher_id UUID,
+                skill_id UUID,
+                topic_title VARCHAR(255),
+                rescheduled_from_id UUID REFERENCES v_eval_practice.""ClassSessions""(session_id) ON DELETE SET NULL,
+                status VARCHAR(30) NOT NULL DEFAULT 'SCHEDULED',
+                notes TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+
+            ALTER TABLE v_eval_practice.""ClassSessions""
+                ADD COLUMN IF NOT EXISTS schedule_id UUID REFERENCES v_eval_practice.""ClassSchedules""(schedule_id) ON DELETE SET NULL;
+            ALTER TABLE v_eval_practice.""ClassSessions""
+                ADD COLUMN IF NOT EXISTS session_no INT NOT NULL DEFAULT 1;
+            ALTER TABLE v_eval_practice.""ClassSessions""
+                ADD COLUMN IF NOT EXISTS teacher_id UUID;
+            ALTER TABLE v_eval_practice.""ClassSessions""
+                ADD COLUMN IF NOT EXISTS topic_title VARCHAR(255);
+            ALTER TABLE v_eval_practice.""ClassSessions""
+                ADD COLUMN IF NOT EXISTS rescheduled_from_id UUID REFERENCES v_eval_practice.""ClassSessions""(session_id) ON DELETE SET NULL;
+            ALTER TABLE v_eval_practice.""ClassSessions""
+                ADD COLUMN IF NOT EXISTS notes TEXT;
+            ALTER TABLE v_eval_practice.""ClassSessions""
+                ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+            ALTER TABLE v_eval_practice.""ClassSessions""
+                ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+            CREATE INDEX IF NOT EXISTS idx_class_sessions_date_room
+                ON v_eval_practice.""ClassSessions"" (session_date, room, start_time, end_time);
+            CREATE INDEX IF NOT EXISTS idx_class_sessions_teacher_date
+                ON v_eval_practice.""ClassSessions"" (teacher_id, session_date);
+
+            CREATE TABLE IF NOT EXISTS v_eval_practice.""SessionAttendances"" (
+                attendance_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                session_id UUID NOT NULL REFERENCES v_eval_practice.""ClassSessions""(session_id) ON DELETE CASCADE,
+                student_id UUID NOT NULL,
+                enrollment_id UUID REFERENCES v_eval_practice.""ClassEnrollments""(enrollment_id) ON DELETE SET NULL,
+                status VARCHAR(30) NOT NULL DEFAULT 'PRESENT',
+                check_in_at TIMESTAMPTZ,
+                recorded_by UUID,
+                note TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                CONSTRAINT uq_session_attendance_student UNIQUE (session_id, student_id)
+            );
+
+            ALTER TABLE v_eval_practice.""SessionAttendances""
+                ADD COLUMN IF NOT EXISTS enrollment_id UUID REFERENCES v_eval_practice.""ClassEnrollments""(enrollment_id) ON DELETE SET NULL;
+            ALTER TABLE v_eval_practice.""SessionAttendances""
+                ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+            ALTER TABLE v_eval_practice.""SessionAttendances""
+                ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+            CREATE INDEX IF NOT EXISTS idx_session_attendances_student
+                ON v_eval_practice.""SessionAttendances"" (student_id, status);
         ");
         logger.LogInformation("Đã xác thực và khởi tạo thành công CSDL schema practice trên Supabase.");
 
@@ -821,6 +969,46 @@ using (var scope = app.Services.CreateScope())
             await dbContext.SaveChangesAsync();
             logger.LogInformation("Đã khởi tạo lớp mẫu {ClassId} và ghi danh học sinh phục vụ Mentor Dashboard.", mentorClassId);
         }
+
+        // Dọn dẹp các dữ liệu lịch học / điểm danh mẫu (seed/mock) cũ nếu từng được sinh tự động trước đây
+        await dbContext.Database.ExecuteSqlRawAsync(@"
+            DELETE FROM v_eval_practice.""SessionAttendances""
+            WHERE session_id IN (
+                SELECT session_id FROM v_eval_practice.""ClassSessions""
+                WHERE room IN ('P.201 - Cơ sở 1', 'P.204 - Cơ sở 1 (Phòng Học Bù)', 'P.305 - Cơ sở 1')
+            );
+
+            DELETE FROM v_eval_practice.""ClassSessions""
+            WHERE room IN ('P.201 - Cơ sở 1', 'P.204 - Cơ sở 1 (Phòng Học Bù)', 'P.305 - Cơ sở 1');
+
+            DELETE FROM v_eval_practice.""ClassSchedules""
+            WHERE room IN ('P.201 - Cơ sở 1', 'P.305 - Cơ sở 1');
+
+            UPDATE v_eval_practice.""Classes""
+            SET term_id = NULL, course_id = NULL
+            WHERE term_id IN (
+                'd1111111-0000-4000-8000-000000000001',
+                'd1111111-0000-4000-8000-000000000002',
+                'd1111111-0000-4000-8000-000000000003'
+            )
+            OR course_id IN (
+                'e1111111-0000-4000-8000-000000000001',
+                'e1111111-0000-4000-8000-000000000002'
+            );
+
+            DELETE FROM v_eval_enrollment.""AcademicTerms""
+            WHERE term_id IN (
+                'd1111111-0000-4000-8000-000000000001',
+                'd1111111-0000-4000-8000-000000000002',
+                'd1111111-0000-4000-8000-000000000003'
+            );
+
+            DELETE FROM v_eval_enrollment.""Courses""
+            WHERE course_id IN (
+                'e1111111-0000-4000-8000-000000000001',
+                'e1111111-0000-4000-8000-000000000002'
+            );
+        ");
     }
     catch (Exception ex)
     {

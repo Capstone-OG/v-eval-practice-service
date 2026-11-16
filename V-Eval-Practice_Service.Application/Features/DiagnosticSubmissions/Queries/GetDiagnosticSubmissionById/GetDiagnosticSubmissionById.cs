@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -167,6 +168,10 @@ public class GetDiagnosticSubmissionByIdHandler
             ? Math.Round((submission.TotalCorrect / (double)submission.TotalQuestions) * 100, 2)
             : 0;
 
+        // Xây dựng RadarChart và SkillPriors đầy đủ cho màn hình Lịch sử bài làm
+        var radarChart = BuildRadarChart(questionResults, accuracy);
+        var skillPriors = BuildSkillPriors(skillBreakdowns, submission.Theta0 ?? 0.0);
+
         var dto = new SubmitDiagnosticResponseDto
         {
             SubmissionId = submission.SubmissionId,
@@ -189,9 +194,91 @@ public class GetDiagnosticSubmissionByIdHandler
             Theta0 = submission.Theta0 ?? 0.0,
             PlacementClass = submission.PlacementClass ?? "ACCELERATION",
             ClassId = submission.EnrolledClassId,
-            AiCommentary = submission.AiCommentary ?? string.Empty
+            AiCommentary = submission.AiCommentary ?? string.Empty,
+            RadarChart = radarChart,
+            SkillPriors = skillPriors
         };
 
         return Result<SubmitDiagnosticResponseDto>.Success(dto);
     }
+
+    public static List<DiagnosticRadarAxisDto> BuildRadarChart(
+        IReadOnlyList<QuestionResultDto> questionResults,
+        double fallbackAccuracyPct = 0.0)
+    {
+        return questionResults
+            .Where(q => !string.IsNullOrWhiteSpace(q.DomainId) || !string.IsNullOrWhiteSpace(q.DomainName))
+            .GroupBy(q => NormalizeDomainCode(q.DomainId, q.DomainName))
+            .Select(g =>
+            {
+                var first = g.First();
+                string domainId = !string.IsNullOrWhiteSpace(first.DomainId) ? first.DomainId : g.Key;
+                string domainName = !string.IsNullOrWhiteSpace(first.DomainName)
+                    ? first.DomainName
+                    : GetDefaultDomainName(g.Key);
+                double studentPct = Math.Round((g.Count(x => x.IsCorrect) / (double)Math.Max(1, g.Count())) * 100.0, 1);
+
+                return new DiagnosticRadarAxisDto
+                {
+                    DomainId = domainId,
+                    DomainName = domainName,
+                    StudentPct = studentPct,
+                    BenchmarkPct = 80.0
+                };
+            })
+            .ToList();
+    }
+
+    public static List<DiagnosticSkillPriorDto> BuildSkillPriors(
+        IReadOnlyList<SkillDiagnosticDto> skillBreakdowns,
+        double fallbackTheta0 = 0.0)
+    {
+        if (skillBreakdowns.Count == 0)
+        {
+            return new List<DiagnosticSkillPriorDto>();
+        }
+
+        return skillBreakdowns.Select(sb =>
+        {
+            double pl0 = Math.Round(Math.Clamp(sb.AccuracyPercentage / 100.0, 0.05, 0.98), 4);
+            double thetaSkill = Math.Round(Math.Log(pl0 / (1.0 - pl0)), 2);
+            string domCode = NormalizeDomainCode(sb.DomainId, sb.DomainName);
+            return new DiagnosticSkillPriorDto
+            {
+                SkillId = sb.SkillId,
+                SkillName = !string.IsNullOrWhiteSpace(sb.SkillName) ? sb.SkillName : sb.SkillId,
+                DomainId = !string.IsNullOrWhiteSpace(sb.DomainId) ? sb.DomainId : domCode,
+                DomainName = !string.IsNullOrWhiteSpace(sb.DomainName) ? sb.DomainName : GetDefaultDomainName(domCode),
+                ThetaSkill = thetaSkill,
+                PL0 = pl0,
+                Source = "measured"
+            };
+        }).ToList();
+    }
+
+    internal static string NormalizeDomainCode(string? domainId, string? domainName)
+    {
+        string raw = $"{domainId} {domainName}".ToLowerInvariant();
+        if (raw.Contains("dom_lang") || raw.Contains("ngôn ngữ") || raw.Contains("tiếng việt") || raw.Contains("english") || raw.Contains("văn"))
+        {
+            return "DOM_LANG";
+        }
+        if (raw.Contains("dom_nat") || raw.Contains("tự nhiên") || raw.Contains("vật lý") || raw.Contains("hóa") || raw.Contains("sinh"))
+        {
+            return "DOM_NAT_SCI";
+        }
+        if (raw.Contains("dom_soc") || raw.Contains("xã hội") || raw.Contains("lịch sử") || raw.Contains("địa lý"))
+        {
+            return "DOM_SOC_SCI";
+        }
+        return "DOM_MATH";
+    }
+
+    internal static string GetDefaultDomainName(string domainCode) => domainCode switch
+    {
+        "DOM_LANG" => "Sử dụng Ngôn ngữ (Việt - Anh)",
+        "DOM_NAT_SCI" => "Giải quyết vấn đề - Khoa học Tự nhiên",
+        "DOM_SOC_SCI" => "Giải quyết vấn đề - Khoa học Xã hội",
+        _ => "Toán học, Tư duy Logic & Phân tích số liệu"
+    };
 }

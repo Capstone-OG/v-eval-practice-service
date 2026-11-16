@@ -145,4 +145,6 @@ public class DiagnosticSubmissionSummaryDto
     public string PlacementClass { get; set; } = "ACCELERATION";
     public DateTime StartedAt { get; set; }
     public DateTime CompletedAt { get; set; }
+    public List<DiagnosticRadarAxisDto> RadarChart { get; set; } = new();
+    public List<DiagnosticSkillPriorDto> SkillPriors { get; set; } = new();
 }

@@ -32,11 +32,17 @@ public class PracticeDbContext : DbContext
     public DbSet<StudentDailyActivity> StudentDailyActivities => Set<StudentDailyActivity>();
     public DbSet<StudentReadinessMetric> StudentReadinessMetrics => Set<StudentReadinessMetric>();
 
-    // Enrollment & Payment (v_eval_enrollment)
+    // Enrollment, Academic Terms & Payment (v_eval_enrollment)
+    public DbSet<AcademicTerm> AcademicTerms => Set<AcademicTerm>();
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<CourseRegistration> CourseRegistrations => Set<CourseRegistration>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
+
+    // Class Schedules, Sessions & Attendances (v_eval_practice)
+    public DbSet<ClassSchedule> ClassSchedules => Set<ClassSchedule>();
+    public DbSet<ClassSession> ClassSessions => Set<ClassSession>();
+    public DbSet<SessionAttendance> SessionAttendances => Set<SessionAttendance>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -113,16 +119,21 @@ public class PracticeDbContext : DbContext
         // Cấu hình bảng Classes
         modelBuilder.Entity<Class>(entity =>
         {
-            entity.ToTable("Classes");
+            entity.ToTable("Classes", "v_eval_practice");
             entity.HasKey(e => e.ClassId);
 
             entity.Property(e => e.ClassId).HasColumnName("class_id");
             entity.Property(e => e.CampusId).HasColumnName("campus_id").IsRequired();
+            entity.Property(e => e.TermId).HasColumnName("term_id");
             entity.Property(e => e.CourseId).HasColumnName("course_id");
             entity.Property(e => e.TeacherId).HasColumnName("teacher_id");
             entity.Property(e => e.AssignedBy).HasColumnName("assigned_by");
             entity.Property(e => e.Name).HasColumnName("name").IsRequired();
+            entity.Property(e => e.AcademicYear).HasColumnName("academic_year").HasMaxLength(20);
             entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(50);
+            entity.Property(e => e.MaxCapacity).HasColumnName("max_capacity").HasDefaultValue(20);
+            entity.Property(e => e.StartDate).HasColumnName("start_date");
+            entity.Property(e => e.EndDate).HasColumnName("end_date");
             entity.Property(e => e.AssignedAt).HasColumnName("assigned_at");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
 
@@ -130,12 +141,22 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.DomainId).HasColumnName("domain_id");
             entity.Property(e => e.DomainCode).HasColumnName("domain_code").HasMaxLength(50);
             entity.Property(e => e.ClusterIndex).HasColumnName("cluster_index");
+
+            entity.HasOne(e => e.Term)
+                  .WithMany(t => t.Classes)
+                  .HasForeignKey(e => e.TermId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Course)
+                  .WithMany()
+                  .HasForeignKey(e => e.CourseId)
+                  .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Cấu hình bảng ClassEnrollments
         modelBuilder.Entity<ClassEnrollment>(entity =>
         {
-            entity.ToTable("ClassEnrollments");
+            entity.ToTable("ClassEnrollments", "v_eval_practice");
             entity.HasKey(e => e.EnrollmentId);
 
             entity.Property(e => e.EnrollmentId).HasColumnName("enrollment_id");
@@ -148,9 +169,110 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.EnrolledAt).HasColumnName("enrolled_at");
 
             entity.HasOne(e => e.Class)
-                  .WithMany()
+                  .WithMany(c => c.Enrollments)
                   .HasForeignKey(e => e.ClassId)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Cấu hình bảng ClassSchedules (Khung lịch tuần định kỳ của lớp)
+        modelBuilder.Entity<ClassSchedule>(entity =>
+        {
+            entity.ToTable("ClassSchedules", "v_eval_practice");
+            entity.HasKey(e => e.ScheduleId);
+
+            entity.Property(e => e.ScheduleId).HasColumnName("schedule_id");
+            entity.Property(e => e.ClassId).HasColumnName("class_id").IsRequired();
+            entity.Property(e => e.DayOfWeek).HasColumnName("day_of_week").IsRequired();
+            entity.Property(e => e.SlotNumber).HasColumnName("slot_number").HasDefaultValue(1);
+            entity.Property(e => e.StartTime).HasColumnName("start_time").IsRequired();
+            entity.Property(e => e.EndTime).HasColumnName("end_time").IsRequired();
+            entity.Property(e => e.Room).HasColumnName("room").HasMaxLength(100);
+            entity.Property(e => e.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+
+            entity.HasOne(e => e.Class)
+                  .WithMany(c => c.Schedules)
+                  .HasForeignKey(e => e.ClassId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.ClassId, e.DayOfWeek, e.StartTime })
+                  .IsUnique()
+                  .HasDatabaseName("uq_classschedules");
+        });
+
+        // Cấu hình bảng ClassSessions (Buổi học / Ca lên lớp cụ thể từng ngày)
+        modelBuilder.Entity<ClassSession>(entity =>
+        {
+            entity.ToTable("ClassSessions", "v_eval_practice");
+            entity.HasKey(e => e.SessionId);
+
+            entity.Property(e => e.SessionId).HasColumnName("session_id");
+            entity.Property(e => e.ClassId).HasColumnName("class_id").IsRequired();
+            entity.Property(e => e.ScheduleId).HasColumnName("schedule_id");
+            entity.Property(e => e.SessionNo).HasColumnName("session_no").HasDefaultValue(1);
+            entity.Property(e => e.SkillId).HasColumnName("skill_id");
+            entity.Property(e => e.TopicTitle).HasColumnName("topic_title").HasMaxLength(255);
+            entity.Property(e => e.TeacherId).HasColumnName("teacher_id");
+            entity.Property(e => e.SessionDate).HasColumnName("session_date").IsRequired();
+            entity.Property(e => e.StartTime).HasColumnName("start_time").IsRequired();
+            entity.Property(e => e.EndTime).HasColumnName("end_time").IsRequired();
+            entity.Property(e => e.Room).HasColumnName("room").HasMaxLength(100);
+            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(30).HasDefaultValue("SCHEDULED");
+            entity.Property(e => e.RescheduledFromId).HasColumnName("rescheduled_from_id");
+            entity.Property(e => e.Notes).HasColumnName("notes");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
+            entity.HasOne(e => e.Class)
+                  .WithMany(c => c.Sessions)
+                  .HasForeignKey(e => e.ClassId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Schedule)
+                  .WithMany(s => s.GeneratedSessions)
+                  .HasForeignKey(e => e.ScheduleId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.RescheduledFromSession)
+                  .WithMany(s => s.MakeupSessions)
+                  .HasForeignKey(e => e.RescheduledFromId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => new { e.ClassId, e.SessionDate, e.StartTime })
+                  .IsUnique()
+                  .HasDatabaseName("uq_classsessions");
+        });
+
+        // Cấu hình bảng SessionAttendances (Điểm danh chuyên cần học sinh theo buổi học)
+        modelBuilder.Entity<SessionAttendance>(entity =>
+        {
+            entity.ToTable("SessionAttendances", "v_eval_practice");
+            entity.HasKey(e => e.AttendanceId);
+
+            entity.Property(e => e.AttendanceId).HasColumnName("attendance_id");
+            entity.Property(e => e.SessionId).HasColumnName("session_id").IsRequired();
+            entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
+            entity.Property(e => e.EnrollmentId).HasColumnName("enrollment_id");
+            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(30).HasDefaultValue("PRESENT");
+            entity.Property(e => e.CheckInAt).HasColumnName("check_in_at");
+            entity.Property(e => e.RecordedBy).HasColumnName("recorded_by");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
+            entity.HasOne(e => e.Session)
+                  .WithMany(s => s.Attendances)
+                  .HasForeignKey(e => e.SessionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Enrollment)
+                  .WithMany()
+                  .HasForeignKey(e => e.EnrollmentId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => new { e.SessionId, e.StudentId })
+                  .IsUnique()
+                  .HasDatabaseName("uq_sessionattendances");
         });
 
         // Cấu hình bảng ClassGroups (Nhóm học tập vi mô 3 - 5 học sinh)
@@ -171,7 +293,7 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
 
             entity.HasOne(e => e.Class)
-                  .WithMany()
+                  .WithMany(c => c.Groups)
                   .HasForeignKey(e => e.ClassId)
                   .OnDelete(DeleteBehavior.Cascade);
 
@@ -264,7 +386,7 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
 
             entity.HasOne(e => e.Class)
-                  .WithMany()
+                  .WithMany(c => c.Groups)
                   .HasForeignKey(e => e.ClassId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
@@ -527,8 +649,28 @@ public class PracticeDbContext : DbContext
         });
 
         // ==========================================
-        // SCHEMA: v_eval_enrollment (Courses, Registrations, Payments, PaymentTransactions)
+        // SCHEMA: v_eval_enrollment (AcademicTerms, Courses, Registrations, Payments, PaymentTransactions)
         // ==========================================
+        modelBuilder.Entity<AcademicTerm>(entity =>
+        {
+            entity.ToTable("AcademicTerms", "v_eval_enrollment");
+            entity.HasKey(e => e.TermId);
+
+            entity.Property(e => e.TermId).HasColumnName("term_id");
+            entity.Property(e => e.CampusId).HasColumnName("campus_id").IsRequired();
+            entity.Property(e => e.Code).HasColumnName("code").HasMaxLength(30).IsRequired();
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(150).IsRequired();
+            entity.Property(e => e.AcademicYear).HasColumnName("academic_year").HasMaxLength(20).IsRequired();
+            entity.Property(e => e.TermOrder).HasColumnName("term_order").IsRequired();
+            entity.Property(e => e.StartDate).HasColumnName("start_date").IsRequired();
+            entity.Property(e => e.EndDate).HasColumnName("end_date").IsRequired();
+            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+            entity.Property(e => e.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+
+            entity.HasIndex(e => e.Code).IsUnique();
+        });
+
         modelBuilder.Entity<Course>(entity =>
         {
             entity.ToTable("Courses", "v_eval_enrollment");
@@ -558,6 +700,7 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.RegistrationId).HasColumnName("registration_id");
             entity.Property(e => e.StudentId).HasColumnName("student_id").IsRequired();
             entity.Property(e => e.CourseId).HasColumnName("course_id").IsRequired();
+            entity.Property(e => e.TermId).HasColumnName("term_id");
             entity.Property(e => e.PreviousRegistrationId).HasColumnName("previous_registration_id");
             entity.Property(e => e.AttemptNo).HasColumnName("attempt_no").IsRequired();
             entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(30).IsRequired();
@@ -569,6 +712,11 @@ public class PracticeDbContext : DbContext
                   .WithMany(c => c.Registrations)
                   .HasForeignKey(e => e.CourseId)
                   .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Term)
+                  .WithMany(t => t.Registrations)
+                  .HasForeignKey(e => e.TermId)
+                  .OnDelete(DeleteBehavior.SetNull);
 
             entity.HasOne(e => e.PreviousRegistration)
                   .WithMany()

@@ -99,9 +99,28 @@ public class PaymentRepository : IPaymentRepository
     {
         return await _context.Payments
             .Include(p => p.Registration)
-            .Where(p => p.Registration != null && p.Registration.StudentId == studentId)
+                .ThenInclude(r => r!.Course)
+            .Where(p => (p.Registration != null && p.Registration.StudentId == studentId) || p.ParentId == studentId)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync(ct);
+    }
+
+    public async Task<CourseRegistration?> GetLatestActiveRegistrationByStudentIdAsync(Guid studentId, CancellationToken ct = default)
+    {
+        return await _context.CourseRegistrations
+            .Include(r => r.Course)
+            .Where(r => r.StudentId == studentId && r.Status == "ACTIVE")
+            .OrderByDescending(r => r.RegisteredAt)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<ClassEnrollment?> GetEnrollmentByStudentIdAsync(Guid studentId, CancellationToken ct = default)
+    {
+        return await _context.ClassEnrollments
+            .Include(e => e.Class)
+            .Where(e => e.StudentId == studentId && e.Status == "ENROLLED")
+            .OrderByDescending(e => e.EnrolledAt)
+            .FirstOrDefaultAsync(ct);
     }
 
     public async Task<IExecutionTransaction> BeginTransactionAsync(CancellationToken ct = default)
