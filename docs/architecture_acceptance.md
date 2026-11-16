@@ -1053,3 +1053,23 @@
   3. **Verification**:
      - Clean .NET 9 compilation (`0 Warning(s), 0 Error(s)`).
      - Live endpoint test `GET /api/practice/diagnostic-submissions/{id}` returned HTTP 200 with all 30 enriched questions containing real LaTeX expressions, 4 options, and passage context.
+
+
+---
+
+### [16/11/2026] - Architecture Acceptance: Multi-Turn Conversation History Propagation for Socratic AI Tutor
+- **Architecture Acceptor**: ThinhTran2412 (Lead Reviewer / Architect).
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Application/Common/Interfaces/IAiTutorClient.cs`
+  - `V-Eval-Practice_Service.API/Controllers/AiTutorController.cs`
+- **Key Architectural Deliverables**:
+  1. **DTO Contract Expansion (`ConversationTurnDto`)**:
+     - Introduced `ConversationTurnDto(string Role, string? Text, string? Option = null)` and added `List<ConversationTurnDto>? ConversationHistory` to `SocraticAskRequestPayload`.
+     - Serializes cleanly to `conversation_history` array under snake_case conventions consumed by the FastAPI AI Engine.
+  2. **Controller Pipeline Propagation**:
+     - Updated `AskTutorRequest` in `AiTutorController.cs` to accept `ConversationHistory`.
+     - Forwarded `ConversationHistory` in both streaming (`GetSocraticStreamAsync`) and synchronous (`AskSocraticJsonAsync`) endpoints, ensuring conversational multi-turn context flows unbroken from Web Client down to Gemini AI.
+  3. **Verification**:
+     - Clean .NET 9 build with `0 Warning(s), 0 Error(s)`.
+     - End-to-end integration verified: prompt payload correctly receives prior student and tutor turns.

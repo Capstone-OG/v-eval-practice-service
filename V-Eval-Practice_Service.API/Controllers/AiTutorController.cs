@@ -100,7 +100,8 @@ public class AiTutorController : ApiControllerBase
             StudentSelectedOption: string.IsNullOrWhiteSpace(request.StudentWrongOption) ? "NONE" : request.StudentWrongOption.Trim().ToUpper(),
             CorrectOption: string.IsNullOrWhiteSpace(request.CorrectOption) ? "NONE" : request.CorrectOption.Trim().ToUpper(),
             SkillId: request.SkillId,
-            StudentQuery: request.StudentQuery
+            StudentQuery: request.StudentQuery,
+            ConversationHistory: request.ConversationHistory
         );
 
         try
@@ -175,7 +176,8 @@ public class AiTutorController : ApiControllerBase
             StudentSelectedOption: string.IsNullOrWhiteSpace(request.StudentWrongOption) ? "NONE" : request.StudentWrongOption.Trim().ToUpper(),
             CorrectOption: string.IsNullOrWhiteSpace(request.CorrectOption) ? "NONE" : request.CorrectOption.Trim().ToUpper(),
             SkillId: request.SkillId,
-            StudentQuery: request.StudentQuery
+            StudentQuery: request.StudentQuery,
+            ConversationHistory: request.ConversationHistory
         );
 
         var result = await _aiTutorClient.AskSocraticGuidanceAsync(payload, cancellationToken);
@@ -260,7 +262,8 @@ public record AskTutorRequest(
     string? StudentWrongOption = null,
     string? CorrectOption = null,
     Guid? SkillId = null,
-    string? StudentQuery = null
+    string? StudentQuery = null,
+    List<ConversationTurnDto>? ConversationHistory = null
 );
 
 /// <summary>

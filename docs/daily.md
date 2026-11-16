@@ -1,5 +1,18 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [16/11/2026] - Mở Rộng Hợp Đồng API Gia Sư Socratic Tiếp Nhận & Chuyển Tiếp Lịch Sử Hội Thoại Đa Lượt Sang AI Engine
+
+- **Mở Rộng DTO & Hợp Đồng Client AI Tutor ([`IAiTutorClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IAiTutorClient.cs))**:
+  - Khai báo record DTO mới: `ConversationTurnDto(string Role, string? Text, string? Option = null)`.
+  - Bổ sung thuộc tính `List<ConversationTurnDto>? ConversationHistory = null` vào `SocraticAskRequestPayload`.
+  - Cho phép serialization tự động với chuẩn snake_case `conversation_history` sang FastAPI RAG Service.
+- **Tiếp Nhận & Chuyển Tiếp Lịch Sử Hội Thoại Trong Controller ([`AiTutorController.cs`](../V-Eval-Practice_Service.API/Controllers/AiTutorController.cs))**:
+  - Mở rộng model `AskTutorRequest` tiếp nhận trường `List<ConversationTurnDto>? ConversationHistory = null`.
+  - Trong phương thức stream `AskTutorStream` (`POST /api/practice/ai-tutor/ask-stream`), ánh xạ trực tiếp `ConversationHistory: request.ConversationHistory` vào lời gọi `_aiTutorClient.GetSocraticStreamAsync`.
+  - Trong phương thức đồng bộ `AskTutor` (`POST /api/practice/ai-tutor/ask`), ánh xạ trực tiếp `ConversationHistory: request.ConversationHistory` vào `_aiTutorClient.AskSocraticJsonAsync`.
+- **Kiểm Thử & Nghiệm Thu**:
+  - Biên dịch toàn bộ solution `V-Eval-Practice_Service.sln` (.NET 9 SDK) sạch **0 Warning, 0 Error**.
+
 ## [15/11/2026] - Nâng Cấp Pipeline gRPC Làm Giàu Dữ Liệu Khảo Thí Tự Động & Khắc Phục Triệt Để Placeholder Trong Lịch Sử Làm Bài
 
 - **Mở Rộng DTO & Hợp Đồng gRPC Client ([`IContentGrpcClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IContentGrpcClient.cs), [`ContentGrpcClient.cs`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/ContentGrpcClient.cs), [`content.proto`](../V-Eval-Practice_Service.Infrastructure/Protos/content.proto))**:
