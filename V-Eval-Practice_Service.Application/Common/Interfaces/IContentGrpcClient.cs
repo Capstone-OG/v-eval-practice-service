@@ -13,7 +13,12 @@ public record ExamQuestionKeyDto(
     int DifficultyLevel,
     string SkillName = "",
     string DomainId = "",
-    string DomainName = ""
+    string DomainName = "",
+    string Content = "",
+    IReadOnlyList<string>? Options = null,
+    string Explanation = "",
+    string PassageContent = "",
+    string PassageTitle = ""
 );
 
 public record SkillTreeNodeDto(

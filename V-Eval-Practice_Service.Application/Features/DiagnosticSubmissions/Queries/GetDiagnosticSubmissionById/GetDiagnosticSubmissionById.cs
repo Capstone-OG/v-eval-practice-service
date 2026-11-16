@@ -51,33 +51,49 @@ public class GetDiagnosticSubmissionByIdHandler
             answerKeys = new Dictionary<Guid, ExamQuestionKeyDto>();
         }
 
-        var orderedAnswers = submission.Answers.ToList();
-        var questionResults = orderedAnswers
+        // Nếu exam_id của bài nộp lịch sử không tìm thấy trong Content Service, tra cứu bằng Standard Diagnostic Exam ID
+        if (answerKeys.Count == 0 && string.Equals(submission.ExamType, "DIAGNOSTIC", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                answerKeys = await _contentGrpcClient.GetExamAnswerKeysAsync(
+                    Guid.Parse("11111111-1111-1111-1111-111111111111"), cancellationToken);
+            }
+            catch
+            {
+                // Soft fallback
+            }
+        }
+
+        var orderedKeys = answerKeys.Values.OrderBy(k => k.QuestionOrder).ToList();
+
+        var questionResults = submission.Answers
             .Select((a, idx) =>
             {
-                answerKeys.TryGetValue(a.QuestionId, out var key);
-                int qOrder = key?.QuestionOrder ?? (idx + 1);
-
-                string skillId = key?.SkillId ?? string.Empty;
-                string skillName = key?.SkillName ?? string.Empty;
-                string domainId = key?.DomainId ?? string.Empty;
-                string domainName = key?.DomainName ?? string.Empty;
-                int diffLevel = key?.DifficultyLevel ?? 0;
-                string correctOpt = key?.CorrectOption ?? string.Empty;
+                if (!answerKeys.TryGetValue(a.QuestionId, out var key))
+                {
+                    key = idx < orderedKeys.Count ? orderedKeys[idx] : null;
+                }
+                var order = key?.QuestionOrder ?? (idx + 1);
 
                 return new QuestionResultDto
                 {
                     QuestionId = a.QuestionId,
-                    QuestionOrder = qOrder,
+                    QuestionOrder = order,
                     SelectedOption = a.SelectedOption,
-                    CorrectOption = correctOpt,
+                    CorrectOption = key?.CorrectOption ?? string.Empty,
                     IsCorrect = a.IsCorrect,
                     TimeSpentSeconds = a.TimeSpentSeconds,
-                    SkillId = skillId,
-                    SkillName = skillName,
-                    DomainId = domainId,
-                    DomainName = domainName,
-                    DifficultyLevel = diffLevel
+                    SkillId = key?.SkillId ?? string.Empty,
+                    SkillName = key?.SkillName ?? string.Empty,
+                    DomainId = key?.DomainId ?? string.Empty,
+                    DomainName = key?.DomainName ?? string.Empty,
+                    DifficultyLevel = key?.DifficultyLevel ?? 0,
+                    Content = key?.Content ?? string.Empty,
+                    Options = key?.Options != null ? key.Options.ToList() : new List<string>(),
+                    Explanation = key?.Explanation ?? string.Empty,
+                    PassageContent = key?.PassageContent ?? string.Empty,
+                    PassageTitle = key?.PassageTitle ?? string.Empty
                 };
             })
             .OrderBy(q => q.QuestionOrder)

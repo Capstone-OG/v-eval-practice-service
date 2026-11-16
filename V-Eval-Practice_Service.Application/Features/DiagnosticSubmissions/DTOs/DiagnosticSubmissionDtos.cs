@@ -62,6 +62,11 @@ public class QuestionResultDto
     public string DomainId { get; set; } = string.Empty;
     public string DomainName { get; set; } = string.Empty;
     public int DifficultyLevel { get; set; }
+    public string Content { get; set; } = string.Empty;
+    public List<string> Options { get; set; } = new();
+    public string Explanation { get; set; } = string.Empty;
+    public string PassageContent { get; set; } = string.Empty;
+    public string PassageTitle { get; set; } = string.Empty;
 }
 
 public class SubmitDiagnosticResponseDto

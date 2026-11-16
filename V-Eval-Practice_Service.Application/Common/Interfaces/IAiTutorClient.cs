@@ -6,6 +6,12 @@ using System.Threading.Tasks;
 
 namespace V_Eval_Practice_Service.Application.Common.Interfaces;
 
+public record ConversationTurnDto(
+    [property: JsonPropertyName("role")] string Role,
+    [property: JsonPropertyName("text")] string? Text,
+    [property: JsonPropertyName("option")] string? Option = null
+);
+
 public record SocraticAskRequestPayload(
     [property: JsonPropertyName("student_id")] Guid StudentId,
     [property: JsonPropertyName("question_id")] Guid QuestionId,
@@ -14,7 +20,8 @@ public record SocraticAskRequestPayload(
     [property: JsonPropertyName("student_selected_option")] string StudentSelectedOption,
     [property: JsonPropertyName("correct_option")] string CorrectOption,
     [property: JsonPropertyName("skill_id")] Guid? SkillId,
-    [property: JsonPropertyName("student_query")] string? StudentQuery = null
+    [property: JsonPropertyName("student_query")] string? StudentQuery = null,
+    [property: JsonPropertyName("conversation_history")] IReadOnlyList<ConversationTurnDto>? ConversationHistory = null
 );
 
 public record SocraticAskResponseDto(

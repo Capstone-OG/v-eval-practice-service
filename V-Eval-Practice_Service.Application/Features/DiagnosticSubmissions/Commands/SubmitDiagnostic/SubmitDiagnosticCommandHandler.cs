@@ -262,7 +262,12 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                 SkillName = key.SkillName,
                 DomainId = key.DomainId,
                 DomainName = key.DomainName,
-                DifficultyLevel = key.DifficultyLevel
+                DifficultyLevel = key.DifficultyLevel,
+                Content = key.Content,
+                Options = key.Options != null ? key.Options.ToList() : new List<string>(),
+                Explanation = key.Explanation,
+                PassageContent = key.PassageContent,
+                PassageTitle = key.PassageTitle
             });
         }
 
