@@ -12,6 +12,8 @@ using V_Eval_Practice_Service.Application.Features.Payments.Commands.CreatePayme
 using V_Eval_Practice_Service.Application.Features.Payments.Commands.ProcessPayOsWebhook;
 using V_Eval_Practice_Service.Application.Features.Payments.Queries.GetPaymentStatus;
 using V_Eval_Practice_Service.Application.Features.Payments.Queries.GetPaymentTransactions;
+using V_Eval_Practice_Service.Application.Features.Payments.Queries.GetStudentPayments;
+using V_Eval_Practice_Service.Application.Features.Payments.Queries.GetStudentTuitionStatus;
 
 namespace V_Eval_Practice_Service.API.Controllers;
 
@@ -63,6 +65,7 @@ public class PaymentsController : ApiControllerBase
     /// Webhook IPN nhận kết quả thanh toán từ cổng thanh toán trực tuyến PayOS
     /// </summary>
     [HttpPost("payos-webhook")]
+    [HttpPost("/api/payments/payos-webhook")]
     [AllowAnonymous]
     public async Task<IActionResult> ProcessPayOsWebhook(CancellationToken cancellationToken)
     {
@@ -110,6 +113,84 @@ public class PaymentsController : ApiControllerBase
     public async Task<IActionResult> GetTransactions(Guid paymentId, CancellationToken cancellationToken)
     {
         var query = new GetPaymentTransactionsQuery(paymentId);
+        var result = await Mediator.Send(query, cancellationToken);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Lấy toàn bộ lịch sử các giao dịch thanh toán của học sinh
+    /// </summary>
+    [HttpGet("student/{studentId:guid}")]
+    public async Task<IActionResult> GetPaymentsByStudent(Guid studentId, CancellationToken cancellationToken)
+    {
+        var query = new GetStudentPaymentsQuery(studentId);
+        var result = await Mediator.Send(query, cancellationToken);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Lấy lịch sử giao dịch thanh toán của người dùng hiện tại
+    /// </summary>
+    [HttpGet("my-payments")]
+    public async Task<IActionResult> GetMyPayments(
+        [FromQuery] Guid? studentId,
+        CancellationToken cancellationToken)
+    {
+        var targetStudentId = studentId;
+        if (!targetStudentId.HasValue || targetStudentId == Guid.Empty)
+        {
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!string.IsNullOrEmpty(userIdStr) && Guid.TryParse(userIdStr, out var parsedUserId))
+            {
+                targetStudentId = parsedUserId;
+            }
+        }
+
+        if (!targetStudentId.HasValue || targetStudentId == Guid.Empty)
+        {
+            return BadRequest(new { message = "Không xác định được danh tính học sinh." });
+        }
+
+        var query = new GetStudentPaymentsQuery(targetStudentId.Value);
+        var result = await Mediator.Send(query, cancellationToken);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Tra cứu chi tiết trạng thái học phí, khóa học đang kích hoạt và danh sách quyền lợi mở khóa của học sinh
+    /// </summary>
+    [HttpGet("status-by-student/{studentId:guid}")]
+    public async Task<IActionResult> GetTuitionStatusByStudent(Guid studentId, CancellationToken cancellationToken)
+    {
+        var query = new GetStudentTuitionStatusQuery(studentId);
+        var result = await Mediator.Send(query, cancellationToken);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Tra cứu chi tiết trạng thái học phí và quyền lợi mở khóa của người dùng hiện tại
+    /// </summary>
+    [HttpGet("my-status")]
+    public async Task<IActionResult> GetMyTuitionStatus(
+        [FromQuery] Guid? studentId,
+        CancellationToken cancellationToken)
+    {
+        var targetStudentId = studentId;
+        if (!targetStudentId.HasValue || targetStudentId == Guid.Empty)
+        {
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!string.IsNullOrEmpty(userIdStr) && Guid.TryParse(userIdStr, out var parsedUserId))
+            {
+                targetStudentId = parsedUserId;
+            }
+        }
+
+        if (!targetStudentId.HasValue || targetStudentId == Guid.Empty)
+        {
+            return BadRequest(new { message = "Không xác định được danh tính học sinh." });
+        }
+
+        var query = new GetStudentTuitionStatusQuery(targetStudentId.Value);
         var result = await Mediator.Send(query, cancellationToken);
         return HandleResult(result);
     }

@@ -136,6 +136,10 @@ public class DiagnosticSubmissionSummaryDto
     public int TotalQuestions { get; set; }
     public double AccuracyPercentage { get; set; }
     public int TotalTimeSpentSeconds { get; set; }
+    public double Theta0 { get; set; }
+    public string PlacementClass { get; set; } = "ACCELERATION";
     public DateTime StartedAt { get; set; }
     public DateTime CompletedAt { get; set; }
+    public List<DiagnosticRadarAxisDto> RadarChart { get; set; } = new();
+    public List<DiagnosticSkillPriorDto> SkillPriors { get; set; } = new();
 }

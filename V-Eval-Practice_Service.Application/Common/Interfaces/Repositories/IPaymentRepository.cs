@@ -27,6 +27,8 @@ public interface IPaymentRepository
 
     Task<IReadOnlyList<PaymentTransaction>> GetTransactionsByPaymentIdAsync(Guid paymentId, CancellationToken ct = default);
     Task<IReadOnlyList<Payment>> GetPaymentsByStudentIdAsync(Guid studentId, CancellationToken ct = default);
+    Task<CourseRegistration?> GetLatestActiveRegistrationByStudentIdAsync(Guid studentId, CancellationToken ct = default);
+    Task<ClassEnrollment?> GetEnrollmentByStudentIdAsync(Guid studentId, CancellationToken ct = default);
 
     Task<IExecutionTransaction> BeginTransactionAsync(CancellationToken ct = default);
     Task<int> SaveChangesAsync(CancellationToken ct = default);

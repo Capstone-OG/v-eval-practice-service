@@ -1,6 +1,70 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
-## [06/11/2026] - Triển Khai Hoàn Chỉnh Background Worker Quét Cảnh Báo Sớm Tự Động BR-04 (`EarlyWarningSweepWorker`) & Bộ Điều Phối Bắn Thông Báo Đa Kênh Email SMTP / Mobile Push FCM (`NotificationDispatcher`) Theo Bản Vẽ SDD (Figure 56 & 57, Checklist Mục 07)
+## [15/11/2026] - Triển Khai Toàn Diện Module Học Kỳ (`AcademicTerms`), Khóa Học (`Courses`), Lớp Học (`Classes`), Khung Lịch Tuần (`ClassSchedules`), Buổi Học Thực Tế (`ClassSessions`), Điểm Danh (`SessionAttendances`), Tách Biệt Controller Theo Từng Aggregate Root Chuẩn Doanh Nghiệp & Bổ Sung API Tra Cứu Thanh Toán Thực Tế + Quyền Lợi Mở Khóa (`GetStudentTuitionStatus`)
+
+- **Triển Khai API Tra Cứu Lịch Sử Thanh Toán Thực Tế Từ DB & Đồng Bộ Trạng Thái Học Phí Mở Khóa Khóa Học ([`PaymentsController.cs`](../V-Eval-Practice_Service.API/Controllers/PaymentsController.cs), [`PaymentDtos.cs`](../V-Eval-Practice_Service.Application/Features/Payments/DTOs/PaymentDtos.cs), [`GetStudentPaymentsQuery.cs`](../V-Eval-Practice_Service.Application/Features/Payments/Queries/GetStudentPayments/GetStudentPaymentsQuery.cs), [`GetStudentTuitionStatusQuery.cs`](../V-Eval-Practice_Service.Application/Features/Payments/Queries/GetStudentTuitionStatus/GetStudentTuitionStatusQuery.cs), [`IPaymentRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IPaymentRepository.cs), [`PaymentRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/PaymentRepository.cs))**:
+  - `GET /api/practice/payments/student/{studentId}` & `GET /api/practice/payments/my-payments`: Trả về danh sách giao dịch nộp học phí thực tế từ PostgreSQL (Mã PayOS `orderCode`, khóa học, số tiền, trạng thái, thời gian nộp `paidAt`, ngân hàng `counterAccountBankName`, người nộp, mã tham chiếu `transactionRef`).
+  - `GET /api/practice/payments/status-by-student/{studentId}` & `GET /api/practice/payments/my-status`: Tra cứu trạng thái học phí toàn diện (`isPaid`), thông tin gói học đang kích hoạt (`courseName`, `courseCode`, `planType`, `startDate`, `endDate`), lớp học phần được phân bổ (`assignedClassName`), danh sách 7 phân hệ đặc quyền đã mở khóa (Lộ trình PLAR, Bài giảng chuyên đề, Kho luyện đề ZPD, Gia sư AI 24/7, Thời khóa biểu, Lớp Live Q&A, Khảo sát chẩn đoán), kèm toàn bộ danh sách biên lai giao dịch.
+  - Tự động đồng bộ `CourseRegistration.Status = "ACTIVE"` nếu có giao dịch PayOS `SUCCESS` trong DB mà trạng thái đăng ký chưa chuyển đổi.
+  - Bổ sung kiểm thử đơn vị `PaymentQueriesTests.cs` (2 xUnit tests) bao phủ 100% logic ánh xạ DTO và kiểm toán quyền lợi mở khóa.
+
+- **Khởi Tạo Bộ Thực Thể Domain & Ánh Xạ CSDL 2 Schema (`v_eval_enrollment` & `v_eval_practice`) ([`AcademicTerm.cs`](../V-Eval-Practice_Service.Domain/Entities/AcademicTerm.cs), [`ClassSchedule.cs`](../V-Eval-Practice_Service.Domain/Entities/ClassSchedule.cs), [`ClassSession.cs`](../V-Eval-Practice_Service.Domain/Entities/ClassSession.cs), [`SessionAttendance.cs`](../V-Eval-Practice_Service.Domain/Entities/SessionAttendance.cs), [`Class.cs`](../V-Eval-Practice_Service.Domain/Entities/Class.cs), [`CourseRegistration.cs`](../V-Eval-Practice_Service.Domain/Entities/CourseRegistration.cs), [`PracticeDbContext.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/PracticeDbContext.cs))**:
+  - Hiện thực hóa đầy đủ mô hình ERD 3 tầng (Conceptual 22 thực thể -> Logical 5 Bounded Contexts -> Physical PostgreSQL):
+    - **`v_eval_enrollment."AcademicTerms"` (`AcademicTerm`)**: Quản lý Học kỳ / Đợt đào tạo chính thức (`term_id`, `campus_id`, `code`, `name`, `academic_year`, `term_order`, `start_date`, `end_date`, `status: UPCOMING / ACTIVE / COMPLETED / ARCHIVED`, `is_active`).
+    - **Mở rộng `v_eval_practice."Classes"` (`Class`) và `v_eval_enrollment."CourseRegistrations"` (`CourseRegistration`)**: Bổ sung khóa ngoại `term_id` liên kết trực tiếp tới `AcademicTerms`, cùng `academic_year`, `max_capacity`, `start_date`, `end_date` để tách bạch rõ ràng trục **Theo Khóa (`Course`)** và trục **Theo Kỳ (`Term`)**.
+    - **`v_eval_practice."ClassSchedules"` (`ClassSchedule`)**: Lưu khung lịch định kỳ hằng tuần của lớp (`day_of_week`, `slot_number`, `start_time`, `end_time`, `room`, `is_active`) làm khuôn mẫu tự động rải các buổi học cho cả kỳ.
+    - **`v_eval_practice."ClassSessions"` (`ClassSession`)**: Lưu buổi học cụ thể từng ngày kèm `schedule_id`, `session_no`, `skill_id`, `topic_title`, `teacher_id` (hỗ trợ phân công **Giảng viên dạy thay** cho từng buổi), và tự tham chiếu `rescheduled_from_id` (hỗ trợ **Báo hoãn & Học bù** giữ nguyên lịch sử chuỗi buổi học).
+    - **`v_eval_practice."SessionAttendances"` (`SessionAttendance`)**: Ghi nhận kết quả điểm danh từng học sinh tại mỗi buổi học (`status: PRESENT / ABSENT / LATE / EXCUSED`, `check_in_at`, `recorded_by`, `note`).
+
+- **Tách Biệt Rạch Ròi 4 Controllers Theo Từng Aggregate Root Chuẩn DDD & RESTful ([`AcademicTermsController.cs`](../V-Eval-Practice_Service.API/Controllers/AcademicTermsController.cs), [`CoursesController.cs`](../V-Eval-Practice_Service.API/Controllers/CoursesController.cs), [`ClassesController.cs`](../V-Eval-Practice_Service.API/Controllers/ClassesController.cs), [`SchedulesController.cs`](../V-Eval-Practice_Service.API/Controllers/SchedulesController.cs), [`ScheduleService.cs`](../V-Eval-Practice_Service.Infrastructure/Services/ScheduleService.cs))**:
+  - **`AcademicTermsController` (`/api/v1/academic-terms`, `/api/practice/academic-terms`)**: Chuyên trách quản lý thực thể `AcademicTerm` (`GET`, `POST`, `PATCH /{termId}/status`).
+  - **`CoursesController` (`/api/v1/courses`, `/api/practice/courses`)**: Chuyên trách quản lý thực thể `Course` (`GET`, `POST`).
+  - **`ClassesController` (`/api/v1/classes`, `/api/practice/classes`)**: Chuyên trách quản lý thực thể `Class` (`GET`, `POST` mở lớp học theo Kỳ & Khóa kèm khung lịch tuần, bên cạnh các thao tác phân công giáo viên, K-Means auto-clustering, nhóm vi mô và ma trận nhiệt).
+  - **`SchedulesController` (`/api/v1/schedules`, `/api/practice/schedules`)**: Chuyên trách quản lý Lịch trình & Điểm danh:
+    - **Thiết lập Khung lịch tuần & Tự động sinh chuỗi buổi học (`Auto-Generate Sessions`)**: `GET/PUT /api/v1/schedules/classes/{classId}/weekly-schedules` và `POST /api/v1/schedules/classes/{classId}/sessions/generate` tự động rải toàn bộ buổi học từ `ClassSchedules` trong khoảng `[StartDate, EndDate]`, tự động gán chuyên đề từ cây kỹ năng Content gRPC và kiểm tra xung đột phòng học (`Room Conflict`) cũng như xung đột lịch giảng dạy (`Teacher Conflict`).
+    - **Điều chỉnh buổi học, Dạy thay & Xếp lịch học bù**: `PUT /api/v1/schedules/sessions/{sessionId}` và `POST /api/v1/schedules/sessions/{sessionId}/reschedule` (chuyển buổi gốc sang `RESCHEDULED` và tự động sinh buổi học bù liên kết qua `RescheduledFromId`).
+    - **Điểm danh chuyên cần kết nối Chuỗi Streak & Cảnh báo sớm BR-04**: `GET/POST /api/v1/schedules/sessions/{sessionId}/attendances` tự động cộng thời lượng học vào `StudentDailyActivities` (`IsStreakCounted = true`) khi học sinh có mặt (`PRESENT`/`LATE`), đồng thời tự động phát hiện học sinh vắng nhiều buổi (`ABSENT`) để sinh cảnh báo `YELLOW` / `RED` vào `SystemAlerts`.
+    - **Thời khóa biểu Sinh viên & Lịch lên lớp Giảng viên (Theo Kỳ / Theo Khóa / Theo Tuần)**: `GET /api/v1/schedules/students/{studentId}/timetable` (và `/students/me/timetable`) cùng `GET /api/v1/schedules/teachers/{teacherId}/schedule` (và `/teachers/me/schedule`).
+
+- **Bổ Sung Đầy Đủ `RadarChart` & `SkillPriors` Cho Toàn Bộ API Lịch Sử Bài Làm Chẩn Đoán ([`DiagnosticSubmissionDtos.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/DTOs/DiagnosticSubmissionDtos.cs), [`SubmitDiagnosticCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/Commands/SubmitDiagnostic/SubmitDiagnosticCommandHandler.cs), [`GetDiagnosticSubmissionById.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/Queries/GetDiagnosticSubmissionById/GetDiagnosticSubmissionById.cs), [`GetDiagnosticSubmissionsByStudent.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/Queries/GetDiagnosticSubmissionsByStudent/GetDiagnosticSubmissionsByStudent.cs))**:
+  - Mở rộng `DiagnosticSubmissionSummaryDto` bổ sung `RadarChart` (`List<DiagnosticRadarAxisDto>`) và `SkillPriors` (`List<DiagnosticSkillPriorDto>`).
+  - Trong `GetDiagnosticSubmissionByIdHandler` (`GET /api/practice/diagnostic-submissions/{id}`), bổ sung `BuildRadarChart`, `BuildSkillPriors` và `GetFallbackQuestionMeta` để khi học sinh mở xem lại lịch sử bài làm, API luôn trả về đầy đủ 4 trục `RadarChart` và danh sách `SkillPriors` (`` `P(L_0)` ``, `` `\theta_{\text{skill}}` ``) đồng nhất 100% với lúc vừa nộp bài thi.
+  - Trong `SubmitDiagnosticCommandHandler`, bổ sung cơ chế fallback tự động tính `skillPriorDtos` từ `skillBreakdowns` khi AI Engine chưa trả về `SkillPriors`.
+
+- **Khởi Tạo Bảng Thực Tế & Dữ Liệu Mẫu Trên Supabase PostgreSQL, Kiểm Thử Unit Test & E2E ([`Program.cs`](../V-Eval-Practice_Service.API/Program.cs), [`ScheduleDomainAndContractTests.cs`](../V-Eval-Practice_Service.Tests/Features/Schedules/ScheduleDomainAndContractTests.cs))**:
+  - Tự động thực thi DDL tạo bảng & cột mới trên Supabase PostgreSQL và nạp dữ liệu mẫu gồm 3 Học kỳ (`2026_HK1`, `2026_HK2`, `2027_SUMMER`), 2 Khóa học (`DGNL_STD_12W`, `DGNL_MATH_ADV_8W`), khung lịch tuần và chuỗi 25 buổi học (có buổi đã điểm danh, buổi dạy thay, buổi dời lịch & buổi học bù).
+  - Biên dịch `V-Eval-Practice_Service.sln` đạt `0 Error, 0 C# Warning`, **18/18 unit tests Passed (100%)**, và kiểm thử trực tiếp API trên CSDL PostgreSQL thực tế trả về `200 OK`.
+
+---
+
+## [13/11/2026] - Khắc Phục Ngoại Lệ gRPC NotFound Cho Đề Thi Cũ Trong ContentGrpcClient & Mở Rộng DTO Tóm Tắt Kèm Chỉ Số Năng Lực Theta0
+
+- **Xử Lý Ngoại Lệ `RpcException(StatusCode.NotFound)` Cho Đề Thi Cũ ([`ContentGrpcClient.cs`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/ContentGrpcClient.cs))**:
+  - Khi học sinh truy vấn lịch sử làm bài thi chẩn đoán cũ (`ExamSubmissions`), mã đề thi `ExamId` có thể không còn câu hỏi trong bảng `ExamQuestions` của Content Service, khiến Content Service gRPC ném ngoại lệ `NotFound`.
+  - Thay vì để ngoại lệ văng ra ngoài gây lỗi `500 Internal Server Error`, `ContentGrpcClient.GetExamAnswerKeysAsync` được bổ sung khối `catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)` và `catch (Exception ex)`, ghi `LogWarning` và trả về `new Dictionary<Guid, ExamQuestionKeyDto>()` rỗng.
+  - Bổ sung khối `try/catch` bọc an toàn trong [`GetDiagnosticSubmissionById.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/Queries/GetDiagnosticSubmissionById/GetDiagnosticSubmissionById.cs) nhằm đảm bảo kết quả bài làm của học sinh (điểm, thời gian, đáp án chọn) luôn trả về thành công `200 OK`.
+- **Mở Rộng DTO Tóm Tắt Kèm `Theta0` & `PlacementClass` ([`DiagnosticSubmissionDtos.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/DTOs/DiagnosticSubmissionDtos.cs), [`GetDiagnosticSubmissionsByStudent.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/Queries/GetDiagnosticSubmissionsByStudent/GetDiagnosticSubmissionsByStudent.cs))**:
+  - Bổ sung `Theta0` và `PlacementClass` vào `DiagnosticSubmissionSummaryDto`, trích xuất trực tiếp từ cột có sẵn trong `ExamSubmissions` khi truy vấn danh sách bài nộp của học sinh.
+  - Giúp Frontend hiển thị biểu đồ xu hướng năng lực IRT tức thì mà không cần ép buộc nạp tuần tự N lượt API chi tiết.
+- **Kiểm Thử & Nghiệm Thu**:
+  - Biên dịch toàn bộ solution `V-Eval-Practice_Service.sln` đạt `0 Warning, 0 Error`.
+  - Toàn bộ 14/14 kiểm thử tự động xUnit đạt Passed 100%.
+  - Kiểm thử trực tiếp lệnh curl với bài nộp cũ `2ad7e238-fe88-4a1b-9431-7dc70e71aec8` (đề `7936bf7a...` không tồn tại ở Content Service) phản hồi `200 OK` mượt mà, triệt tiêu hoàn toàn lỗi 500.
+
+---
+
+## [11/11/2026] - Bổ Sung Tuyến Đường Alias Nhận Webhook IPN PayOS Trực Tiếp (`/api/payments/payos-webhook`) & Khắc Phục Lỗi 404 Gateway
+
+- **Bổ Sung Tuyến Đường Alias Nhận Webhook IPN PayOS ([`PaymentsController.cs`](../V-Eval-Practice_Service.API/Controllers/PaymentsController.cs))**:
+  - Cổng thanh toán trực tuyến PayOS theo chuẩn tài liệu sẽ bắn Webhook IPN vào đường dẫn gốc `/api/payments/payos-webhook` (hoặc `/api/practice/payments/payos-webhook`).
+  - Trước đây, controller chỉ cấu hình route tương đối `[HttpPost("payos-webhook")]` dưới tiền tố lớp `[Route("api/practice/payments")]`.
+  - Bổ sung thuộc tính định tuyến tuyệt đối `[HttpPost("/api/payments/payos-webhook")]` cho phương thức `ProcessPayOsWebhook`, cho phép controller tiếp nhận đồng thời cả 2 định dạng đường dẫn IPN từ PayOS.
+  - Phối hợp cùng API Gateway route `practice-payments-route` (`/api/payments/{**catch-all}`), giải quyết triệt để lỗi `HTTP 404 Not Found` khi PayOS gửi kết quả giao dịch về hệ thống.
+- **Kiểm Thử & Biên Dịch**:
+  - `POST /api/payments/payos-webhook` qua API Gateway trả về xử lý xác thực chữ ký PayOS chuẩn xác (`{"success":false,"message":"Invalid signature"}`).
+  - Toàn bộ solution `V-Eval-Practice_Service.sln` (.NET 9 SDK) biên dịch sạch `0 Error`.
+
+---
 
 ## [08/11/2026] - Khắc Phục Toàn Diện Lỗi Core Flow 6 Trên Backend & API Gateway: Đồng Bộ Cột `status` MistakeNotebooks, Xác Thực Kép JWT + `X-User-Id` & Tự Động Khởi Tạo Dự Báo Điểm SEM
 
