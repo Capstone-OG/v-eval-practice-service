@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using V_Eval_Practice_Service.API.Controllers.Base;
+using V_Eval_Practice_Service.Application.Common.Interfaces.Services;
 using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.Classes.Commands.AssignGroupWorksheet;
 using V_Eval_Practice_Service.Application.Features.Classes.Commands.AssignTeacher;
@@ -13,15 +16,68 @@ using V_Eval_Practice_Service.Application.Features.Classes.Commands.ForceAggrega
 using V_Eval_Practice_Service.Application.Features.Classes.DTOs;
 using V_Eval_Practice_Service.Application.Features.Classes.Queries.GetClassHeatmap;
 using V_Eval_Practice_Service.Application.Features.Classes.Queries.GetClassMicroGroups;
+using V_Eval_Practice_Service.Application.Features.Schedules.DTOs;
 
 namespace V_Eval_Practice_Service.API.Controllers;
 
 /// <summary>
-/// Quản lý lớp học cơ sở, phân công giáo viên, điều phối học sinh và phân nhóm học tập vi mô
+/// Quản lý thực thể Lớp học cơ sở (Classes - Schema v_eval_practice): mở lớp theo Kỳ/Khóa, phân công giáo viên, điều phối học sinh, phân nhóm học tập vi mô và ma trận nhiệt
 /// </summary>
 [Route("api/practice/classes")]
+[Route("api/v1/classes")]
 public class ClassesController : ApiControllerBase
 {
+    private readonly IScheduleService _scheduleService;
+
+    public ClassesController(IScheduleService scheduleService)
+    {
+        _scheduleService = scheduleService;
+    }
+
+    /// <summary>
+    /// Tra cứu danh sách Lớp học theo Cơ sở (Campus), Học kỳ (Term), Khóa học (Course) và Giảng viên
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType(typeof(IReadOnlyList<ClassOverviewDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetClasses(
+        [FromQuery] Guid? campusId = null,
+        [FromQuery] Guid? termId = null,
+        [FromQuery] Guid? courseId = null,
+        [FromQuery] Guid? teacherId = null,
+        CancellationToken ct = default)
+    {
+        var result = await _scheduleService.GetClassesAsync(campusId, termId, courseId, teacherId, ct);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Mở lớp học mới gắn với Học kỳ (Term) và Khóa học (Course), kèm thiết lập Khung lịch tuần và tự động sinh chuỗi buổi học
+    /// </summary>
+    [HttpPost]
+    [ProducesResponseType(typeof(ClassOverviewDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CreateClassWithSchedule(
+        [FromBody] CreateClassWithScheduleRequestDto request,
+        CancellationToken ct = default)
+    {
+        Guid? assignedBy = null;
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            assignedBy = parsedId;
+        }
+        else
+        {
+            var claimVal = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (!string.IsNullOrWhiteSpace(claimVal) && Guid.TryParse(claimVal, out var claimGuid))
+            {
+                assignedBy = claimGuid;
+            }
+        }
+
+        var result = await _scheduleService.CreateClassWithScheduleAsync(request, assignedBy, ct);
+        return HandleResult(result);
+    }
     /// <summary>
     /// Core Flow 2 - API 9: Phân công hoặc điều chuyển giáo viên phụ trách lớp học cơ sở
     /// </summary>

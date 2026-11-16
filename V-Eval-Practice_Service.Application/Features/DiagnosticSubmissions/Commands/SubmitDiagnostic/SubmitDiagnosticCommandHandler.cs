@@ -568,6 +568,26 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             };
         }).ToList() ?? new List<DiagnosticSkillPriorDto>();
 
+        if (skillPriorDtos.Count == 0 && skillBreakdowns.Count > 0)
+        {
+            skillPriorDtos = skillBreakdowns.Select(sb =>
+            {
+                double pl0 = Math.Round(Math.Clamp(sb.AccuracyPercentage / 100.0, 0.05, 0.98), 4);
+                double thetaSkill = Math.Round(Math.Log(pl0 / (1.0 - pl0)), 2);
+                string domCode = NormalizeDomainCode(sb.DomainId, sb.DomainName);
+                return new DiagnosticSkillPriorDto
+                {
+                    SkillId = sb.SkillId,
+                    SkillName = !string.IsNullOrWhiteSpace(sb.SkillName) ? sb.SkillName : sb.SkillId,
+                    DomainId = !string.IsNullOrWhiteSpace(sb.DomainId) ? sb.DomainId : domCode,
+                    DomainName = !string.IsNullOrWhiteSpace(sb.DomainName) ? sb.DomainName : GetDefaultDomainName(domCode),
+                    ThetaSkill = thetaSkill,
+                    PL0 = pl0,
+                    Source = "measured"
+                };
+            }).ToList();
+        }
+
         var responseDto = new SubmitDiagnosticResponseDto
         {
             SubmissionId = submission.SubmissionId,
