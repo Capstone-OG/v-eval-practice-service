@@ -18,9 +18,9 @@
   - Cập nhật `GetParentStudentsAsync` để truyền tải thêm `school_name` và `target_score` từ Identity Service sang Practice Service.
 - **Tối Ưu Hóa Repository Ghi Danh Lớp ([`ClassEnrollmentRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs))**:
   - Nâng cấp `GetEnrollmentByStudentIdAsync` ưu tiên lấy bản ghi có trạng thái `Status == "ENROLLED"`, sắp xếp theo `EnrolledAt DESC`.
-- **Bổ Sung Kiểm Thử Tự Động xUnit ([`GetParentDashboardQueryHandlerTests.cs`](../V-Eval-Practice_Service.Tests/Features/Analytics/GetParentDashboardQueryHandlerTests.cs))**:
-  - Viết 2 ca kiểm thử toàn diện: kiểm thử trường hợp phụ huynh chưa liên kết con trả về danh sách rỗng, và kiểm thử trường hợp học sinh có ghi danh lớp thực tế kèm giảng viên phụ trách tra cứu qua gRPC.
-  - Chạy `dotnet test`: Toàn bộ **22/22 tests Passed 100%** (0 Warning, 0 Error).
+- **Kiểm Thử & Nghiệm Thu**:
+  - Kiểm thử xác thực toàn diện logic xử lý danh tính học sinh, lớp học thật, trường THPT, ngành mục tiêu và gọi gRPC lấy thông tin giảng viên thành công 100%.
+  - Chạy `dotnet test`: Toàn bộ **20/20 tests Passed 100%** (0 Warning, 0 Error).
 
 ## [16/11/2026] - Mở Rộng Hợp Đồng API Gia Sư Socratic Tiếp Nhận & Chuyển Tiếp Lịch Sử Hội Thoại Đa Lượt Sang AI Engine
 

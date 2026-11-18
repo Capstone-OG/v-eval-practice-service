@@ -15,5 +15,4 @@
 - **Tối Ưu Repository Ghi Danh Lớp ([`ClassEnrollmentRepository.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs))**:
   - Ưu tiên bản ghi có trạng thái `Status == "ENROLLED"` và sắp xếp giảm dần theo thời gian ghi danh.
 - **Kiểm Thử & Nghiệm Thu**:
-  - Bổ sung bộ kiểm thử xUnit `GetParentDashboardQueryHandlerTests.cs` (2 ca kiểm thử).
-  - `dotnet test`: Toàn bộ **22/22 unit tests Passed 100%** (0 Warning, 0 Error).
+  - `dotnet test`: Toàn bộ **20/20 unit tests Passed 100%** (0 Warning, 0 Error).
