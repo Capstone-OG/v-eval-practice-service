@@ -14,7 +14,7 @@
     - Dưới 700: `"Khối ngành Tự nhiên / Công nghệ (Mục tiêu {targetScore}đ)"`.
 - **Liên Thông gRPC Lấy Danh Tính & Liên Hệ Giảng Viên Thật ([`IIdentityGrpcClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs), [`IdentityGrpcClient.cs`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs), [`identity.proto`](../V-Eval-Practice_Service.Infrastructure/Protos/identity.proto))**:
   - Khai báo RPC `GetTeacherProfile` trong `identity.proto` tiếp nhận `teacher_id` và trả về `full_name`, `phone`, `email`, `specialty`.
-  - Cập nhật `IIdentityGrpcClient` và `IdentityGrpcClient`: từ `enrolledClass.TeacherId`, gọi sang Identity Service qua gRPC port 5156 để lấy họ tên và số điện thoại giảng viên thật.
+  - Cập nhật `IIdentityGrpcClient` và `IdentityGrpcClient`: từ `enrolledClass.TeacherId`, gọi sang Identity Service qua gRPC port 5156 để lấy họ tên và số điện thoại giảng viên thật. Nếu lớp chưa gán `TeacherId` (hoặc giáo viên không tồn tại trong CSDL), trả về chính xác `"Chưa có giáo viên phụ trách"` và SĐT `"Chưa có"`, triệt tiêu 100% dữ liệu giả lập.
   - Cập nhật `GetParentStudentsAsync` để truyền tải thêm `school_name` và `target_score` từ Identity Service sang Practice Service.
 - **Tối Ưu Hóa Repository Ghi Danh Lớp ([`ClassEnrollmentRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs))**:
   - Nâng cấp `GetEnrollmentByStudentIdAsync` ưu tiên lấy bản ghi có trạng thái `Status == "ENROLLED"`, sắp xếp theo `EnrolledAt DESC`.

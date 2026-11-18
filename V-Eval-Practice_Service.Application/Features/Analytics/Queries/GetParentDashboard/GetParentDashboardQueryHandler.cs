@@ -83,8 +83,8 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
                         : $"Khối ngành Tự nhiên / Công nghệ (Mục tiêu {targetScore}đ)";
 
             // 3. Truy vấn giảng viên phụ trách thực tế từ Class -> TeacherId -> Identity Service
-            string teacherName = "ThS. Nguyễn Minh Triết";
-            string teacherPhone = "0908 246 357";
+            string teacherName = "Chưa có giáo viên phụ trách";
+            string teacherPhone = "Chưa có";
 
             var teacherGuid = enrolledClass?.TeacherId;
             if (teacherGuid.HasValue && teacherGuid.Value != Guid.Empty)
