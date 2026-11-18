@@ -17,6 +17,9 @@ service IdentityGrpc {
 
   // 4. Lấy danh sách học sinh liên kết với một phụ huynh
   rpc GetParentStudents (GetParentStudentsRequest) returns (GetParentStudentsResponse);
+
+  // 5. Lấy hồ sơ giáo viên phụ trách (Họ tên, SĐT, Email, Chuyên môn) cho Cổng Phụ huynh (Core Flow 5)
+  rpc GetTeacherProfile (GetTeacherProfileRequest) returns (GetTeacherProfileResponse);
 }
 
 message ValidatePermissionRequest {
@@ -43,6 +46,7 @@ message GetStudentSummaryResponse {
   double study_hours_day = 5;
   bool exists = 6;
   string campus_name = 7;
+  string school_name = 8;
 }
 
 message LinkParentRequest {
@@ -64,8 +68,24 @@ message StudentSummaryItem {
   string name = 2;
   string email = 3;
   string campus_id = 4;
+  string school_name = 5;
+  int32 target_score = 6;
 }
 
 message GetParentStudentsResponse {
   repeated StudentSummaryItem students = 1;
+}
+
+message GetTeacherProfileRequest {
+  string teacher_id = 1;
+}
+
+message GetTeacherProfileResponse {
+  bool exists = 1;
+  string teacher_id = 2;
+  string full_name = 3;
+  string phone = 4;
+  string email = 5;
+  string specialty = 6;
+  string campus_name = 7;
 }

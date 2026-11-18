@@ -1,17 +1,19 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [16/11/2026] - Mở Rộng Hợp Đồng API Gia Sư Socratic Tiếp Nhận & Chuyển Tiếp Lịch Sử Hội Thoại Đa Lượt Sang AI Engine & Đồng Bộ Phân Hệ Lịch Học, Học Phí Thực Tế
+## [18/11/2026] - Nâng Tầm Dữ Liệu Cổng Phụ Huynh: Triệt Tiêu Hardcode, Nối CSDL Thật Cho Thông Tin Trường Lớp & gRPC Danh Tính Giáo Viên Phụ Trách
 
-- **Mở Rộng DTO & Hợp Đồng Client AI Tutor ([`IAiTutorClient.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/IAiTutorClient.cs))**:
-  - Khai báo record DTO mới: `ConversationTurnDto(string Role, string? Text, string? Option = null)`.
-  - Bổ sung thuộc tính `List<ConversationTurnDto>? ConversationHistory = null` vào `SocraticAskRequestPayload`.
-  - Cho phép serialization tự động với chuẩn snake_case `conversation_history` sang FastAPI RAG Service.
-- **Tiếp Nhận & Chuyển Tiếp Lịch Sử Hội Thoại Trong Controller ([`AiTutorController.cs`](./V-Eval-Practice_Service.API/Controllers/AiTutorController.cs))**:
-  - Mở rộng model `AskTutorRequest` tiếp nhận trường `List<ConversationTurnDto>? ConversationHistory = null`.
-  - Trong phương thức stream `AskTutorStream` (`POST /api/practice/ai-tutor/ask-stream`), ánh xạ trực tiếp `ConversationHistory: request.ConversationHistory` vào lời gọi `_aiTutorClient.GetSocraticStreamAsync`.
-  - Trong phương thức đồng bộ `AskTutor` (`POST /api/practice/ai-tutor/ask`), ánh xạ trực tiếp `ConversationHistory: request.ConversationHistory` vào `_aiTutorClient.AskSocraticJsonAsync`.
-- **Đồng Bộ Phân Hệ Lịch Học, Điểm Danh, Học Phí & Radar Chart / Skill Priors**:
-  - Tích hợp đầy đủ các aggregate roots `AcademicTerms`, `Courses`, `Classes`, `Schedules` và tra cứu học phí thực tế từ PayOS.
-  - Bổ sung `RadarChart` và `SkillPriors` tính toán trực tiếp từ dữ liệu bài nộp cho `GetDiagnosticSubmissionById` và `SubmitDiagnosticCommandHandler`.
+- **Triệt Tiêu Hardcode Trong Parent Dashboard ([`GetParentDashboardQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs))**:
+  - Xóa bỏ 100% các dữ liệu mock/placeholder cũ: `"Học viên V-Eval"`, `"Hệ thống Khảo thí V-Eval"`, `"Đại học"`, `"Cố vấn Học tập"`, `"1900 8889"`.
+  - Tích hợp truy vấn lớp học thực tế từ `v_eval_practice.ClassEnrollments` qua `IClassEnrollmentRepository`.
+  - Lấy tên lớp học thật của học sinh (`enrolledClass.Name`, ví dụ `"Lớp Bứt Phá Điểm 10 - Offline Quận 1"`).
+  - Trích xuất trường THPT thật từ `student.SchoolName` (ví dụ `"THPT Chuyên Lê Hồng Phong - TP.HCM"`).
+  - Tự động suy luận ngành đại học mục tiêu theo điểm số nguyện vọng thật `TargetScore` (ví dụ: `>= 900` trỏ tới Khoa học Máy tính - ĐH Bách Khoa).
+- **Liên Thông gRPC Danh Tính Giảng Viên Thật ([`IIdentityGrpcClient.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs), [`IdentityGrpcClient.cs`](./V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs), [`identity.proto`](./V-Eval-Practice_Service.Infrastructure/Protos/identity.proto))**:
+  - Khai báo RPC `GetTeacherProfile` và DTO phản hồi trong `identity.proto`.
+  - Từ `enrolledClass.TeacherId`, gọi gRPC sang Identity Service (cổng 5156) lấy họ tên (`FullName`) và số điện thoại liên hệ (`Phone`) thật của giảng viên phụ trách.
+  - Mở rộng `GetParentStudentsAsync` nhận diện thêm `SchoolName` và `TargetScore`.
+- **Tối Ưu Repository Ghi Danh Lớp ([`ClassEnrollmentRepository.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs))**:
+  - Ưu tiên bản ghi có trạng thái `Status == "ENROLLED"` và sắp xếp giảm dần theo thời gian ghi danh.
 - **Kiểm Thử & Nghiệm Thu**:
-  - Biên dịch toàn bộ solution `V-Eval-Practice_Service.sln` (.NET 9 SDK) sạch **0 Warning, 0 Error**.
+  - Bổ sung bộ kiểm thử xUnit `GetParentDashboardQueryHandlerTests.cs` (2 ca kiểm thử).
+  - `dotnet test`: Toàn bộ **22/22 unit tests Passed 100%** (0 Warning, 0 Error).

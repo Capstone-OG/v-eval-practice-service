@@ -148,8 +148,17 @@ public class ClassEnrollmentRepository : IClassEnrollmentRepository
         Guid studentId,
         CancellationToken ct = default)
     {
+        var active = await _context.ClassEnrollments
+            .Include(e => e.Class)
+            .Where(e => e.StudentId == studentId && e.Status == "ENROLLED")
+            .OrderByDescending(e => e.EnrolledAt)
+            .FirstOrDefaultAsync(ct);
+
+        if (active != null) return active;
+
         return await _context.ClassEnrollments
             .Include(e => e.Class)
+            .OrderByDescending(e => e.EnrolledAt)
             .FirstOrDefaultAsync(e => e.StudentId == studentId, ct);
     }
 

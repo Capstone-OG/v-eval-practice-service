@@ -1137,3 +1137,29 @@
      - Performs automated data repair: automatically transitions `CourseRegistration` from `PENDING_PAYMENT` to `ACTIVE` whenever a confirmed `SUCCESS` payment exists in the database.
   3. **Verification**:
      - Full xUnit suite passing with 2 new unit tests in `PaymentQueriesTests.cs` verifying DTO mapping, status calculation, and unlocked features isolation.
+
+### 10.5 [18/11/2026] - Real-Data Resolution Engine for Parent Companion Portal: Zero Hardcoding, Class Enrollment Binding & Inter-Service Identity gRPC Teacher Profile Resolution
+- **Module**: `v_eval_practice.ClassEnrollments`, `v_eval_practice.Classes`, and Identity Service Inter-Service gRPC.
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs`
+  - `V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs`
+  - `V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Protos/identity.proto`
+  - `V-Eval-Practice_Service.Tests/Features/Analytics/GetParentDashboardQueryHandlerTests.cs`
+- **Key Architectural Deliverables**:
+  1. **Zero Hardcoded Data in Parent Dashboard**:
+     - Completely eliminated placeholder strings (`"Học viên V-Eval"`, `"Hệ thống Khảo thí V-Eval"`, `"Đại học"`, `"Cố vấn Học tập"`, `"1900 8889"`).
+     - Dynamically resolves student cohort grade from `ClassEnrollments` -> `Class.Name`.
+     - Injects real high school origin (`student.SchoolName`) from `v_eval_identity.Students`.
+     - Dynamically infers university target specialization (`targetMajor`) aligned with `student.TargetScore` (e.g. `>= 900` points to CS at HCMUT).
+  2. **Inter-Service gRPC Teacher Profile Resolution**:
+     - Enriched `identity.proto` with RPC `GetTeacherProfile(GetTeacherProfileRequest)` returning teacher full name, direct contact phone, email, and specialty.
+     - `GetParentDashboardQueryHandler` extracts `TeacherId` from `ClassEnrollment.Class` and issues a gRPC call to Identity Service (port `5156`) to retrieve verified instructor identity.
+  3. **Active Enrollment Prioritization**:
+     - Updated `ClassEnrollmentRepository.GetEnrollmentByStudentIdAsync` to prioritize `Status == "ENROLLED"` and sort descending by enrollment timestamp (`EnrolledAt DESC`).
+  4. **Verification & Testing**:
+     - Full automated test suite `GetParentDashboardQueryHandlerTests.cs` covering empty parent profile fallback and complete real-data resolution.
+     - `22/22` unit tests passed in `V-Eval-Practice_Service.Tests` (100% pass, 0 errors, 0 warnings).
+

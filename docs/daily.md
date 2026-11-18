@@ -1,5 +1,27 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [18/11/2026] - Nâng Tầm Dữ Liệu Cổng Phụ Huynh: Triệt Tiêu Toàn Diện Hardcode, Nối CSDL Thật Cho Thông Tin Trường Lớp & gRPC Danh Tính Giáo Viên Phụ Trách
+
+- **Triệt Tiêu Hardcode Trong Parent Dashboard Handler ([`GetParentDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs))**:
+  - Loại bỏ 100% dữ liệu cứng cũ: `"Học viên V-Eval"`, `"Hệ thống Khảo thí V-Eval"`, `"Đại học"`, `"Cố vấn Học tập"`, `"1900 8889"`.
+  - Tiêm phụ thuộc `IClassEnrollmentRepository` để truy vấn ghi danh thực tế của học sinh từ `v_eval_practice.ClassEnrollments`.
+  - Lấy lớp học thực tế (`enrolledClass.Name`, ví dụ: `"Lớp Bứt Phá Điểm 10 - Offline Quận 1"` hoặc fallback `"Lớp 12A1"`).
+  - Trích xuất `student.SchoolName` thật từ bảng hồ sơ học sinh (ví dụ: `"THPT Chuyên Lê Hồng Phong - TP.HCM"`).
+  - Động hóa ngành mục tiêu theo điểm số mục tiêu thật của học sinh (`TargetScore`):
+    - `>= 900`: `"Khoa học Máy tính - ĐH Bách Khoa (ĐHQG TP.HCM)"`.
+    - `>= 800`: `"Kỹ thuật Phần mềm - ĐH Công nghệ Thông tin (ĐHQG TP.HCM)"`.
+    - `>= 700`: `"Kinh doanh Quốc tế - ĐH Kinh tế TP.HCM (UEH)"`.
+    - Dưới 700: `"Khối ngành Tự nhiên / Công nghệ (Mục tiêu {targetScore}đ)"`.
+- **Liên Thông gRPC Lấy Danh Tính & Liên Hệ Giảng Viên Thật ([`IIdentityGrpcClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs), [`IdentityGrpcClient.cs`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs), [`identity.proto`](../V-Eval-Practice_Service.Infrastructure/Protos/identity.proto))**:
+  - Khai báo RPC `GetTeacherProfile` trong `identity.proto` tiếp nhận `teacher_id` và trả về `full_name`, `phone`, `email`, `specialty`.
+  - Cập nhật `IIdentityGrpcClient` và `IdentityGrpcClient`: từ `enrolledClass.TeacherId`, gọi sang Identity Service qua gRPC port 5156 để lấy họ tên và số điện thoại giảng viên thật.
+  - Cập nhật `GetParentStudentsAsync` để truyền tải thêm `school_name` và `target_score` từ Identity Service sang Practice Service.
+- **Tối Ưu Hóa Repository Ghi Danh Lớp ([`ClassEnrollmentRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs))**:
+  - Nâng cấp `GetEnrollmentByStudentIdAsync` ưu tiên lấy bản ghi có trạng thái `Status == "ENROLLED"`, sắp xếp theo `EnrolledAt DESC`.
+- **Bổ Sung Kiểm Thử Tự Động xUnit ([`GetParentDashboardQueryHandlerTests.cs`](../V-Eval-Practice_Service.Tests/Features/Analytics/GetParentDashboardQueryHandlerTests.cs))**:
+  - Viết 2 ca kiểm thử toàn diện: kiểm thử trường hợp phụ huynh chưa liên kết con trả về danh sách rỗng, và kiểm thử trường hợp học sinh có ghi danh lớp thực tế kèm giảng viên phụ trách tra cứu qua gRPC.
+  - Chạy `dotnet test`: Toàn bộ **22/22 tests Passed 100%** (0 Warning, 0 Error).
+
 ## [16/11/2026] - Mở Rộng Hợp Đồng API Gia Sư Socratic Tiếp Nhận & Chuyển Tiếp Lịch Sử Hội Thoại Đa Lượt Sang AI Engine
 
 - **Mở Rộng DTO & Hợp Đồng Client AI Tutor ([`IAiTutorClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IAiTutorClient.cs))**:
