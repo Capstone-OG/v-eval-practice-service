@@ -1,7 +1,15 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [19/11/2026] - Khử Trùng Lặp Cảnh Báo Sớm, Truy Vấn Động Họ Tên Học Sinh Từ Identity Service Qua gRPC (Zero Hardcode) & Ràng Buộc Xung Đột Phòng Học / Lịch Giảng Dạy
+## [19/11/2026] - Nâng Cấp Cơ Chế Xếp Lớp Theo Ma Trận 4 Miền × 3 Cấp Bậc (Tối Thiểu 12 Lớp Chuẩn), Khử Trùng Lặp Cảnh Báo Sớm & Truy Vấn Động Họ Tên Học Sinh Qua gRPC
 
+- **Triển Khai Xếp Lớp Phân Tầng Theo Ma Trận 4 Miền × 3 Cấp Bậc (`AutoClusterThematicClassesCommandHandler.cs`, `AutoClusterThematicClassesDtos.cs`, `ClassEnrollmentRepository.cs`, `ClassesController.cs`)**:
+  - Chuyển đổi từ phân hoạch 1-1 gom chung sang **Ma trận 4 Miền × 3 Cấp bậc (tối thiểu 12 lớp chuẩn)**: mỗi học sinh đã làm bài test đầu vào 30 câu được phân hóa vào đúng **4 lớp** (1 lớp / miền kiến thức: `DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`) dựa trên độ nắm vững kỹ năng `masteryScore` từng miền:
+    - **Cơ bản (`FOUNDATION`)**: `< 50%` (có thể cấu hình qua `FoundationThreshold`).
+    - **Tăng tốc (`ACCELERATED`)**: `50% – < 75%`.
+    - **Nâng cao (`ADVANCED`)**: `>= 75%` (có thể cấu hình qua `AdvancedThreshold`).
+  - Hỗ trợ `IncludeEmptyClasses = true` (mặc định hiển thị & khởi tạo đủ khung 12 lớp kèm trạng thái `READY` / `PENDING_MIN_CAPACITY` / `EMPTY`), tự động tách lớp khi 1 ô vượt trần `20 HS/lớp`.
+  - Bổ sung chế độ **Bảo toàn 100% học sinh cũ (`PreserveExistingEnrollments = true` mặc định)** thông qua `GetActiveDomainClassesWithStudentsAsync`: giữ nguyên toàn bộ lớp của HS cũ ở từng miền, chỉ xếp bổ sung HS mới chưa có lớp (đảm bảo mỗi HS mới vẫn đủ 4 lớp ở 4 miền và tự lấp đầy chỗ trống `< 20 HS` trước khi tràn sang lớp `02`), trả về `NewStudentsAssignedCount` và `NewPlacementsCount`.
+  - Nâng cấp `CreateThematicClassWithEnrollmentsAsync` hỗ trợ **Idempotent Upsert** theo `(CampusId, DomainCode, Name)` và tự động chuyển trạng thái `TRANSFERRED` nếu học sinh đổi cấp bậc trong cùng 1 miền, chống trùng lớp khi xuất bản nhiều lần.
 - **Triệt Tiêu 100% Hardcode Họ Tên Học Sinh - Kết Nối Động Qua gRPC Identity Service ([`GetAlertsDashboardQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/Queries/GetAlertsDashboard/GetAlertsDashboardQueryHandler.cs), [`IIdentityGrpcClient.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs), [`IdentityGrpcClient.cs`](./V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs), [`identity.proto`](./V-Eval-Practice_Service.Infrastructure/Protos/identity.proto))**:
   - *Xóa bỏ toàn bộ từ điển và switch-case tên cố định*: Gỡ bỏ hoàn toàn `KnownStudentNames` và `ResolveStudentName` chứa danh sách GUID/tên học sinh tĩnh.
   - *Mở rộng hợp đồng gRPC `GetStudentsByIds`*: Bổ sung phương thức `rpc GetStudentsByIds (GetStudentsByIdsRequest) returns (GetStudentsByIdsResponse)` trong `identity.proto`.

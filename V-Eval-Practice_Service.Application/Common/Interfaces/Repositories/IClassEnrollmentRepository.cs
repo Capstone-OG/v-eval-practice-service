@@ -23,6 +23,11 @@ public interface IClassEnrollmentRepository
         Guid campusId,
         CancellationToken ct = default);
 
+    Task<IReadOnlyList<(Guid ClassId, string ClassName, string DomainCode, List<Guid> StudentIds)>>
+        GetActiveDomainClassesWithStudentsAsync(
+            Guid campusId,
+            CancellationToken ct = default);
+
     Task<Class> CreateThematicClassWithEnrollmentsAsync(
         Guid campusId,
         string name,

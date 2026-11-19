@@ -1207,3 +1207,19 @@
      - Fixed `EarlyWarningSweepService` unresolved check from 24-hour window (`CreatedAt >= UtcNow.AddHours(-24)`) to all-time unresolved (`a.ResolvedAt == null`), preventing the background worker from creating duplicate redundant alerts on subsequent passes.
   4. **Verification**:
      - Clean .NET 9 build for `V-Eval-Practice_Service.Application` and `V-Eval-Practice_Service.Infrastructure` (`0 Warning(s), 0 Error(s)`). All 20/20 unit tests pass.
+
+### 10.8 [19/11/2026] - 4-Domain x 3-Tier Matrix Placement Engine (Minimum 12 Classes) & Idempotent Domain-Tier Upsert
+- **Module**: `v_eval_practice.Classes` & `ClassEnrollments` Diagnostic Mastery Placement Engine.
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Application/Features/Classes/Commands/AutoClusterThematicClasses/AutoClusterThematicClassesCommandHandler.cs`
+  - `V-Eval-Practice_Service.Application/Features/Classes/DTOs/AutoClusterThematicClassesDtos.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs`
+- **Key Architectural Deliverables**:
+  1. **4-Domain × 3-Tier Matrix Placement (4 Classes per Student)**:
+     - Evaluates each diagnosed student's independent mastery score across all 4 V-ACT domains (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`) and assigns the student to 1 class per domain across 3 tiers: `FOUNDATION` (`< 50%`), `ACCELERATED` (`50% – < 75%`), `ADVANCED` (`>= 75%`).
+     - Supports configurable `FoundationThreshold`, `AdvancedThreshold`, `IncludeEmptyClasses` (12-class shell), and automatic overflow splitting at `MaxCapacity = 20`.
+  2. **Idempotent Domain-Tier Upsert**:
+     - `CreateThematicClassWithEnrollmentsAsync` reuses existing active domain-tier classes `(CampusId, DomainCode, Name)` and marks previous tier enrollments within the same domain as `TRANSFERRED` when a student changes tier.
+  3. **Verification**:
+     - Clean .NET 9 build (`0 Warning(s), 0 Error(s)`) and 20/20 unit tests passing.

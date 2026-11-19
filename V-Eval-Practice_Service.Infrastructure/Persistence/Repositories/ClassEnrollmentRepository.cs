@@ -164,6 +164,47 @@ public class ClassEnrollmentRepository : IClassEnrollmentRepository
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<(Guid ClassId, string ClassName, string DomainCode, List<Guid> StudentIds)>>
+        GetActiveDomainClassesWithStudentsAsync(
+            Guid campusId,
+            CancellationToken ct = default)
+    {
+        var domainClasses = await _context.Classes
+            .Where(c =>
+                c.CampusId == campusId &&
+                c.Status == "ACTIVE" &&
+                c.ClassType == 1 &&
+                c.DomainCode != null &&
+                c.DomainCode != "")
+            .OrderBy(c => c.Name)
+            .ThenBy(c => c.CreatedAt)
+            .Select(c => new { c.ClassId, c.Name, c.DomainCode })
+            .ToListAsync(ct);
+
+        if (domainClasses.Count == 0)
+        {
+            return Array.Empty<(Guid, string, string, List<Guid>)>();
+        }
+
+        var classIds = domainClasses.Select(c => c.ClassId).ToList();
+        var enrollments = await _context.ClassEnrollments
+            .Where(e => classIds.Contains(e.ClassId) && e.Status == "ENROLLED")
+            .Select(e => new { e.ClassId, e.StudentId })
+            .ToListAsync(ct);
+
+        var studentsByClass = enrollments
+            .GroupBy(e => e.ClassId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.StudentId).Distinct().ToList());
+
+        return domainClasses
+            .Select(c => (
+                c.ClassId,
+                c.Name,
+                c.DomainCode!,
+                studentsByClass.TryGetValue(c.ClassId, out var sids) ? sids : new List<Guid>()))
+            .ToList();
+    }
+
     public async Task<Class> CreateThematicClassWithEnrollmentsAsync(
         Guid campusId,
         string name,
@@ -173,37 +214,92 @@ public class ClassEnrollmentRepository : IClassEnrollmentRepository
         IEnumerable<Guid> studentIds,
         CancellationToken ct = default)
     {
-        var thematicClass = new Class
-        {
-            ClassId = Guid.NewGuid(),
-            CampusId = campusId,
-            Name = name,
-            Status = "ACTIVE",
-            CreatedAt = DateTime.UtcNow,
-            ClassType = 1, // 1 = Lớp Chuyên Đề
-            DomainId = domainId,
-            DomainCode = domainCode,
-            ClusterIndex = clusterIndex
-        };
+        var studentIdList = studentIds.Distinct().ToList();
 
-        await _context.Classes.AddAsync(thematicClass, ct);
+        // 1. Idempotent Upsert: Kiểm tra nếu lớp chuyên đề cùng cơ sở, cùng miền và cùng tên đã tồn tại thì tái sử dụng
+        var thematicClass = await _context.Classes
+            .FirstOrDefaultAsync(c =>
+                c.CampusId == campusId &&
+                c.Status == "ACTIVE" &&
+                c.ClassType == 1 &&
+                c.DomainCode == domainCode &&
+                c.Name == name, ct);
 
-        foreach (var studentId in studentIds)
+        if (thematicClass == null)
         {
-            var enrollment = new ClassEnrollment
+            thematicClass = new Class
             {
-                EnrollmentId = Guid.NewGuid(),
-                ClassId = thematicClass.ClassId,
-                StudentId = studentId,
-                Status = "ENROLLED",
-                EnrolledAt = DateTime.UtcNow
+                ClassId = Guid.NewGuid(),
+                CampusId = campusId,
+                Name = name,
+                Status = "ACTIVE",
+                CreatedAt = DateTime.UtcNow,
+                ClassType = 1, // 1 = Lớp Chuyên Đề theo Miền & Cấp bậc
+                DomainId = domainId,
+                DomainCode = domainCode,
+                ClusterIndex = clusterIndex
             };
-            await _context.ClassEnrollments.AddAsync(enrollment, ct);
+
+            await _context.Classes.AddAsync(thematicClass, ct);
+            await _context.SaveChangesAsync(ct);
+        }
+        else
+        {
+            thematicClass.ClusterIndex = clusterIndex;
         }
 
-        await _context.SaveChangesAsync(ct);
-        _logger.LogInformation("Created thematic class '{ClassName}' (Id: {ClassId}, Cluster: {Cluster}) with {Count} enrolled students",
-            name, thematicClass.ClassId, clusterIndex, studentIds.Count());
+        if (studentIdList.Count > 0)
+        {
+            // 2. Nếu học sinh đang ở một cấp bậc khác của CÙNG MIỀN kiến thức này thì chuyển trạng thái cũ sang TRANSFERRED
+            // Đảm bảo mỗi học sinh chỉ học đúng 1 lớp ACTIVE trên mỗi miền (tổng 4 lớp cho 4 miền)
+            if (!string.IsNullOrWhiteSpace(domainCode))
+            {
+                var otherDomainEnrollments = await _context.ClassEnrollments
+                    .Include(e => e.Class)
+                    .Where(e =>
+                        studentIdList.Contains(e.StudentId) &&
+                        e.Status == "ENROLLED" &&
+                        e.ClassId != thematicClass.ClassId &&
+                        e.Class != null &&
+                        e.Class.CampusId == campusId &&
+                        e.Class.ClassType == 1 &&
+                        e.Class.DomainCode == domainCode)
+                    .ToListAsync(ct);
+
+                foreach (var oldEnrollment in otherDomainEnrollments)
+                {
+                    oldEnrollment.Status = "TRANSFERRED";
+                }
+            }
+
+            // 3. Chỉ ghi danh mới cho những học sinh chưa có mặt trong lớp này
+            var existingStudentIdsInClass = await _context.ClassEnrollments
+                .Where(e => e.ClassId == thematicClass.ClassId && e.Status == "ENROLLED")
+                .Select(e => e.StudentId)
+                .ToListAsync(ct);
+
+            var existingSet = existingStudentIdsInClass.ToHashSet();
+            foreach (var studentId in studentIdList)
+            {
+                if (!existingSet.Contains(studentId))
+                {
+                    var enrollment = new ClassEnrollment
+                    {
+                        EnrollmentId = Guid.NewGuid(),
+                        ClassId = thematicClass.ClassId,
+                        StudentId = studentId,
+                        Status = "ENROLLED",
+                        EnrolledAt = DateTime.UtcNow
+                    };
+                    await _context.ClassEnrollments.AddAsync(enrollment, ct);
+                }
+            }
+
+            await _context.SaveChangesAsync(ct);
+        }
+
+        _logger.LogInformation("Upserted thematic class '{ClassName}' (Id: {ClassId}, Domain: {DomainCode}, Slot: {Cluster}) with {Count} students",
+            name, thematicClass.ClassId, domainCode, clusterIndex, studentIdList.Count);
 
         return thematicClass;
     }

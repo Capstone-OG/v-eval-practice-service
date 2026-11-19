@@ -184,11 +184,15 @@ public class ClassesController : ApiControllerBase
     {
         var command = new AutoClusterThematicClassesCommand(
             CampusId: request.CampusId,
-            MaxK: request.MaxK,
+            MaxK: request.MaxK > 0 ? request.MaxK : 12,
             MinCapacity: request.MinCapacity > 0 ? request.MinCapacity : 5,
             MaxCapacity: request.MaxCapacity > 0 ? request.MaxCapacity : 20,
             DryRun: request.DryRun,
-            ManagerCampusId: request.ManagerCampusId
+            ManagerCampusId: request.ManagerCampusId,
+            FoundationThreshold: request.FoundationThreshold > 0 ? request.FoundationThreshold : 0.50,
+            AdvancedThreshold: request.AdvancedThreshold > 0 ? request.AdvancedThreshold : 0.75,
+            IncludeEmptyClasses: request.IncludeEmptyClasses,
+            PreserveExistingEnrollments: request.PreserveExistingEnrollments
         );
 
         var result = await Mediator.Send(command);
