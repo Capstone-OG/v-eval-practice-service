@@ -73,8 +73,8 @@ public class IdentityGrpcClient : IIdentityGrpcClient
                             item.Name,
                             item.Email,
                             item.CampusId,
-                            !string.IsNullOrWhiteSpace(item.SchoolName) ? item.SchoolName : "THPT Chuyên Lê Hồng Phong - TP.HCM",
-                            item.TargetScore > 0 ? item.TargetScore : 900
+                            !string.IsNullOrWhiteSpace(item.SchoolName) ? item.SchoolName : string.Empty,
+                            item.TargetScore > 0 ? item.TargetScore : 0
                         ));
                     }
                 }

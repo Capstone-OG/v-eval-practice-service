@@ -671,6 +671,66 @@ using (var scope = app.Services.CreateScope())
             logger.LogWarning(seedMistakeEx, "Bỏ qua khởi tạo dữ liệu mẫu MistakeNotebooks.");
         }
 
+        // Khởi tạo các Khóa đào tạo chuẩn vào CSDL v_eval_enrollment.Courses nếu chưa có
+        try
+        {
+            var hasCourses = await dbContext.Courses.AnyAsync();
+            if (!hasCourses)
+            {
+                var defaultCampusId = Guid.Parse("11111111-0000-0000-0000-000000000001");
+                await dbContext.Courses.AddRangeAsync(
+                    new Course
+                    {
+                        CourseId = Guid.Parse("c1111111-1111-4000-8000-000000000001"),
+                        CampusId = defaultCampusId,
+                        Code = "CRS_SPRINT",
+                        Name = "Khóa Cấp Tốc Về Đích (Sprint)",
+                        PlanType = "FAST_TRACK",
+                        DurationWeeks = 8,
+                        TuitionFee = 2000,
+                        RetakePolicy = "PAID",
+                        RetakeFee = 1000,
+                        MaxClassSize = 25,
+                        IsActive = true
+                    },
+                    new Course
+                    {
+                        CourseId = Guid.Parse("c2222222-2222-4000-8000-000000000002"),
+                        CampusId = defaultCampusId,
+                        Code = "CRS_STD",
+                        Name = "Khóa Luyện Thi Chuẩn (Standard Adaptive)",
+                        PlanType = "STANDARD",
+                        DurationWeeks = 12,
+                        TuitionFee = 5000,
+                        RetakePolicy = "FREE_ONCE",
+                        RetakeFee = 0,
+                        MaxClassSize = 20,
+                        IsActive = true
+                    },
+                    new Course
+                    {
+                        CourseId = Guid.Parse("c3333333-3333-4000-8000-000000000003"),
+                        CampusId = defaultCampusId,
+                        Code = "CRS_PRO",
+                        Name = "Khóa Chuyên Đề Bứt Phá (Intensive Plus)",
+                        PlanType = "INTENSIVE",
+                        DurationWeeks = 16,
+                        TuitionFee = 10000,
+                        RetakePolicy = "FREE_ONCE",
+                        RetakeFee = 0,
+                        MaxClassSize = 15,
+                        IsActive = true
+                    }
+                );
+                await dbContext.SaveChangesAsync();
+                logger.LogInformation("Đã khởi tạo các Khóa đào tạo chuẩn vào CSDL v_eval_enrollment.Courses.");
+            }
+        }
+        catch (Exception exCourses)
+        {
+            logger.LogWarning(exCourses, "Bỏ qua khởi tạo danh mục Khóa học.");
+        }
+
         // Đảm bảo có dữ liệu mẫu RoadmapNode phục vụ kiểm thử Core Flow 3
         var sampleNodeId = Guid.Parse("11111111-2222-3333-4444-555555555555");
         var sampleRoadmapId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");

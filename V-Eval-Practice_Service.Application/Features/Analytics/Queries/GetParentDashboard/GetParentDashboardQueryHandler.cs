@@ -65,22 +65,17 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
             // Xác định Khối lớp thật
             string grade = !string.IsNullOrWhiteSpace(enrolledClass?.Name)
                 ? enrolledClass.Name
-                : "Lớp 12A1";
+                : "Chưa phân lớp";
 
             // Xác định Trường THPT thật
             string school = !string.IsNullOrWhiteSpace(student.SchoolName)
                 ? student.SchoolName
-                : (!string.IsNullOrWhiteSpace(student.CampusId) ? $"Cơ sở {student.CampusId}" : "THPT Chuyên Lê Hồng Phong - TP.HCM");
+                : (!string.IsNullOrWhiteSpace(student.CampusId) ? $"Cơ sở {student.CampusId}" : "Chưa cập nhật");
 
             // Xác định Ngành mục tiêu thực tế theo TargetScore
-            int targetScore = student.TargetScore > 0 ? student.TargetScore : 900;
-            string targetMajor = targetScore >= 900
-                ? "Khoa học Máy tính - ĐH Bách Khoa (ĐHQG TP.HCM)"
-                : targetScore >= 800
-                    ? "Kỹ thuật Phần mềm - ĐH Công nghệ Thông tin (ĐHQG TP.HCM)"
-                    : targetScore >= 700
-                        ? "Kinh doanh Quốc tế - ĐH Kinh tế TP.HCM (UEH)"
-                        : $"Khối ngành Tự nhiên / Công nghệ (Mục tiêu {targetScore}đ)";
+            string targetMajor = student.TargetScore > 0
+                ? $"Mục tiêu xét tuyển ĐGNL ({student.TargetScore} điểm)"
+                : "Chưa thiết lập mục tiêu";
 
             // 3. Truy vấn giảng viên phụ trách thực tế từ Class -> TeacherId -> Identity Service
             string teacherName = "Chưa có giáo viên phụ trách";
