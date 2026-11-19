@@ -1,7 +1,10 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
-## [19/11/2026] - Khử Trùng Lặp Cảnh Báo Sớm, Truy Vấn Động Họ Tên Học Sinh Từ Identity Service Qua gRPC (Zero Hardcode) & Hoàn Thiện Bộ Nghiệp Vụ Quản Lý Học Thuật Cơ Sở (`CAMPUS_MANAGER` - `MGR_01..22`)
+## [19/11/2026] - Nâng Cấp Xếp Lớp Theo Ma Trận 4 Miền × 3 Cấp Bậc (12 Lớp Chuẩn), Khử Trùng Lặp Cảnh Báo Sớm & Truy Vấn Động Họ Tên Học Sinh Qua gRPC
 
+- **Triển Khai Xếp Lớp Phân Tầng Theo Ma Trận 4 Miền × 3 Cấp Bậc ([`AutoClusterThematicClassesCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/AutoClusterThematicClasses/AutoClusterThematicClassesCommandHandler.cs), [`ClassEnrollmentRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs))**:
+  - Phân hóa mỗi học sinh vào đúng **4 lớp** (1 lớp / miền: `DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`) theo 3 cấp bậc **Cơ bản (`< 50%`)**, **Tăng tốc (`50% – < 75%`)**, **Nâng cao (`>= 75%`)** dựa trên điểm `masteryScore` từng miền từ bài test đầu vào.
+  - Khởi tạo đủ khung 12 lớp (`IncludeEmptyClasses = true`), tự động tách lớp khi vượt `20 HS/lớp`, mặc định **Bảo toàn 100% HS cũ (`PreserveExistingEnrollments = true`)** chỉ xếp bổ sung HS mới chưa có lớp ở từng miền (`GetActiveDomainClassesWithStudentsAsync`), trả về `NewStudentsAssignedCount` và `NewPlacementsCount`.
 - **Triệt Tiêu 100% Hardcode Họ Tên Học Sinh - Kết Nối Động Qua gRPC Identity Service ([`GetAlertsDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/EarlyWarnings/Queries/GetAlertsDashboard/GetAlertsDashboardQueryHandler.cs), [`IIdentityGrpcClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs), [`IdentityGrpcClient.cs`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs), [`identity.proto`](../V-Eval-Practice_Service.Infrastructure/Protos/identity.proto))**:
   - *Xóa bỏ toàn bộ từ điển và switch-case tên cố định*: Gỡ bỏ hoàn toàn `KnownStudentNames` và `ResolveStudentName` chứa danh sách GUID/tên học sinh tĩnh.
   - *Mở rộng hợp đồng gRPC `GetStudentsByIds`*: Bổ sung phương thức `rpc GetStudentsByIds (GetStudentsByIdsRequest) returns (GetStudentsByIdsResponse)` trong `identity.proto`.
