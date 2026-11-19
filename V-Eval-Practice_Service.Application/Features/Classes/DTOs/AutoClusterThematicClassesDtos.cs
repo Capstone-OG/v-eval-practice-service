@@ -10,6 +10,10 @@ public record AutoClusterRequestDto
 {
     public Guid CampusId { get; init; }
     public int MaxK { get; init; } = 8;
+    public int MinCapacity { get; init; } = 5;
+    public int MaxCapacity { get; init; } = 20;
+    public bool DryRun { get; init; } = false;
+    public Guid? ManagerCampusId { get; init; }
 }
 
 /// <summary>
@@ -45,5 +49,10 @@ public record AutoClusterResponseDto(
     int OptimalK,
     IReadOnlyList<ElbowPointDto> ElbowData,
     IReadOnlyList<ThematicClusterItemDto> Clusters,
-    string Message
-);
+    string Message,
+    bool IsDryRun = false,
+    int ExcludedUndiagnosedCount = 0
+)
+{
+    public int TotalStudentsClustered => TotalStudents;
+}

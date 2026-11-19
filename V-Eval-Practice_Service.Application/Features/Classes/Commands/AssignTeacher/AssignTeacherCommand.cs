@@ -8,5 +8,7 @@ namespace V_Eval_Practice_Service.Application.Features.Classes.Commands.AssignTe
 public record AssignTeacherCommand(
     Guid ClassId,
     Guid TeacherId,
-    Guid? AssignedBy
+    Guid? AssignedBy,
+    Guid? TeacherCampusId = null,
+    Guid? ManagerCampusId = null
 ) : IRequest<Result<AssignTeacherResponseDto>>;

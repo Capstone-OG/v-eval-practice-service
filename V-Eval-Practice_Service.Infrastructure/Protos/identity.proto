@@ -17,6 +17,9 @@ service IdentityGrpc {
 
   // 4. Lấy danh sách học sinh liên kết với một phụ huynh
   rpc GetParentStudents (GetParentStudentsRequest) returns (GetParentStudentsResponse);
+
+  // 5. Lấy danh sách học sinh theo danh sách ID (Batch lookup)
+  rpc GetStudentsByIds (GetStudentsByIdsRequest) returns (GetStudentsByIdsResponse);
 }
 
 message ValidatePermissionRequest {
@@ -43,6 +46,7 @@ message GetStudentSummaryResponse {
   double study_hours_day = 5;
   bool exists = 6;
   string campus_name = 7;
+  string full_name = 8;
 }
 
 message LinkParentRequest {
@@ -67,5 +71,13 @@ message StudentSummaryItem {
 }
 
 message GetParentStudentsResponse {
+  repeated StudentSummaryItem students = 1;
+}
+
+message GetStudentsByIdsRequest {
+  repeated string student_ids = 1;
+}
+
+message GetStudentsByIdsResponse {
   repeated StudentSummaryItem students = 1;
 }

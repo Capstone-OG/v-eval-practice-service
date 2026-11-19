@@ -40,6 +40,11 @@ public interface IClassEnrollmentRepository
         Guid classId,
         CancellationToken ct = default);
 
+    Task<V_Eval_Practice_Service.Application.Features.Classes.DTOs.EnrollOrTransferStudentResponseDto?> EnrollOrTransferStudentToClassAsync(
+        Guid targetClassId,
+        Guid studentId,
+        CancellationToken ct = default);
+
     Task<int> SaveChangesAsync(
         CancellationToken ct = default);
 }

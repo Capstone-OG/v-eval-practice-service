@@ -26,11 +26,35 @@ public class AssignTeacherCommandHandler : IRequestHandler<AssignTeacherCommand,
         AssignTeacherCommand request,
         CancellationToken cancellationToken)
     {
+        if (request.TeacherId == Guid.Empty)
+        {
+            return Result<AssignTeacherResponseDto>.Failure(
+                Error.Validation("Class.InvalidTeacher", "Vui lòng chọn giáo viên phụ trách hợp lệ"));
+        }
+
         var targetClass = await _classEnrollmentRepository.GetClassByIdAsync(request.ClassId, cancellationToken);
         if (targetClass == null)
         {
             return Result<AssignTeacherResponseDto>.Failure(
                 Error.NotFound("Class.NotFound", $"Không tìm thấy lớp học cơ sở với ID {request.ClassId}."));
+        }
+
+        if (request.ManagerCampusId.HasValue &&
+            request.ManagerCampusId.Value != Guid.Empty &&
+            request.ManagerCampusId.Value != targetClass.CampusId)
+        {
+            return Result<AssignTeacherResponseDto>.Failure(
+                Error.Forbidden("Class.CampusAccessDenied",
+                    "403 Access Denied - Bạn chỉ có quyền quản lý cơ sở được phân công."));
+        }
+
+        if (request.TeacherCampusId.HasValue &&
+            request.TeacherCampusId.Value != Guid.Empty &&
+            request.TeacherCampusId.Value != targetClass.CampusId)
+        {
+            return Result<AssignTeacherResponseDto>.Failure(
+                Error.Validation("Class.CrossCampusTeacher",
+                    "Không thể phân công giảng viên thuộc cơ sở khác phụ trách lớp học tại cơ sở này."));
         }
 
         targetClass.TeacherId = request.TeacherId;

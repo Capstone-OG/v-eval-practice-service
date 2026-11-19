@@ -13,5 +13,15 @@ public class AutoClusterThematicClassesCommandValidator : AbstractValidator<Auto
         RuleFor(x => x.MaxK)
             .InclusiveBetween(2, 10)
             .WithMessage("MaxK phải nằm trong khoảng từ 2 đến 10.");
+
+        RuleFor(x => x.MinCapacity)
+            .GreaterThanOrEqualTo(5)
+            .WithMessage("Sĩ số tối thiểu của một lớp chuyên đề không được nhỏ hơn 5 học sinh.");
+
+        RuleFor(x => x.MaxCapacity)
+            .LessThanOrEqualTo(20)
+            .WithMessage("Trần sĩ số tối đa của một lớp chuyên đề không được vượt quá 20 học sinh.")
+            .GreaterThanOrEqualTo(x => x.MinCapacity)
+            .WithMessage("Trần sĩ số tối đa phải lớn hơn hoặc bằng sĩ số tối thiểu.");
     }
 }

@@ -7,7 +7,8 @@ public enum ErrorType
     NotFound = 2,
     Conflict = 3,
     Unauthorized = 4,
-    Forbidden = 5
+    Forbidden = 5,
+    UnprocessableEntity = 6
 }
 
 public record Error(string Code, string Description, ErrorType Type = ErrorType.Failure)
@@ -21,4 +22,5 @@ public record Error(string Code, string Description, ErrorType Type = ErrorType.
     public static Error Conflict(string code, string description) => new(code, description, ErrorType.Conflict);
     public static Error Unauthorized(string code, string description) => new(code, description, ErrorType.Unauthorized);
     public static Error Forbidden(string code, string description) => new(code, description, ErrorType.Forbidden);
+    public static Error UnprocessableEntity(string code, string description) => new(code, description, ErrorType.UnprocessableEntity);
 }

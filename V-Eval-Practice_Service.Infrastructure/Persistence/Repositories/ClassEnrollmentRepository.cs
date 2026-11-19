@@ -224,6 +224,139 @@ public class ClassEnrollmentRepository : IClassEnrollmentRepository
             .ToListAsync(ct);
     }
 
+    public async Task<V_Eval_Practice_Service.Application.Features.Classes.DTOs.EnrollOrTransferStudentResponseDto?> EnrollOrTransferStudentToClassAsync(
+        Guid targetClassId,
+        Guid studentId,
+        CancellationToken ct = default)
+    {
+        const int MaxCapacity = 20;
+        var requestedClass = await _context.Classes.FirstOrDefaultAsync(c => c.ClassId == targetClassId, ct);
+        if (requestedClass == null)
+        {
+            return null;
+        }
+
+        // Kiểm tra xem học sinh đã nằm trong chính lớp này chưa
+        var existingInSameClass = await _context.ClassEnrollments
+            .FirstOrDefaultAsync(e => e.ClassId == targetClassId && e.StudentId == studentId && e.Status == "ENROLLED", ct);
+
+        int currentCount = await _context.ClassEnrollments
+            .CountAsync(e => e.ClassId == targetClassId && e.Status == "ENROLLED", ct);
+
+        if (existingInSameClass != null)
+        {
+            return new V_Eval_Practice_Service.Application.Features.Classes.DTOs.EnrollOrTransferStudentResponseDto
+            {
+                RequestedClassId = targetClassId,
+                FinalClassId = requestedClass.ClassId,
+                FinalClassName = requestedClass.Name,
+                StudentId = studentId,
+                CurrentEnrolledCount = currentCount,
+                MaxCapacity = MaxCapacity,
+                IsFull = currentCount >= MaxCapacity,
+                OverflowedToNewCohort = false,
+                Message = $"Học sinh đã được ghi danh trong lớp {requestedClass.Name} ({currentCount}/{MaxCapacity})."
+            };
+        }
+
+        Class destinationClass = requestedClass;
+        bool overflowed = false;
+
+        // Nếu lớp yêu cầu đã đầy 20/20 -> Tự động tràn (Overflow) sang lớp kế tiếp (Cohort 02) theo MGR_02 / BR-21
+        if (currentCount >= MaxCapacity)
+        {
+            overflowed = true;
+            string basePrefix = System.Text.RegularExpressions.Regex.Replace(requestedClass.Name, @"\s+\d{2}$", "").Trim();
+            var siblingClasses = await _context.Classes
+                .Where(c => c.CampusId == requestedClass.CampusId &&
+                            c.Status == "ACTIVE" &&
+                            c.ClassType == requestedClass.ClassType &&
+                            c.Name.StartsWith(basePrefix))
+                .OrderBy(c => c.CreatedAt)
+                .ToListAsync(ct);
+
+            var siblingIds = siblingClasses.Select(c => c.ClassId).ToList();
+            var countsMap = await _context.ClassEnrollments
+                .Where(e => siblingIds.Contains(e.ClassId) && e.Status == "ENROLLED")
+                .GroupBy(e => e.ClassId)
+                .Select(g => new { ClassId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.ClassId, x => x.Count, ct);
+
+            var availableSibling = siblingClasses.FirstOrDefault(
+                c => c.ClassId != targetClassId && countsMap.GetValueOrDefault(c.ClassId, 0) < MaxCapacity);
+
+            if (availableSibling != null)
+            {
+                destinationClass = availableSibling;
+            }
+            else
+            {
+                int nextCohortNum = siblingClasses.Count + 1;
+                destinationClass = new Class
+                {
+                    ClassId = Guid.NewGuid(),
+                    CampusId = requestedClass.CampusId,
+                    Name = $"{basePrefix} {nextCohortNum:D2}",
+                    Status = "ACTIVE",
+                    ClassType = requestedClass.ClassType,
+                    DomainId = requestedClass.DomainId,
+                    DomainCode = requestedClass.DomainCode,
+                    TeacherId = requestedClass.TeacherId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _context.Classes.AddAsync(destinationClass, ct);
+                await _context.SaveChangesAsync(ct);
+            }
+        }
+
+        // Chuyển lớp nếu học sinh đang ở một lớp khác cùng loại hoặc thêm mới
+        var existingEnrollment = await _context.ClassEnrollments
+            .Include(e => e.Class)
+            .FirstOrDefaultAsync(e => e.StudentId == studentId && e.Status == "ENROLLED", ct);
+
+        if (existingEnrollment != null)
+        {
+            existingEnrollment.ClassId = destinationClass.ClassId;
+            existingEnrollment.EnrolledAt = DateTime.UtcNow;
+        }
+        else
+        {
+            await _context.ClassEnrollments.AddAsync(new ClassEnrollment
+            {
+                EnrollmentId = Guid.NewGuid(),
+                ClassId = destinationClass.ClassId,
+                StudentId = studentId,
+                Status = "ENROLLED",
+                EnrolledAt = DateTime.UtcNow
+            }, ct);
+        }
+
+        await _context.SaveChangesAsync(ct);
+
+        int finalCount = await _context.ClassEnrollments
+            .CountAsync(e => e.ClassId == destinationClass.ClassId && e.Status == "ENROLLED", ct);
+        bool isFullNow = finalCount >= MaxCapacity;
+
+        string msg = overflowed
+            ? $"Lớp {requestedClass.Name} đã đạt trần 20/20 học sinh (FULL). Hệ thống đã tự động mở và chuyển học sinh thứ 21 sang {destinationClass.Name} ({finalCount}/{MaxCapacity})."
+            : isFullNow
+                ? $"Đã xếp học sinh vào lớp {destinationClass.Name}. Lớp đã chạm ngưỡng đầy sĩ số FULL ({finalCount}/{MaxCapacity})."
+                : $"Đã xếp học sinh vào lớp {destinationClass.Name} ({finalCount}/{MaxCapacity}) thành công.";
+
+        return new V_Eval_Practice_Service.Application.Features.Classes.DTOs.EnrollOrTransferStudentResponseDto
+        {
+            RequestedClassId = targetClassId,
+            FinalClassId = destinationClass.ClassId,
+            FinalClassName = destinationClass.Name,
+            StudentId = studentId,
+            CurrentEnrolledCount = finalCount,
+            MaxCapacity = MaxCapacity,
+            IsFull = isFullNow,
+            OverflowedToNewCohort = overflowed,
+            Message = msg
+        };
+    }
+
     public async Task<int> SaveChangesAsync(
         CancellationToken ct = default)
     {

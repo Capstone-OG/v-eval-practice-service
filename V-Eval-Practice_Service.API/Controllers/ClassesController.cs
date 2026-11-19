@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using V_Eval_Practice_Service.API.Controllers.Base;
+using V_Eval_Practice_Service.Application.Common.Interfaces.Repositories;
 using V_Eval_Practice_Service.Application.Common.Interfaces.Services;
 using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.Classes.Commands.AssignGroupWorksheet;
@@ -28,10 +29,14 @@ namespace V_Eval_Practice_Service.API.Controllers;
 public class ClassesController : ApiControllerBase
 {
     private readonly IScheduleService _scheduleService;
+    private readonly IClassEnrollmentRepository _classEnrollmentRepository;
 
-    public ClassesController(IScheduleService scheduleService)
+    public ClassesController(
+        IScheduleService scheduleService,
+        IClassEnrollmentRepository classEnrollmentRepository)
     {
         _scheduleService = scheduleService;
+        _classEnrollmentRepository = classEnrollmentRepository;
     }
 
     /// <summary>
@@ -88,6 +93,7 @@ public class ClassesController : ApiControllerBase
     [HttpPut("{classId:guid}/assign-teacher")]
     [ProducesResponseType(typeof(AssignTeacherResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> AssignTeacher(Guid classId, [FromBody] AssignTeacherRequestDto request)
     {
@@ -97,14 +103,67 @@ public class ClassesController : ApiControllerBase
             assignedBy = parsedId;
         }
 
+        Guid? managerCampusId = request.ManagerCampusId;
+        if (!managerCampusId.HasValue && Request.Headers.TryGetValue("X-Campus-Id", out var campusHeader) && Guid.TryParse(campusHeader, out var parsedCampusId))
+        {
+            managerCampusId = parsedCampusId;
+        }
+
         var command = new AssignTeacherCommand(
             ClassId: classId,
             TeacherId: request.TeacherId,
-            AssignedBy: assignedBy
+            AssignedBy: assignedBy,
+            TeacherCampusId: request.TeacherCampusId,
+            ManagerCampusId: managerCampusId
         );
 
         var result = await Mediator.Send(command);
         return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Ghi danh hoặc điều chuyển thủ công một học sinh vào lớp cụ thể, tự động kiểm soát trần 20 học sinh/lớp và tràn sang lớp mới (Cohort 02) cho học sinh thứ 21 (MGR_02, MGR_04, MGR_13)
+    /// </summary>
+    [HttpPost("{classId:guid}/enroll-student")]
+    [ProducesResponseType(typeof(EnrollOrTransferStudentResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> EnrollOrTransferStudent(
+        Guid classId,
+        [FromBody] EnrollOrTransferStudentRequestDto request,
+        CancellationToken ct = default)
+    {
+        if (request == null || request.StudentId == Guid.Empty)
+        {
+            return HandleResult(Result<EnrollOrTransferStudentResponseDto>.Failure(
+                Error.Validation("Class.InvalidStudentId", "Vui lòng chọn mã học sinh hợp lệ để xếp lớp.")));
+        }
+
+        var targetClass = await _classEnrollmentRepository.GetClassByIdAsync(classId, ct);
+        if (targetClass == null)
+        {
+            return HandleResult(Result<EnrollOrTransferStudentResponseDto>.Failure(
+                Error.NotFound("Class.NotFound", $"Không tìm thấy lớp học cơ sở với ID {classId}.")));
+        }
+
+        if (request.ManagerCampusId.HasValue &&
+            request.ManagerCampusId.Value != Guid.Empty &&
+            request.ManagerCampusId.Value != targetClass.CampusId)
+        {
+            return HandleResult(Result<EnrollOrTransferStudentResponseDto>.Failure(
+                Error.Forbidden("Class.CampusAccessDenied",
+                    "403 Access Denied - Bạn chỉ có quyền quản lý cơ sở được phân công.")));
+        }
+
+        var res = await _classEnrollmentRepository.EnrollOrTransferStudentToClassAsync(classId, request.StudentId, ct);
+        if (res == null)
+        {
+            return HandleResult(Result<EnrollOrTransferStudentResponseDto>.Failure(
+                Error.NotFound("Class.NotFound", $"Không tìm thấy lớp học cơ sở với ID {classId}.")));
+        }
+
+        return HandleResult(Result<EnrollOrTransferStudentResponseDto>.Success(res));
     }
 
     /// <summary>
@@ -113,17 +172,23 @@ public class ClassesController : ApiControllerBase
     /// <remarks>
     /// - Quét toàn bộ hồ sơ năng lực P(L0) 4 miền của học sinh tại cơ sở.
     /// - Tự động chạy Elbow Method chọn số lượng lớp K tối ưu.
-    /// - Chạy K-Means gom học sinh vào các lớp chuyên đề (ClassType = 1) và ghi danh tự động.
+    /// - Chạy K-Means gom học sinh vào các lớp chuyên đề (ClassType = 1) và ghi danh tự động (hoặc xem trước khi DryRun = true).
     /// </remarks>
     [HttpPost("auto-cluster")]
     [ProducesResponseType(typeof(AutoClusterResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> AutoClusterThematicClasses([FromBody] AutoClusterRequestDto request)
     {
         var command = new AutoClusterThematicClassesCommand(
             CampusId: request.CampusId,
-            MaxK: request.MaxK
+            MaxK: request.MaxK,
+            MinCapacity: request.MinCapacity > 0 ? request.MinCapacity : 5,
+            MaxCapacity: request.MaxCapacity > 0 ? request.MaxCapacity : 20,
+            DryRun: request.DryRun,
+            ManagerCampusId: request.ManagerCampusId
         );
 
         var result = await Mediator.Send(command);
