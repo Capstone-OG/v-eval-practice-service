@@ -20,6 +20,9 @@ service IdentityGrpc {
 
   // 5. Lấy hồ sơ giáo viên phụ trách (Họ tên, SĐT, Email, Chuyên môn) cho Cổng Phụ huynh (Core Flow 5)
   rpc GetTeacherProfile (GetTeacherProfileRequest) returns (GetTeacherProfileResponse);
+
+  // 6. Lấy danh sách học sinh theo danh sách ID (Batch lookup)
+  rpc GetStudentsByIds (GetStudentsByIdsRequest) returns (GetStudentsByIdsResponse);
 }
 
 message ValidatePermissionRequest {
@@ -47,6 +50,7 @@ message GetStudentSummaryResponse {
   bool exists = 6;
   string campus_name = 7;
   string school_name = 8;
+  string full_name = 9;
 }
 
 message LinkParentRequest {
@@ -88,4 +92,12 @@ message GetTeacherProfileResponse {
   string email = 5;
   string specialty = 6;
   string campus_name = 7;
+}
+
+message GetStudentsByIdsRequest {
+  repeated string student_ids = 1;
+}
+
+message GetStudentsByIdsResponse {
+  repeated StudentSummaryItem students = 1;
 }

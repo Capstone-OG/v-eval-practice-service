@@ -357,7 +357,22 @@ public class ScheduleService : IScheduleService
                     return Result.Failure<ClassOverviewDto>(
                         Error.Validation("Schedule.InvalidSlot", $"Khung giờ Thứ ({slot.DayOfWeek}) Ca {slot.SlotNo} không hợp lệ."));
                 }
+            }
 
+            var conflictResult = await CheckWeeklySchedulesConflictAsync(
+                request.CampusId,
+                null,
+                request.TeacherId,
+                request.WeeklySchedules,
+                ct);
+
+            if (conflictResult != null && !conflictResult.IsSuccess)
+            {
+                return Result.Failure<ClassOverviewDto>(conflictResult.Error);
+            }
+
+            foreach (var slot in request.WeeklySchedules)
+            {
                 var schedule = new ClassSchedule
                 {
                     ScheduleId = Guid.NewGuid(),
@@ -396,6 +411,103 @@ public class ScheduleService : IScheduleService
         return Result.Success(MapToClassOverviewDto(loaded));
     }
 
+    private async Task<Result?> CheckWeeklySchedulesConflictAsync(
+        Guid campusId,
+        Guid? currentClassId,
+        Guid? teacherId,
+        IReadOnlyList<ClassScheduleSlotInputDto> newSlots,
+        CancellationToken ct)
+    {
+        if (newSlots == null || newSlots.Count == 0)
+        {
+            return null;
+        }
+
+        // 1. Kiểm tra xung đột nội bộ giữa các slot trong chính danh sách yêu cầu
+        for (int i = 0; i < newSlots.Count; i++)
+        {
+            var s1 = newSlots[i];
+            var d1 = NormalizeDayOfWeek(s1.DayOfWeek);
+            var room1 = (s1.Room ?? string.Empty).Trim();
+
+            for (int j = i + 1; j < newSlots.Count; j++)
+            {
+                var s2 = newSlots[j];
+                var d2 = NormalizeDayOfWeek(s2.DayOfWeek);
+                var room2 = (s2.Room ?? string.Empty).Trim();
+
+                if (d1 == d2 && s1.StartTime < s2.EndTime && s2.StartTime < s1.EndTime)
+                {
+                    if (!string.IsNullOrEmpty(room1) && !string.IsNullOrEmpty(room2) &&
+                        string.Equals(room1, room2, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return Result.Failure(Error.Conflict(
+                            "Schedule.RoomConflict",
+                            $"Trùng phòng trong danh sách ca học: Phòng '{room1}' bị xếp 2 lần vào {GetVietnameseDayOfWeekLabel(d1)} ({s1.StartTime:HH\\:mm}-{s1.EndTime:HH\\:mm} và {s2.StartTime:HH\\:mm}-{s2.EndTime:HH\\:mm})."));
+                    }
+
+                    return Result.Failure(Error.Conflict(
+                        "Schedule.TimeConflict",
+                        $"Trùng khung giờ trong danh sách ca học vào {GetVietnameseDayOfWeekLabel(d1)}: Ca {s1.SlotNo} ({s1.StartTime:HH\\:mm}-{s1.EndTime:HH\\:mm}) chồng lấn với Ca {s2.SlotNo} ({s2.StartTime:HH\\:mm}-{s2.EndTime:HH\\:mm})."));
+                }
+            }
+        }
+
+        // 2. Tải tất cả lớp học đang hoạt động tại cùng cơ sở kèm lịch tuần đang active
+        var otherClassesQuery = _context.Classes
+            .AsNoTracking()
+            .Include(c => c.Schedules)
+            .Where(c => c.CampusId == campusId && c.Status != "CANCELLED" && c.Status != "DELETED");
+
+        if (currentClassId.HasValue && currentClassId.Value != Guid.Empty)
+        {
+            otherClassesQuery = otherClassesQuery.Where(c => c.ClassId != currentClassId.Value);
+        }
+
+        var otherClasses = await otherClassesQuery.ToListAsync(ct);
+
+        foreach (var newSlot in newSlots)
+        {
+            var newDow = NormalizeDayOfWeek(newSlot.DayOfWeek);
+            var newRoom = (newSlot.Room ?? string.Empty).Trim();
+
+            foreach (var otherClass in otherClasses)
+            {
+                var activeSchedules = (otherClass.Schedules ?? Enumerable.Empty<ClassSchedule>())
+                    .Where(s => s.IsActive && NormalizeDayOfWeek(s.DayOfWeek) == newDow);
+
+                foreach (var existingSchedule in activeSchedules)
+                {
+                    bool isTimeOverlap = newSlot.StartTime < existingSchedule.EndTime && existingSchedule.StartTime < newSlot.EndTime;
+                    if (!isTimeOverlap)
+                    {
+                        continue;
+                    }
+
+                    // A. Kiểm tra xung đột phòng học (Room conflict) cùng cơ sở
+                    if (!string.IsNullOrEmpty(newRoom) && !string.IsNullOrEmpty(existingSchedule.Room) &&
+                        string.Equals(newRoom, existingSchedule.Room.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return Result.Failure(Error.Conflict(
+                            "Schedule.RoomConflict",
+                            $"Xung đột phòng học: Phòng '{newRoom}' đã được xếp cho lớp '{otherClass.Name}' vào {GetVietnameseDayOfWeekLabel(newDow)} ({existingSchedule.StartTime:HH\\:mm} - {existingSchedule.EndTime:HH\\:mm}). Vui lòng chọn phòng học hoặc khung giờ khác."));
+                    }
+
+                    // B. Kiểm tra xung đột lịch giảng viên (Teacher conflict)
+                    if (teacherId.HasValue && teacherId.Value != Guid.Empty &&
+                        otherClass.TeacherId.HasValue && otherClass.TeacherId.Value == teacherId.Value)
+                    {
+                        return Result.Failure(Error.Conflict(
+                            "Schedule.TeacherConflict",
+                            $"Xung đột lịch giảng dạy: Giảng viên đã có lịch dạy lớp '{otherClass.Name}' vào {GetVietnameseDayOfWeekLabel(newDow)} ({existingSchedule.StartTime:HH\\:mm} - {existingSchedule.EndTime:HH\\:mm}). Vui lòng chọn giảng viên hoặc khung giờ khác."));
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
     public async Task<Result<IReadOnlyList<ClassScheduleSlotDto>>> SaveClassSchedulesAsync(
         Guid classId,
         SaveClassSchedulesRequestDto request,
@@ -424,6 +536,18 @@ public class ScheduleService : IScheduleService
                 return Result.Failure<IReadOnlyList<ClassScheduleSlotDto>>(
                     Error.Validation("Schedule.InvalidSlot", $"Ca học Thứ ({slot.DayOfWeek}) Ca {slot.SlotNo} có thời gian không hợp lệ."));
             }
+        }
+
+        var conflictResult = await CheckWeeklySchedulesConflictAsync(
+            cls.CampusId,
+            cls.ClassId,
+            cls.TeacherId,
+            request.Slots,
+            ct);
+
+        if (conflictResult != null && !conflictResult.IsSuccess)
+        {
+            return Result.Failure<IReadOnlyList<ClassScheduleSlotDto>>(conflictResult.Error);
         }
 
         // Deactivate old schedules or update matching (DayOfWeek, SlotNumber)

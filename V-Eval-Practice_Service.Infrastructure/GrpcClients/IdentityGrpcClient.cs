@@ -116,4 +116,43 @@ public class IdentityGrpcClient : IIdentityGrpcClient
             return (false, string.Empty, string.Empty, string.Empty, string.Empty);
         }
     }
+
+    public async Task<System.Collections.Generic.Dictionary<Guid, string>> GetStudentNamesAsync(
+        System.Collections.Generic.IEnumerable<Guid> studentIds,
+        CancellationToken ct = default)
+    {
+        var result = new System.Collections.Generic.Dictionary<Guid, string>();
+        var idList = System.Linq.Enumerable.ToList(System.Linq.Enumerable.Distinct(studentIds));
+        if (!idList.Any()) return result;
+
+        try
+        {
+            using var channel = GrpcChannel.ForAddress(_serviceUrl);
+            var client = new IdentityGrpc.IdentityGrpcClient(channel);
+
+            var req = new GetStudentsByIdsRequest();
+            foreach (var sid in idList)
+            {
+                req.StudentIds.Add(sid.ToString());
+            }
+
+            var response = await client.GetStudentsByIdsAsync(req, cancellationToken: ct);
+            if (response?.Students != null)
+            {
+                foreach (var s in response.Students)
+                {
+                    if (Guid.TryParse(s.StudentId, out var parsedGuid) && !string.IsNullOrWhiteSpace(s.Name))
+                    {
+                        result[parsedGuid] = s.Name;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Identity gRPC] Không thể lấy tên học sinh cho {Count} IDs từ {Url}.", idList.Count, _serviceUrl);
+        }
+
+        return result;
+    }
 }
