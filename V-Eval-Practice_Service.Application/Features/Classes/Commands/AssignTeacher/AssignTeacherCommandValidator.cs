@@ -10,6 +10,6 @@ public class AssignTeacherCommandValidator : AbstractValidator<AssignTeacherComm
             .NotEmpty().WithMessage("ClassId không được để trống.");
 
         RuleFor(x => x.TeacherId)
-            .NotEmpty().WithMessage("TeacherId không được để trống.");
+            .NotEmpty().WithMessage("Vui lòng chọn giáo viên phụ trách hợp lệ");
     }
 }

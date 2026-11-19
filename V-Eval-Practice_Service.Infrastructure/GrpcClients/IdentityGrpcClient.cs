@@ -45,7 +45,7 @@ public class IdentityGrpcClient : IIdentityGrpcClient
         }
     }
 
-    public async Task<System.Collections.Generic.List<(Guid StudentId, string Name, string Email, string CampusId)>> GetParentStudentsAsync(
+    public async Task<System.Collections.Generic.List<(Guid StudentId, string Name, string Email, string CampusId, string SchoolName, int TargetScore)>> GetParentStudentsAsync(
         Guid parentId,
         CancellationToken ct = default)
     {
@@ -60,7 +60,7 @@ public class IdentityGrpcClient : IIdentityGrpcClient
             };
 
             var response = await client.GetParentStudentsAsync(request, cancellationToken: ct);
-            var result = new System.Collections.Generic.List<(Guid StudentId, string Name, string Email, string CampusId)>();
+            var result = new System.Collections.Generic.List<(Guid StudentId, string Name, string Email, string CampusId, string SchoolName, int TargetScore)>();
 
             if (response?.Students != null)
             {
@@ -68,7 +68,14 @@ public class IdentityGrpcClient : IIdentityGrpcClient
                 {
                     if (Guid.TryParse(item.StudentId, out var sId))
                     {
-                        result.Add((sId, item.Name, item.Email, item.CampusId));
+                        result.Add((
+                            sId,
+                            item.Name,
+                            item.Email,
+                            item.CampusId,
+                            !string.IsNullOrWhiteSpace(item.SchoolName) ? item.SchoolName : string.Empty,
+                            item.TargetScore > 0 ? item.TargetScore : 0
+                        ));
                     }
                 }
             }
@@ -78,7 +85,74 @@ public class IdentityGrpcClient : IIdentityGrpcClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "[Identity gRPC] Không thể lấy danh sách học sinh cho Phụ huynh {ParentId}.", parentId);
-            return new System.Collections.Generic.List<(Guid StudentId, string Name, string Email, string CampusId)>();
+            return new System.Collections.Generic.List<(Guid StudentId, string Name, string Email, string CampusId, string SchoolName, int TargetScore)>();
         }
+    }
+
+    public async Task<(bool Exists, string FullName, string Phone, string Email, string Specialty)> GetTeacherProfileAsync(
+        Guid teacherId,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var channel = GrpcChannel.ForAddress(_serviceUrl);
+            var client = new IdentityGrpc.IdentityGrpcClient(channel);
+
+            var request = new GetTeacherProfileRequest
+            {
+                TeacherId = teacherId.ToString()
+            };
+
+            var response = await client.GetTeacherProfileAsync(request, cancellationToken: ct);
+            if (response != null && response.Exists)
+            {
+                return (true, response.FullName, response.Phone, response.Email, response.Specialty);
+            }
+            return (false, string.Empty, string.Empty, string.Empty, string.Empty);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Identity gRPC] Không thể lấy hồ sơ giáo viên cho TeacherId {TeacherId}.", teacherId);
+            return (false, string.Empty, string.Empty, string.Empty, string.Empty);
+        }
+    }
+
+    public async Task<System.Collections.Generic.Dictionary<Guid, string>> GetStudentNamesAsync(
+        System.Collections.Generic.IEnumerable<Guid> studentIds,
+        CancellationToken ct = default)
+    {
+        var result = new System.Collections.Generic.Dictionary<Guid, string>();
+        var idList = System.Linq.Enumerable.ToList(System.Linq.Enumerable.Distinct(studentIds));
+        if (!idList.Any()) return result;
+
+        try
+        {
+            using var channel = GrpcChannel.ForAddress(_serviceUrl);
+            var client = new IdentityGrpc.IdentityGrpcClient(channel);
+
+            var req = new GetStudentsByIdsRequest();
+            foreach (var sid in idList)
+            {
+                req.StudentIds.Add(sid.ToString());
+            }
+
+            var response = await client.GetStudentsByIdsAsync(req, cancellationToken: ct);
+            if (response?.Students != null)
+            {
+                foreach (var s in response.Students)
+                {
+                    if (Guid.TryParse(s.StudentId, out var parsedGuid) && !string.IsNullOrWhiteSpace(s.Name))
+                    {
+                        result[parsedGuid] = s.Name;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Identity gRPC] Không thể lấy tên học sinh cho {Count} IDs từ {Url}.", idList.Count, _serviceUrl);
+        }
+
+        return result;
     }
 }

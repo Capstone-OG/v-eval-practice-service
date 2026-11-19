@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
+using V_Eval_Practice_Service.Application.Common.Interfaces;
 using V_Eval_Practice_Service.Application.Common.Interfaces.Repositories;
 using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.EarlyWarnings.DTOs;
@@ -15,15 +16,18 @@ public class GetAlertsDashboardQueryHandler : IRequestHandler<GetAlertsDashboard
     private readonly ISystemAlertRepository _alertRepository;
     private readonly IClassEnrollmentRepository _classEnrollmentRepository;
     private readonly IScorePredictionRepository _predictionRepository;
+    private readonly IIdentityGrpcClient _identityGrpcClient;
 
     public GetAlertsDashboardQueryHandler(
         ISystemAlertRepository alertRepository,
         IClassEnrollmentRepository classEnrollmentRepository,
-        IScorePredictionRepository predictionRepository)
+        IScorePredictionRepository predictionRepository,
+        IIdentityGrpcClient identityGrpcClient)
     {
         _alertRepository = alertRepository;
         _classEnrollmentRepository = classEnrollmentRepository;
         _predictionRepository = predictionRepository;
+        _identityGrpcClient = identityGrpcClient;
     }
 
     public async Task<Result<EarlyWarningsDashboardResponseDto>> Handle(
@@ -62,6 +66,21 @@ public class GetAlertsDashboardQueryHandler : IRequestHandler<GetAlertsDashboard
                 ct: cancellationToken);
         }
 
+        // 2b. Tự động nâng cấp cảnh báo Cấp 2 (YELLOW) tồn đọng quá 7 ngày chưa xử lý lên Cấp 3 (RED - TIER_3_CRITICAL) theo MGR_19 / BR-24
+        var escalationCutoff = DateTime.UtcNow.AddDays(-7);
+        foreach (var staleAlert in allAlerts.Where(a =>
+                     a.ResolvedAt == null &&
+                     a.AlertType.Equals("YELLOW", StringComparison.OrdinalIgnoreCase) &&
+                     a.CreatedAt <= escalationCutoff))
+        {
+            staleAlert.AlertType = "RED";
+            if (!staleAlert.Message.Contains("[TIER_3_CRITICAL", StringComparison.OrdinalIgnoreCase))
+            {
+                staleAlert.Message = $"[TIER_3_CRITICAL - Tự động nâng cấp do quá hạn 7 ngày] {staleAlert.Message}";
+            }
+            await _alertRepository.UpdateAsync(staleAlert, cancellationToken);
+        }
+
         // 3. Áp dụng bộ lọc IsResolved và AlertType cho danh sách chi tiết
         var filtered = allAlerts.AsEnumerable();
         if (query.IsResolved == true)
@@ -79,7 +98,13 @@ public class GetAlertsDashboardQueryHandler : IRequestHandler<GetAlertsDashboard
             filtered = filtered.Where(a => a.AlertType.Equals(normType, StringComparison.OrdinalIgnoreCase));
         }
 
-        var filteredList = filtered.ToList();
+        // 3b. Khử trùng lặp: Mỗi học sinh chỉ giữ lại 1 cảnh báo mới nhất cho mỗi phân loại cảnh báo
+        var filteredList = filtered
+            .GroupBy(a => new { a.StudentId, a.AlertType })
+            .Select(g => g.OrderByDescending(a => a.CreatedAt).First())
+            .OrderByDescending(a => a.CreatedAt)
+            .ToList();
+
         var studentIds = filteredList.Select(a => a.StudentId).Distinct().ToList();
 
         // 4. Lấy điểm dự báo mới nhất của từng học sinh để bổ sung ngữ cảnh cho Mentor
@@ -93,14 +118,21 @@ public class GetAlertsDashboardQueryHandler : IRequestHandler<GetAlertsDashboard
             }
         }
 
+        // 4b. Truy vấn họ tên học sinh thực tế từ Identity Service qua gRPC (Không hardcode)
+        var studentNamesDict = await _identityGrpcClient.GetStudentNamesAsync(studentIds, cancellationToken);
+
         var alertItems = filteredList.Select(a =>
         {
             predictionsDict.TryGetValue(a.StudentId, out var p);
+            var studentName = studentNamesDict.TryGetValue(a.StudentId, out var resolvedName) && !string.IsNullOrWhiteSpace(resolvedName)
+                ? resolvedName
+                : $"Học sinh {a.StudentId.ToString()[..8].ToUpperInvariant()}";
+
             return new AlertDashboardItemDto
             {
                 AlertId = a.AlertId,
                 StudentId = a.StudentId,
-                StudentName = $"Học sinh {a.StudentId.ToString()[..8].ToUpperInvariant()}",
+                StudentName = studentName,
                 AlertType = a.AlertType,
                 Message = a.Message,
                 IsRead = a.IsRead,

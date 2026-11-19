@@ -19,6 +19,7 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
     private readonly IStudentActivityRepository _activityRepo;
     private readonly IClassHeatmapRepository _heatmapRepo;
     private readonly IClassHeatmapAggregatorService _aggregatorService;
+    private readonly IClassEnrollmentRepository _classEnrollmentRepo;
     private readonly ILogger<GetParentDashboardQueryHandler> _logger;
 
     public GetParentDashboardQueryHandler(
@@ -26,12 +27,14 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
         IStudentActivityRepository activityRepo,
         IClassHeatmapRepository heatmapRepo,
         IClassHeatmapAggregatorService aggregatorService,
+        IClassEnrollmentRepository classEnrollmentRepo,
         ILogger<GetParentDashboardQueryHandler> logger)
     {
         _identityGrpcClient = identityGrpcClient;
         _activityRepo = activityRepo;
         _heatmapRepo = heatmapRepo;
         _aggregatorService = aggregatorService;
+        _classEnrollmentRepo = classEnrollmentRepo;
         _logger = logger;
     }
 
@@ -55,7 +58,44 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
         {
             var studentId = student.StudentId;
 
-            // 2. Lấy hoặc tính toán Chỉ số sẵn sàng thi (Readiness Metric R_exam)
+            // 2. Truy vấn lớp học thực tế của học sinh từ ClassEnrollments
+            var enrollment = await _classEnrollmentRepo.GetEnrollmentByStudentIdAsync(studentId, ct);
+            var enrolledClass = enrollment?.Class;
+
+            // Xác định Khối lớp thật
+            string grade = !string.IsNullOrWhiteSpace(enrolledClass?.Name)
+                ? enrolledClass.Name
+                : "Chưa phân lớp";
+
+            // Xác định Trường THPT thật
+            string school = !string.IsNullOrWhiteSpace(student.SchoolName)
+                ? student.SchoolName
+                : (!string.IsNullOrWhiteSpace(student.CampusId) ? $"Cơ sở {student.CampusId}" : "Chưa cập nhật");
+
+            // Xác định Ngành mục tiêu thực tế theo TargetScore
+            string targetMajor = student.TargetScore > 0
+                ? $"Mục tiêu xét tuyển ĐGNL ({student.TargetScore} điểm)"
+                : "Chưa thiết lập mục tiêu";
+
+            // 3. Truy vấn giảng viên phụ trách thực tế từ Class -> TeacherId -> Identity Service
+            string teacherName = "Chưa có giáo viên phụ trách";
+            string teacherPhone = "Chưa có";
+
+            var teacherGuid = enrolledClass?.TeacherId;
+            if (teacherGuid.HasValue && teacherGuid.Value != Guid.Empty)
+            {
+                var teacherProfile = await _identityGrpcClient.GetTeacherProfileAsync(teacherGuid.Value, ct);
+                if (teacherProfile.Exists && !string.IsNullOrWhiteSpace(teacherProfile.FullName))
+                {
+                    teacherName = teacherProfile.FullName;
+                    if (!string.IsNullOrWhiteSpace(teacherProfile.Phone))
+                    {
+                        teacherPhone = teacherProfile.Phone;
+                    }
+                }
+            }
+
+            // 4. Lấy hoặc tính toán Chỉ số sẵn sàng thi (Readiness Metric R_exam)
             var metric = await _activityRepo.GetReadinessMetricAsync(studentId, ct);
             if (metric == null)
             {
@@ -71,7 +111,7 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
                 ConsistencyScore: metric?.ConsistencyScore ?? 0.0
             );
 
-            // 3. Tính toán kỷ luật tự học tuần (Weekly Disciplines)
+            // 5. Tính toán kỷ luật tự học tuần (Weekly Disciplines)
             double studyHours = await _activityRepo.CalculateStudyHoursInPastDaysAsync(studentId, 7, ct);
             if (studyHours < 0) studyHours = 0;
 
@@ -90,7 +130,7 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
                 CompletionStatus: completionStatus
             );
 
-            // 4. Sinh cảnh báo AI thông minh dành riêng cho phụ huynh theo dữ liệu thực
+            // 6. Sinh cảnh báo AI thông minh dành riêng cho phụ huynh theo dữ liệu thực
             var aiAlerts = new List<AiParentAlertDto>();
             if (metric != null && metric.ExamReadinessIndex >= 80)
             {
@@ -120,11 +160,11 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
             childrenList.Add(new ChildAnalyticsDto(
                 StudentId: studentId,
                 StudentName: student.Name,
-                Grade: "Học viên V-Eval",
-                School: string.IsNullOrWhiteSpace(student.CampusId) ? "Hệ thống Khảo thí V-Eval" : $"Cơ sở {student.CampusId}",
-                TargetMajor: "Đại học",
-                AssignedTeacherName: "Cố vấn Học tập",
-                TeacherContactPhone: "1900 8889",
+                Grade: grade,
+                School: school,
+                TargetMajor: targetMajor,
+                AssignedTeacherName: teacherName,
+                TeacherContactPhone: teacherPhone,
                 ExamReadiness: readinessDto,
                 WeeklyDisciplines: disciplinesDto,
                 AiParentAlerts: aiAlerts

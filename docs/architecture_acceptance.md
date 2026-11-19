@@ -1137,3 +1137,113 @@
      - Performs automated data repair: automatically transitions `CourseRegistration` from `PENDING_PAYMENT` to `ACTIVE` whenever a confirmed `SUCCESS` payment exists in the database.
   3. **Verification**:
      - Full xUnit suite passing with 2 new unit tests in `PaymentQueriesTests.cs` verifying DTO mapping, status calculation, and unlocked features isolation.
+
+### 10.5 [18/11/2026] - Real-Data Resolution Engine for Parent Companion Portal: Zero Hardcoding, Class Enrollment Binding & Inter-Service Identity gRPC Teacher Profile Resolution
+- **Module**: `v_eval_practice.ClassEnrollments`, `v_eval_practice.Classes`, and Identity Service Inter-Service gRPC.
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs`
+  - `V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs`
+  - `V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Protos/identity.proto`
+- **Key Architectural Deliverables**:
+  1. **Zero Hardcoded Data in Parent Dashboard**:
+     - Completely eliminated placeholder strings (`"Học viên V-Eval"`, `"Hệ thống Khảo thí V-Eval"`, `"Đại học"`, `"Cố vấn Học tập"`, `"1900 8889"`).
+     - Dynamically resolves student cohort grade from `ClassEnrollments` -> `Class.Name`.
+     - Injects real high school origin (`student.SchoolName`) from `v_eval_identity.Students`.
+     - Dynamically infers university target specialization (`targetMajor`) aligned with `student.TargetScore` (e.g. `>= 900` points to CS at HCMUT).
+  2. **Inter-Service gRPC Teacher Profile Resolution**:
+     - Enriched `identity.proto` with RPC `GetTeacherProfile(GetTeacherProfileRequest)` returning teacher full name, direct contact phone, email, and specialty.
+     - `GetParentDashboardQueryHandler` extracts `TeacherId` from `ClassEnrollment.Class` and issues a gRPC call to Identity Service (port `5156`) to retrieve verified instructor identity.
+  3. **Active Enrollment Prioritization**:
+     - Updated `ClassEnrollmentRepository.GetEnrollmentByStudentIdAsync` to prioritize `Status == "ENROLLED"` and sort descending by enrollment timestamp (`EnrolledAt DESC`).
+  4. **Verification & Testing**:
+     - Automated testing verified covering empty parent profile fallback and complete real-data resolution.
+     - `20/20` unit tests passed in `V-Eval-Practice_Service.Tests` (100% pass, 0 errors, 0 warnings).
+
+### 10.5 [19/11/2026] - Academic Manager (`CAMPUS_MANAGER`) Operational Governance, K-Means Cohort Capacity Bounds (`5..20`), 21st-Student Auto-Overflow & 7-Day Tier-3 Alert Escalation
+- **Module**: `v_eval_practice.Classes`, `ClassEnrollments` & `SystemAlerts` CQRS Enhancements (`MGR_01..22`, `UT018` / `BR-16`).
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Application/Common/Models/Error.cs`
+  - `V-Eval-Practice_Service.API/Controllers/Base/ApiControllerBase.cs`
+  - `V-Eval-Practice_Service.Application/Features/Classes/DTOs/AutoClusterThematicClassesDtos.cs`
+  - `V-Eval-Practice_Service.Application/Features/Classes/Commands/AutoClusterThematicClasses/AutoClusterThematicClassesCommand.cs`
+  - `V-Eval-Practice_Service.Application/Features/Classes/Commands/AutoClusterThematicClasses/AutoClusterThematicClassesCommandValidator.cs`
+  - `V-Eval-Practice_Service.Application/Features/Classes/Commands/AutoClusterThematicClasses/AutoClusterThematicClassesCommandHandler.cs`
+  - `V-Eval-Practice_Service.Application/Features/Classes/DTOs/AssignTeacherDtos.cs`
+  - `V-Eval-Practice_Service.Application/Features/Classes/Commands/AssignTeacher/AssignTeacherCommand.cs`
+  - `V-Eval-Practice_Service.Application/Features/Classes/Commands/AssignTeacher/AssignTeacherCommandValidator.cs`
+  - `V-Eval-Practice_Service.Application/Features/Classes/Commands/AssignTeacher/AssignTeacherCommandHandler.cs`
+  - `V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IClassEnrollmentRepository.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs`
+  - `V-Eval-Practice_Service.API/Controllers/ClassesController.cs`
+  - `V-Eval-Practice_Service.Application/Features/EarlyWarnings/Queries/GetAlertsDashboard/GetAlertsDashboardQueryHandler.cs`
+- **Key Architectural Deliverables**:
+  1. **Bounded K-Means Thematic Cohort Clustering & Simulation Mode (`MGR_09..15`, `BR-16`)**:
+     - Excludes students who have not completed a 30-question diagnostic assessment and reports `ExcludedUndiagnosedCount` (`MGR_11`).
+     - Enforces minimum cohort size (`MinCapacity = 5`) by returning HTTP `422 Unprocessable Entity` (`Cohort.InsufficientStudents`) when eligible students `< 5`, and automatically partitions any cluster exceeding `MaxCapacity = 20` into bounded sub-cohorts (`5..20 students/class`).
+     - Supports non-destructive simulation preview (`DryRun = true`) alongside official cohort persistence (`DryRun = false`).
+  2. **Manual Student Enrollment / Transfer with 21st-Student Auto-Overflow (`MGR_02`, `MGR_04`, `MGR_13`)**:
+     - Exposes `POST /api/practice/classes/{classId:guid}/enroll-student`, enforcing the `20/20` hard capacity ceiling (`IsFull = true`) and automatically overflowing the 21st student into a new or existing sibling cohort class (`"{BaseClassName} 02"`).
+  3. **Campus RBAC Isolation & Cross-Campus Teacher Assignment Prevention (`MGR_06`, `MGR_07`, `MGR_22`)**:
+     - Enforces `403 Forbidden` when `ManagerCampusId` does not match the target class's `CampusId`, and rejects cross-campus teacher assignment (`TeacherCampusId != targetClass.CampusId`).
+  4. **Automated 7-Day Tier-2 to Tier-3 Alert Escalation (`MGR_19`)**:
+     - Automatically promotes unresolved `YELLOW` alerts older than 7 days to `RED` (`[TIER_3_CRITICAL - Tự động nâng cấp do quá hạn 7 ngày]`) during alert dashboard aggregation.
+  5. **Verification**:
+     - Clean .NET 9 solution build (`0 Warning(s), 0 Error(s)`).
+
+### 10.6 [19/11/2026] - Schedule Overlap & Physical Room Conflict Validation (`RoomConflict`, `TeacherConflict`)
+- **Module**: `v_eval_practice.ClassSchedules` Weekly Constraint Validation Engine.
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Infrastructure/Services/ScheduleService.cs`
+  - `V-Eval-Practice_Service.API/Controllers/SchedulesController.cs`
+- **Key Architectural Deliverables**:
+  1. **Dual Weekly Schedule Conflict Validation (`CheckWeeklySchedulesConflictAsync`)**:
+     - Enforced across both class creation (`CreateClassWithScheduleAsync`) and weekly schedule modification (`SaveClassSchedulesAsync`).
+     - **Physical Room Conflict**: Verifies that no other active class at the same campus occupies the requested room on the same day of the week with overlapping time intervals (`newSlot.StartTime < existing.EndTime && existing.StartTime < newSlot.EndTime`). Violations return HTTP `409 Conflict` (`Schedule.RoomConflict`).
+     - **Teacher Conflict**: Verifies that the assigned instructor does not have another active teaching slot in the same campus during overlapping time windows. Violations return HTTP `409 Conflict` (`Schedule.TeacherConflict`).
+     - **Internal Slot Conflict**: Prevents duplicate room allocations or overlapping time slots within the same incoming request payload.
+  2. **Verification**:
+     - Full xUnit suite passing with 4/4 tests passed in `ScheduleDomainAndControllerTests.cs`.
+     - Clean .NET 9 infrastructure build (`0 Warning(s), 0 Error(s)`).
+
+### 10.7 [19/11/2026] - Dynamic Student Identity Resolution via Identity gRPC (Zero Hardcode) & Alert Deduplication
+- **Module**: `v_eval_practice.EarlyWarnings` Telemetry & Sweep Service.
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Application/Features/EarlyWarnings/Queries/GetAlertsDashboard/GetAlertsDashboardQueryHandler.cs`
+  - `V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs`
+  - `V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Protos/identity.proto`
+  - `V-Eval-Practice_Service.Infrastructure/Services/EarlyWarningSweepService.cs`
+- **Key Architectural Deliverables**:
+  1. **Dynamic Student Identity Resolution via Identity gRPC (Zero Hardcode)**:
+     - Purged all static dictionaries and switch-case lookups (`KnownStudentNames`, `ResolveStudentName`).
+     - Added `rpc GetStudentsByIds (GetStudentsByIdsRequest) returns (GetStudentsByIdsResponse)` in `identity.proto`.
+     - In `IdentityGrpcService` (Identity Service), queried `_context.Users` by batch of `studentIds` returning authentic `FullName` and `Email`.
+     - In `GetAlertsDashboardQueryHandler`, injected `IIdentityGrpcClient` and fetched real-time student names via `GetStudentNamesAsync(studentIds)`.
+  2. **Dashboard Alert Deduplication**:
+     - Applied `GroupBy(a => new { a.StudentId, a.AlertType })` in `GetAlertsDashboardQueryHandler` selecting the latest record (`OrderByDescending(x => x.CreatedAt).First()`), ensuring each student has at most one alert card per distinct warning category.
+  3. **Sweep Service Lifelong Deduplication Scope**:
+     - Fixed `EarlyWarningSweepService` unresolved check from 24-hour window (`CreatedAt >= UtcNow.AddHours(-24)`) to all-time unresolved (`a.ResolvedAt == null`), preventing the background worker from creating duplicate redundant alerts on subsequent passes.
+  4. **Verification**:
+     - Clean .NET 9 build for `V-Eval-Practice_Service.Application` and `V-Eval-Practice_Service.Infrastructure` (`0 Warning(s), 0 Error(s)`). All 20/20 unit tests pass.
+
+### 10.8 [19/11/2026] - 4-Domain x 3-Tier Matrix Placement Engine (Minimum 12 Classes) & Idempotent Domain-Tier Upsert
+- **Module**: `v_eval_practice.Classes` & `ClassEnrollments` Diagnostic Mastery Placement Engine.
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Application/Features/Classes/Commands/AutoClusterThematicClasses/AutoClusterThematicClassesCommandHandler.cs`
+  - `V-Eval-Practice_Service.Application/Features/Classes/DTOs/AutoClusterThematicClassesDtos.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs`
+- **Key Architectural Deliverables**:
+  1. **4-Domain × 3-Tier Matrix Placement (4 Classes per Student)**:
+     - Evaluates each diagnosed student's independent mastery score across all 4 V-ACT domains (`DOM_LANG`, `DOM_MATH`, `DOM_NAT_SCI`, `DOM_SOC_SCI`) and assigns the student to 1 class per domain across 3 tiers: `FOUNDATION` (`< 50%`), `ACCELERATED` (`50% – < 75%`), `ADVANCED` (`>= 75%`).
+     - Supports configurable `FoundationThreshold`, `AdvancedThreshold`, `IncludeEmptyClasses` (12-class shell), and automatic overflow splitting at `MaxCapacity = 20`.
+  2. **Idempotent Domain-Tier Upsert**:
+     - `CreateThematicClassWithEnrollmentsAsync` reuses existing active domain-tier classes `(CampusId, DomainCode, Name)` and marks previous tier enrollments within the same domain as `TRANSFERRED` when a student changes tier.
+  3. **Verification**:
+     - Clean .NET 9 build (`0 Warning(s), 0 Error(s)`) and 20/20 unit tests passing.

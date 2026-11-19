@@ -23,6 +23,11 @@ public interface IClassEnrollmentRepository
         Guid campusId,
         CancellationToken ct = default);
 
+    Task<IReadOnlyList<(Guid ClassId, string ClassName, string DomainCode, List<Guid> StudentIds)>>
+        GetActiveDomainClassesWithStudentsAsync(
+            Guid campusId,
+            CancellationToken ct = default);
+
     Task<Class> CreateThematicClassWithEnrollmentsAsync(
         Guid campusId,
         string name,
@@ -38,6 +43,11 @@ public interface IClassEnrollmentRepository
 
     Task<IReadOnlyList<ClassEnrollment>> GetEnrollmentsByClassIdAsync(
         Guid classId,
+        CancellationToken ct = default);
+
+    Task<V_Eval_Practice_Service.Application.Features.Classes.DTOs.EnrollOrTransferStudentResponseDto?> EnrollOrTransferStudentToClassAsync(
+        Guid targetClassId,
+        Guid studentId,
         CancellationToken ct = default);
 
     Task<int> SaveChangesAsync(

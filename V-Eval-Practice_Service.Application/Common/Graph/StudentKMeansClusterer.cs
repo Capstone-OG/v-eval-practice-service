@@ -77,14 +77,11 @@ public class StudentKMeansClusterer : IStudentKMeansClusterer
             return (1, elbow1, singleCluster);
         }
 
-        // Tự động giới hạn Kmax thích ứng theo N học sinh (tối đa N/3 để mỗi lớp có ít nhất 3 học sinh)
-        int adaptiveMaxK = Math.Min(maxK, Math.Max(2, n / 3));
-        if (adaptiveMaxK > n)
-        {
-            adaptiveMaxK = n;
-        }
-
+        // Tự động giới hạn Kmax thích ứng theo N học sinh
+        int adaptiveMaxK = Math.Min(maxK, Math.Max(1, n));
         int effectiveMinK = Math.Min(minK, adaptiveMaxK);
+        if (effectiveMinK < 1) effectiveMinK = 1;
+        if (adaptiveMaxK < effectiveMinK) adaptiveMaxK = effectiveMinK;
 
         var elbowData = new List<ElbowDataPoint>();
         var clusterCandidates = new Dictionary<int, List<ClusterResult>>();
@@ -304,7 +301,7 @@ public class StudentKMeansClusterer : IStudentKMeansClusterer
     /// <summary>
     /// Tính bình phương khoảng cách Euclidean giữa 2 vector
     /// </summary>
-    private static double DistanceSquared(double[] a, double[] b)
+    public static double DistanceSquared(double[] a, double[] b)
     {
         double sum = 0.0;
         int len = Math.Min(a.Length, b.Length);
@@ -357,7 +354,7 @@ public class StudentKMeansClusterer : IStudentKMeansClusterer
     /// <summary>
     /// Phân tích vector trọng tâm (Centroid) để xác định lỗ hổng kiến thức nổi trội và đặt tên Lớp Chuyên Đề
     /// </summary>
-    private static (List<string> WeakDomains, string ClassName, Guid? DomainId, string? DomainCode) AnalyzeCentroid(double[] centroid)
+    public static (List<string> WeakDomains, string ClassName, Guid? DomainId, string? DomainCode) AnalyzeCentroid(double[] centroid)
     {
         if (centroid == null || centroid.Length < 4)
         {
