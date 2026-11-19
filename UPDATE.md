@@ -1,17 +1,26 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [16/11/2026] - Mở Rộng Hợp Đồng API Gia Sư Socratic Tiếp Nhận & Chuyển Tiếp Lịch Sử Hội Thoại Đa Lượt Sang AI Engine & Đồng Bộ Phân Hệ Lịch Học, Học Phí Thực Tế
+## [19/11/2026] - Khử Trùng Lặp Cảnh Báo Sớm, Truy Vấn Động Họ Tên Học Sinh Từ Identity Service Qua gRPC (Zero Hardcode) & Ràng Buộc Xung Đột Phòng Học / Lịch Giảng Dạy
 
-- **Mở Rộng DTO & Hợp Đồng Client AI Tutor ([`IAiTutorClient.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/IAiTutorClient.cs))**:
-  - Khai báo record DTO mới: `ConversationTurnDto(string Role, string? Text, string? Option = null)`.
-  - Bổ sung thuộc tính `List<ConversationTurnDto>? ConversationHistory = null` vào `SocraticAskRequestPayload`.
-  - Cho phép serialization tự động với chuẩn snake_case `conversation_history` sang FastAPI RAG Service.
-- **Tiếp Nhận & Chuyển Tiếp Lịch Sử Hội Thoại Trong Controller ([`AiTutorController.cs`](./V-Eval-Practice_Service.API/Controllers/AiTutorController.cs))**:
-  - Mở rộng model `AskTutorRequest` tiếp nhận trường `List<ConversationTurnDto>? ConversationHistory = null`.
-  - Trong phương thức stream `AskTutorStream` (`POST /api/practice/ai-tutor/ask-stream`), ánh xạ trực tiếp `ConversationHistory: request.ConversationHistory` vào lời gọi `_aiTutorClient.GetSocraticStreamAsync`.
-  - Trong phương thức đồng bộ `AskTutor` (`POST /api/practice/ai-tutor/ask`), ánh xạ trực tiếp `ConversationHistory: request.ConversationHistory` vào `_aiTutorClient.AskSocraticJsonAsync`.
-- **Đồng Bộ Phân Hệ Lịch Học, Điểm Danh, Học Phí & Radar Chart / Skill Priors**:
-  - Tích hợp đầy đủ các aggregate roots `AcademicTerms`, `Courses`, `Classes`, `Schedules` và tra cứu học phí thực tế từ PayOS.
-  - Bổ sung `RadarChart` và `SkillPriors` tính toán trực tiếp từ dữ liệu bài nộp cho `GetDiagnosticSubmissionById` và `SubmitDiagnosticCommandHandler`.
+- **Triệt Tiêu 100% Hardcode Họ Tên Học Sinh - Kết Nối Động Qua gRPC Identity Service ([`GetAlertsDashboardQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/Queries/GetAlertsDashboard/GetAlertsDashboardQueryHandler.cs), [`IIdentityGrpcClient.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs), [`IdentityGrpcClient.cs`](./V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs), [`identity.proto`](./V-Eval-Practice_Service.Infrastructure/Protos/identity.proto))**:
+  - *Xóa bỏ toàn bộ từ điển và switch-case tên cố định*: Gỡ bỏ hoàn toàn `KnownStudentNames` và `ResolveStudentName` chứa danh sách GUID/tên học sinh tĩnh.
+  - *Mở rộng hợp đồng gRPC `GetStudentsByIds`*: Bổ sung phương thức `rpc GetStudentsByIds (GetStudentsByIdsRequest) returns (GetStudentsByIdsResponse)` trong `identity.proto`.
+  - *Triển khai truy vấn động theo batch trong `IdentityGrpcClient`*: Phương thức `GetStudentNamesAsync(studentIds)` gửi danh sách `student_ids` sang `Identity Service (:5155)` để truy xuất trực tiếp bảng `iam.users` (`FullName`, `Email`), trả về `Dictionary<Guid, string>`.
+  - *Khử trùng lặp bản ghi cảnh báo trong Dashboard*: Áp dụng `GroupBy(a => new { a.StudentId, a.AlertType })` và chọn bản ghi cảnh báo mới nhất (`OrderByDescending(x => x.CreatedAt).First()`), loại bỏ hoàn toàn tình trạng một học sinh bị lặp lại nhiều thẻ cảnh báo giống hệt nhau.
+  - *Sửa điều kiện Background Sweep Service*: Thay đổi điều kiện quét cảnh báo chưa giải quyết thành `a.ResolvedAt == null` trên toàn bộ lịch sử (thay vì chỉ trong 24 giờ qua), triệt tiêu hoàn toàn lỗi tạo ra bản ghi trùng lặp định kỳ cho cùng một học sinh khi cảnh báo cũ chưa được đóng.
+- **Triển Khai Cơ Chế Kiểm Tra Ràng Buộc & Chặn Xung Đột Lịch Học Tuần (`RoomConflict` & `TeacherConflict` - [`ScheduleService.cs`](./V-Eval-Practice_Service.Infrastructure/Services/ScheduleService.cs))**:
+  - Bổ sung hàm kiểm tra xung đột `CheckWeeklySchedulesConflictAsync` vào cả 2 luồng: `CreateClassWithScheduleAsync` (mở lớp mới) và `SaveClassSchedulesAsync` (cập nhật khung lịch tuần).
+  - **Xung đột Phòng học (`RoomConflict`)**: Kiểm tra toàn bộ các lớp active trong cùng cơ sở (`CampusId`), cùng thứ trong tuần (`DayOfWeek`), và khung giờ chồng lấn (`newSlot.StartTime < existing.EndTime && existing.StartTime < newSlot.EndTime`). Nếu trùng phòng $\rightarrow$ trả về `409 Conflict` kèm thông báo chi tiết: *"Xung đột phòng học: Phòng '[Room]' đã được xếp cho lớp '[Tên lớp]' vào [Thứ] ([Bắt đầu] - [Kết thúc])."*
+  - **Xung đột Giảng viên (`TeacherConflict`)**: Kiểm tra cùng giảng viên (`TeacherId`), cùng thứ và khung giờ chồng lấn $\rightarrow$ trả về `409 Conflict` chi tiết.
+  - **Xung đột nội bộ ca học**: Chặn ngay các ca học trùng lặp phòng hoặc chồng lấn thời gian trong cùng một yêu cầu xếp lịch.
+- **Chuẩn Hóa Thuật Toán Phân Cụm Lớp Chuyên Đề K-Means 4 Miền & Chế Độ Mô Phỏng Xem Trước (`MGR_09..15`, `UT018` / `BR-16` - [`AutoClusterThematicClassesDtos.cs`](./V-Eval-Practice_Service.Application/Features/Classes/DTOs/AutoClusterThematicClassesDtos.cs), [`AutoClusterThematicClassesCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Classes/Commands/AutoClusterThematicClasses/AutoClusterThematicClassesCommandHandler.cs), [`StudentKMeansClusterer.cs`](./V-Eval-Practice_Service.Application/Common/Graph/StudentKMeansClusterer.cs))**:
+  - Hỗ trợ `MinCapacity = 5`, `MaxCapacity = 20`, `DryRun`, `ManagerCampusId`, tự động loại trừ học sinh chưa làm bài khảo sát 30 câu (`ExcludedUndiagnosedCount`).
+  - Trả về `422 Unprocessable Entity` (`Cohort.InsufficientStudents`) khi số học sinh đủ điều kiện `< 5`.
+  - Giới hạn số cụm khả thi theo sĩ số: Tính `maxFeasibleK = studentVectors.Count / MinCapacity`. Tự động gom vào 1 lớp duy nhất `OptimalK = 1` nếu sĩ số chỉ đủ 1 lớp.
+  - Cơ chế tự cân bằng cụm (`RebalanceUndersizedClusters`): Sáp nhập các cụm `< 5` HS vào cụm có tâm gần nhất, đảm bảo 100% lớp đạt sĩ số $\ge 5$ HS.
+- **Triển Khai API Xếp / Chuyển Học Sinh Thủ Công & Tự Động Tràn Lớp 20/20 (`MGR_02`, `MGR_04`, `MGR_13` - [`ClassesController.cs`](./V-Eval-Practice_Service.API/Controllers/ClassesController.cs), [`ClassEnrollmentRepository.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ClassEnrollmentRepository.cs))**:
+  - Bổ sung endpoint `POST /api/practice/classes/{classId:guid}/enroll-student` đánh dấu `IsFull = true` khi đạt `20/20` và tự động tràn học sinh thứ 21 sang lớp chuyên đề song song mới (`"{BaseClassName} 02"`).
+- **Ràng Buộc Phân Quyền Cơ Sở RBAC, Chặn Phân Công Giáo Viên Khác Cơ Sở & Tự Động Nâng Cấp Cảnh Báo Cấp 3 Sau 7 Ngày (`MGR_06`, `MGR_07`, `MGR_19`, `MGR_22` - [`AssignTeacherCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Classes/Commands/AssignTeacher/AssignTeacherCommandHandler.cs), [`GetAlertsDashboardQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/Queries/GetAlertsDashboard/GetAlertsDashboardQueryHandler.cs))**:
+  - Kiểm tra `TeacherCampusId` khớp cơ sở của lớp học, chặn thao tác chéo cơ sở `403 Forbidden`, và tự động nâng cấp cảnh báo `YELLOW` chưa xử lý quá 7 ngày lên `RED` (`[TIER_3_CRITICAL - Tự động nâng cấp do quá hạn 7 ngày]`).
 - **Kiểm Thử & Nghiệm Thu**:
-  - Biên dịch toàn bộ solution `V-Eval-Practice_Service.sln` (.NET 9 SDK) sạch **0 Warning, 0 Error**.
+  - Toàn bộ solution `V-Eval-Practice_Service.sln` (.NET 9 SDK) biên dịch sạch **0 Warning, 0 Error**. Unit tests pass 20/20 (100%).

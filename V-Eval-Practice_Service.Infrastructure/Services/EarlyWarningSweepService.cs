@@ -118,10 +118,10 @@ public class EarlyWarningSweepService : IEarlyWarningSweepService
                 double readinessIndex = readiness?.ExamReadinessIndex ?? 0.0;
                 string readinessTier = readiness?.ReadinessTier ?? "PREPARING";
 
-                // Lấy các cảnh báo chưa xử lý gần đây của học sinh này (trong vòng 24h) để chống sinh trùng lặp
+                // Lấy các cảnh báo chưa xử lý của học sinh này để chống sinh trùng lặp
                 var existingAlerts = await _alertRepository.GetByStudentIdAsync(studentId, unreadOnly: false, alertType: null, ct);
                 var recentUnresolved = existingAlerts
-                    .Where(a => a.ResolvedAt == null && a.CreatedAt >= DateTime.UtcNow.AddHours(-24))
+                    .Where(a => a.ResolvedAt == null)
                     .ToList();
 
                 SystemAlert? candidateAlert = null;

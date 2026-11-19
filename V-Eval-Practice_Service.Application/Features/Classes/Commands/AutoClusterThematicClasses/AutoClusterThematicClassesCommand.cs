@@ -7,5 +7,9 @@ namespace V_Eval_Practice_Service.Application.Features.Classes.Commands.AutoClus
 
 public record AutoClusterThematicClassesCommand(
     Guid CampusId,
-    int MaxK = 8
+    int MaxK = 8,
+    int MinCapacity = 5,
+    int MaxCapacity = 20,
+    bool DryRun = false,
+    Guid? ManagerCampusId = null
 ) : IRequest<Result<AutoClusterResponseDto>>;

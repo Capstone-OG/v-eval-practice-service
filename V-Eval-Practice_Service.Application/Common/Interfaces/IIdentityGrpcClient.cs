@@ -8,4 +8,5 @@ public interface IIdentityGrpcClient
 {
     Task<(bool Exists, string? CampusId, string? CampusName, int TargetScore)> GetStudentProfileAsync(Guid studentId, CancellationToken ct = default);
     Task<System.Collections.Generic.List<(Guid StudentId, string Name, string Email, string CampusId)>> GetParentStudentsAsync(Guid parentId, CancellationToken ct = default);
+    Task<System.Collections.Generic.Dictionary<Guid, string>> GetStudentNamesAsync(System.Collections.Generic.IEnumerable<Guid> studentIds, CancellationToken ct = default);
 }
