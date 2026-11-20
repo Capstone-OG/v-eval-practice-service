@@ -1247,3 +1247,22 @@
      - `CreateThematicClassWithEnrollmentsAsync` reuses existing active domain-tier classes `(CampusId, DomainCode, Name)` and marks previous tier enrollments within the same domain as `TRANSFERRED` when a student changes tier.
   3. **Verification**:
      - Clean .NET 9 build (`0 Warning(s), 0 Error(s)`) and 20/20 unit tests passing.
+
+
+### 10.9 [20/11/2026] - Flagged Mock Exam Proctoring Review API (Core Flow 3 - BR-20)
+- **Module**: `v_eval_practice.MockExamSubmissions` Academic Integrity & Proctoring Reviews.
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.API/Controllers/MockExamsController.cs`
+  - `V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IMockExamRepository.cs`
+  - `V-Eval-Practice_Service.Application/Features/MockExams/DTOs/FlaggedMockExamDto.cs`
+  - `V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetFlaggedSubmissions/GetFlaggedSubmissionsQuery.cs`
+  - `V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetFlaggedSubmissions/GetFlaggedSubmissionsQueryHandler.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/MockExamRepository.cs`
+- **Key Architectural Deliverables**:
+  1. **Flagged Submissions Queue Endpoint**:
+     - Endpoint `GET /api/practice/mock-exams/flagged-reviews?classId={classId}` returns all mock exam attempts with integrity irregularities (`IntegrityStatus` IN `FLAGGED_FOR_REVIEW`, `UNDER_REVIEW`, or `TabDepartureCount > 3`).
+  2. **Audit Trail Persistence & Retrieval**:
+     - `MockExamRepository.GetFlaggedSubmissionsAsync` queries PostgreSQL schema `v_eval_practice."MockExamSubmissions"` joining submission status, departure counts, and proctoring audit trails.
+  3. **Verification**:
+     - Clean .NET 9 build (`0 Warning(s), 0 Error(s)`). All architectural requirements accepted.
