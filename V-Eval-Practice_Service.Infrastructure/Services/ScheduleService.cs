@@ -242,6 +242,110 @@ public class ScheduleService : IScheduleService
         ));
     }
 
+    public async Task<Result<CourseSummaryDto>> UpdateCourseAsync(
+        Guid courseId,
+        UpdateCourseRequestDto request,
+        CancellationToken ct = default)
+    {
+        var course = await _context.Courses.FirstOrDefaultAsync(c => c.CourseId == courseId, ct);
+        if (course == null)
+        {
+            return Result.Failure<CourseSummaryDto>(
+                Error.NotFound("Schedule.CourseNotFound", $"Không tìm thấy khóa học với ID '{courseId}'."));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Code))
+        {
+            var normalizedCode = request.Code.Trim().ToUpperInvariant();
+            if (!string.Equals(course.Code, normalizedCode, StringComparison.OrdinalIgnoreCase))
+            {
+                var duplicate = await _context.Courses.AnyAsync(c => c.Code == normalizedCode && c.CourseId != courseId, ct);
+                if (duplicate)
+                {
+                    return Result.Failure<CourseSummaryDto>(
+                        Error.Conflict("Schedule.DuplicateCourseCode", $"Mã khóa học '{normalizedCode}' đã tồn tại."));
+                }
+                course.Code = normalizedCode;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Name))
+        {
+            course.Name = request.Name.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.PlanType))
+        {
+            course.PlanType = request.PlanType.Trim().ToUpperInvariant();
+        }
+
+        if (request.DurationWeeks.HasValue && request.DurationWeeks.Value > 0)
+        {
+            course.DurationWeeks = request.DurationWeeks.Value;
+        }
+
+        if (request.TuitionFee.HasValue && request.TuitionFee.Value >= 0)
+        {
+            course.TuitionFee = request.TuitionFee.Value;
+        }
+
+        if (request.MaxClassSize.HasValue && request.MaxClassSize.Value > 0)
+        {
+            course.MaxClassSize = Math.Min(20, request.MaxClassSize.Value);
+        }
+
+        if (request.IsActive.HasValue)
+        {
+            course.IsActive = request.IsActive.Value;
+        }
+
+        await _context.SaveChangesAsync(ct);
+
+        var classCount = await _context.Classes.CountAsync(cl => cl.CourseId == courseId, ct);
+
+        return Result.Success(new CourseSummaryDto(
+            CourseId: course.CourseId,
+            CampusId: course.CampusId,
+            Code: course.Code,
+            Name: course.Name,
+            PlanType: course.PlanType,
+            DurationWeeks: course.DurationWeeks,
+            TuitionFee: course.TuitionFee,
+            RetakePolicy: course.RetakePolicy,
+            RetakeFee: course.RetakeFee,
+            MaxClassSize: course.MaxClassSize,
+            IsActive: course.IsActive,
+            TotalClassesCount: classCount,
+            CreatedAt: course.CreatedAt
+        ));
+    }
+
+    public async Task<Result<string>> DeleteCourseAsync(
+        Guid courseId,
+        CancellationToken ct = default)
+    {
+        var course = await _context.Courses.FirstOrDefaultAsync(c => c.CourseId == courseId, ct);
+        if (course == null)
+        {
+            return Result.Failure<string>(
+                Error.NotFound("Schedule.CourseNotFound", $"Không tìm thấy khóa học với ID '{courseId}'."));
+        }
+
+        var hasClasses = await _context.Classes.AnyAsync(cl => cl.CourseId == courseId, ct);
+        var hasRegistrations = await _context.CourseRegistrations.AnyAsync(r => r.CourseId == courseId, ct);
+
+        if (hasClasses || hasRegistrations)
+        {
+            course.IsActive = false;
+            await _context.SaveChangesAsync(ct);
+            return Result.Success($"Khóa học '{course.Name}' đã có lớp/học viên đăng ký nên đã được chuyển sang trạng thái Ngừng mở (ẩn khỏi Cổng Học phí).");
+        }
+
+        _context.Courses.Remove(course);
+        await _context.SaveChangesAsync(ct);
+        return Result.Success($"Đã xóa khóa học '{course.Name}' thành công.");
+    }
+
     // =========================================================================
     // 3. CLASSES & WEEKLY SCHEDULES (LỚP HỌC THEO KỲ/KHÓA & KHUNG LỊCH TUẦN)
     // =========================================================================
