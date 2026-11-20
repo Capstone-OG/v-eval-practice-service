@@ -24,6 +24,21 @@ public class SkillDiagnosticDto
     public string SkillName { get; set; } = string.Empty;
     public string DomainId { get; set; } = string.Empty;
     public string DomainName { get; set; } = string.Empty;
+    public string DomainCode { get; set; } = string.Empty;
+    public string SubjectName { get; set; } = string.Empty;
+    public string ChapterName { get; set; } = string.Empty;
+    public string LessonName { get; set; } = string.Empty;
+    public int TotalQuestions { get; set; }
+    public int CorrectCount { get; set; }
+    public double AccuracyPercentage { get; set; }
+    public bool IsWeak { get; set; }
+}
+
+public class SubjectDiagnosticDto
+{
+    public string SubjectName { get; set; } = string.Empty;
+    public string DomainCode { get; set; } = string.Empty;
+    public string DomainName { get; set; } = string.Empty;
     public int TotalQuestions { get; set; }
     public int CorrectCount { get; set; }
     public double AccuracyPercentage { get; set; }
@@ -61,6 +76,10 @@ public class QuestionResultDto
     public string SkillName { get; set; } = string.Empty;
     public string DomainId { get; set; } = string.Empty;
     public string DomainName { get; set; } = string.Empty;
+    public string DomainCode { get; set; } = string.Empty;
+    public string SubjectName { get; set; } = string.Empty;
+    public string ChapterName { get; set; } = string.Empty;
+    public string LessonName { get; set; } = string.Empty;
     public int DifficultyLevel { get; set; }
     public string Content { get; set; } = string.Empty;
     public List<string> Options { get; set; } = new();
@@ -88,8 +107,9 @@ public class SubmitDiagnosticResponseDto
     public string CampusId { get; set; } = string.Empty;
     public string CampusName { get; set; } = string.Empty;
 
-    // Diagnostic breakdown by Skill & Difficulty
+    // Diagnostic breakdown by Skill, Subject & Difficulty
     public List<SkillDiagnosticDto> SkillBreakdowns { get; set; } = new();
+    public List<SubjectDiagnosticDto> SubjectBreakdowns { get; set; } = new();
     public List<string> WeakSkillIds { get; set; } = new();
     public List<WeakSkillDto> WeakSkills { get; set; } = new();
     public List<DifficultyBreakdownDto> DifficultyBreakdowns { get; set; } = new();

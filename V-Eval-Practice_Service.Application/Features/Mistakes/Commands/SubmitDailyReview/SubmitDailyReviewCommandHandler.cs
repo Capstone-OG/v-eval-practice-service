@@ -40,10 +40,14 @@ public class SubmitDailyReviewCommandHandler : IRequestHandler<SubmitDailyReview
         string correctOpt = "A";
         string explanation = "Áp dụng định nghĩa và tính chất cơ sở của dạng bài để tìm ra đáp án đúng.";
 
-        // 1. Tra cứu đáp án và lời giải thật từ Content Service nếu có
+        // 1. Tra cứu đáp án và lời giải thật của ĐÚNG câu hỏi biến thể đang ôn tập (ReviewQuestionId ?? item.QuestionId)
         try
         {
-            var questionDetail = await _contentGrpcClient.GetQuestionDetailAsync(item.QuestionId, ct);
+            Guid targetQuestionId = request.Request.ReviewQuestionId.HasValue && request.Request.ReviewQuestionId.Value != Guid.Empty
+                ? request.Request.ReviewQuestionId.Value
+                : item.QuestionId;
+
+            var questionDetail = await _contentGrpcClient.GetQuestionDetailAsync(targetQuestionId, ct);
             if (questionDetail != null && questionDetail.Options.Count > 0)
             {
                 var correctObj = questionDetail.Options.FirstOrDefault(o => o.IsCorrect);

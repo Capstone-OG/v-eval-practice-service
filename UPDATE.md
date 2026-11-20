@@ -1,19 +1,11 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [19/11/2026] - Nâng Cấp Xếp Lớp Ma Trận 4 Miền × 3 Cấp Bậc & Chuẩn Hóa Phân Giải Thực Thể Động
+## [21/11/2026] - Hotfix Pha Apply (Pha A): Khắc Phục Triệt Để Hiện Tượng Cấp Phát Sai Môn Học / Sai Dạng Bài Trong Chu Trình PLAR
 
-- **Chuẩn Hóa Phân Giải Thực Thể Động & Dữ Liệu Khóa Học Cho Cổng Phụ Huynh ([`GetParentDashboardQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs), [`IdentityGrpcClient.cs`](./V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs))**:
-  - Truy vấn 100% dữ liệu trường THPT thật từ Identity Service gRPC (`item.SchoolName`), hiển thị `"Chưa cập nhật trường THPT"` hoặc tên cơ sở đào tạo thay vì gán tên trường cố định.
-  - Phân giải lớp học thực tế từ bảng ghi danh `v_eval_practice.ClassEnrollments`, hiển thị `"Chưa phân lớp học"` khi học sinh chưa vào lớp.
-  - Phân giải điểm mục tiêu thật (`TargetScore`), hiển thị `"Mục tiêu xét tuyển ĐGNL ({targetScore} điểm)"` hoặc `"Chưa thiết lập mục tiêu"`.
-  - Triệt tiêu hoàn toàn fallback giáo viên giả lập, hiển thị chính xác `"Chưa có giáo viên phụ trách"` khi lớp chưa gán `TeacherId`.
-  - Tự động gieo mầm (seed) 3 khóa học chuẩn hóa (`CRS_SPRINT`, `CRS_STD`, `CRS_PRO`) vào bảng `v_eval_enrollment."Courses"` trên PostgreSQL khi khởi động hệ thống.
-- **Triển Khai Xếp Lớp Phân Tầng Theo Ma Trận 4 Miền × 3 Cấp Bậc ([`AutoClusterThematicClassesCommandHandler.cs`](./V-Eval-Practice_Service.Application/Features/Classes/Commands/AutoClusterThematicClasses/AutoClusterThematicClassesCommandHandler.cs), [`ClassesController.cs`](./V-Eval-Practice_Service.API/Controllers/ClassesController.cs))**:
-  - Chuyển đổi sang Ma trận 4 Miền × 3 Cấp bậc (tối thiểu 12 lớp chuẩn): mỗi học sinh được xếp vào đúng 4 lớp (1 lớp / miền) dựa trên độ nắm vững `masteryScore`.
-  - Hỗ trợ `IncludeEmptyClasses = true`, tự động tách lớp khi vượt trần `20 HS/lớp`, và chế độ bảo toàn 100% học sinh cũ (`PreserveExistingEnrollments = true`).
-- **Đồng Bộ Họ Tên Học Sinh & Khắc Phục Xung Đột Phòng Học ([`GetAlertsDashboardQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/EarlyWarnings/Queries/GetAlertsDashboard/GetAlertsDashboardQueryHandler.cs), [`ScheduleService.cs`](./V-Eval-Practice_Service.Infrastructure/Services/ScheduleService.cs))**:
-  - Triển khai `GetStudentNamesAsync` gọi Identity Service gRPC truy vấn họ tên học sinh thực tế, khử trùng lặp cảnh báo sớm.
-  - Bổ sung hàm kiểm tra xung đột phòng học (`RoomConflict`) và giảng viên (`TeacherConflict`) trả về `409 Conflict` chi tiết.
-- **Kiểm Thử & Nghiệm Thu**:
-  - `dotnet build`: Hoàn thành thành công, 0 lỗi, 0 cảnh báo.
-  - `dotnet test`: Toàn bộ **20/20 unit tests Passed 100%**.
+- **Chuẩn Hóa Truy Vấn Câu Hỏi Thích Ứng ZPD Theo Kỹ Năng Chuyên Đề ([`GetNextQuestionQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/Stages/Queries/GetNextQuestion/GetNextQuestionQueryHandler.cs))**:
+  - Loại bỏ hoàn toàn fallback GUID `6f3765db-943e-4810-bf74-d6a8bdc215da` (mã miền Toán học, không phải SkillId) khi tra cứu kỹ năng; bổ sung log cảnh báo rõ ràng khi chặng học thiếu `RoadmapNode` hoặc `SkillId`.
+  - Trong Pha APPLY (Luyện tập thích ứng IRT ZPD + BKT Mastery), truyền `examId: null` sang Content Service gRPC để hệ thống tập trung 100% vào việc rút ngân hàng câu hỏi thích ứng theo dạng bài `skillId` của chặng học và cây kỹ năng cùng môn học, không bị gò bó vào danh sách câu hỏi cố định của `QuizExamId`.
+  - Kết hợp với cơ chế **Subject Boundary Isolation** từ Content Service gRPC để đảm bảo 100% câu hỏi trả về vùng ZPD [0.60, 0.75] và dải thích ứng L1–L4 thuộc đúng dạng bài và đúng môn học của chặng học (Toán học ra đề Toán học, không bị lọt câu hỏi Ngữ văn/Ngoại ngữ).
+- **Kiểm Thử & Biên Dịch Sạch Sẽ**:
+  - `dotnet build --no-restore` (0 Warning, 0 Error).
+  - `dotnet test --no-restore` (**20/20 Passed 100%**).

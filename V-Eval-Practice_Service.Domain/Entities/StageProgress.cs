@@ -42,6 +42,13 @@ public class StageProgress
     /// </summary>
     public string Status { get; set; } = "IN_PROGRESS";
 
+    /// <summary>
+    /// Dữ liệu phản tư bước REFLECT (lưu vĩnh viễn trong CSDL)
+    /// </summary>
+    public int? ConfidenceRating { get; set; }
+    public string? LearnedSummary { get; set; }
+    public string? MistakeNotes { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

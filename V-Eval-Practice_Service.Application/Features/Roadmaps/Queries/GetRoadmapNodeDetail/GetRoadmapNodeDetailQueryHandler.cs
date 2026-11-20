@@ -44,18 +44,21 @@ public class GetRoadmapNodeDetailQueryHandler : IRequestHandler<GetRoadmapNodeDe
                 Error.NotFound("RoadmapNode.NotFound", $"Không tìm thấy chặng học {request.NodeId}."));
         }
 
-        // Kiểm tra quyền sở hữu nếu có truyền StudentId từ Gateway hoặc Client
         if (request.StudentId.HasValue && request.StudentId.Value != Guid.Empty && node.Roadmap.StudentId != request.StudentId.Value)
         {
             return Result<RoadmapNodeDetailDto>.Failure(
                 Error.Forbidden("RoadmapNode.Forbidden", "Bạn không có quyền truy cập thông tin chặng học của học sinh khác."));
         }
 
-        // Nạp thông tin kỹ năng và miền năng lực từ Content Service qua gRPC
         string skillName = "Kỹ năng chuyên đề";
         Guid domainId = Guid.Empty;
         string domainName = "Lĩnh vực chung";
         string domainCode = "";
+        string subjectName = "";
+        string chapterName = "";
+        string lessonName = "";
+        string videoUrl = "";
+        Guid? resolvedMaterialId = node.MaterialId;
 
         try
         {
@@ -67,6 +70,11 @@ public class GetRoadmapNodeDetailQueryHandler : IRequestHandler<GetRoadmapNodeDe
                 domainId = skillInfo.DomainId;
                 domainName = !string.IsNullOrWhiteSpace(skillInfo.DomainName) ? skillInfo.DomainName : "Lĩnh vực chung";
                 domainCode = skillInfo.DomainCode ?? "";
+                subjectName = skillInfo.SubjectName ?? "";
+                chapterName = skillInfo.ChapterName ?? "";
+                lessonName = skillInfo.LessonName ?? "";
+                videoUrl = skillInfo.VideoUrl ?? "";
+                resolvedMaterialId ??= skillInfo.MaterialId;
             }
         }
         catch (Exception ex)
@@ -90,13 +98,17 @@ public class GetRoadmapNodeDetailQueryHandler : IRequestHandler<GetRoadmapNodeDe
             IsPruned: node.IsPruned,
             UnlockedAt: node.UnlockedAt,
             CompletedAt: node.CompletedAt,
-            MaterialId: node.MaterialId,
+            MaterialId: resolvedMaterialId,
             VideoWatchedSeconds: node.VideoWatchedSeconds,
             VideoTotalSeconds: node.VideoTotalSeconds,
             IsVideoCompleted: node.IsVideoCompleted,
             IsQuizEligible: isQuizEligible,
             QuizExamId: node.QuizExamId,
-            DomainCode: domainCode
+            DomainCode: domainCode,
+            SubjectName: subjectName,
+            ChapterName: chapterName,
+            LessonName: lessonName,
+            VideoUrl: videoUrl
         );
 
         return Result<RoadmapNodeDetailDto>.Success(detailDto);

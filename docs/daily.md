@@ -1,5 +1,29 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [21/11/2026] - Hotfix Pha Apply (Pha A): Khắc Phục Triệt Để Hiện Tượng Cấp Phát Sai Môn Học / Sai Dạng Bài Trong Chu Trình PLAR
+
+- **Chuẩn Hóa Truy Vấn Câu Hỏi Thích Ứng ZPD Theo Kỹ Năng Chuyên Đề ([`GetNextQuestionQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Queries/GetNextQuestion/GetNextQuestionQueryHandler.cs))**:
+  - Loại bỏ hoàn toàn fallback GUID `6f3765db-943e-4810-bf74-d6a8bdc215da` (mã miền Toán học, không phải SkillId) khi tra cứu kỹ năng; bổ sung log cảnh báo rõ ràng khi chặng học thiếu `RoadmapNode` hoặc `SkillId`.
+  - Trong Pha APPLY (Luyện tập thích ứng IRT ZPD + BKT Mastery), truyền `examId: null` sang Content Service gRPC để hệ thống tập trung 100% vào việc rút ngân hàng câu hỏi thích ứng theo dạng bài `skillId` của chặng học và cây kỹ năng cùng môn học, không bị gò bó vào danh sách câu hỏi cố định của `QuizExamId`.
+  - Kết hợp với cơ chế **Subject Boundary Isolation** từ Content Service gRPC để đảm bảo 100% câu hỏi trả về vùng ZPD [0.60, 0.75] và dải thích ứng L1–L4 thuộc đúng dạng bài và đúng môn học của chặng học (Toán học ra đề Toán học, không bị lọt câu hỏi Ngữ văn/Ngoại ngữ).
+- **Kiểm Thử & Biên Dịch Sạch Sẽ**:
+  - `dotnet build --no-restore`: 0 Warning, 0 Error.
+  - `dotnet test --no-restore`: **20/20 Passed 100%**.
+
+---
+
+## [20/11/2026] - Chuẩn Hóa Toàn Diện Hành Trình Học Sinh End-to-End: Diagnostic 9 Môn, Lộ Trình Toàn Diện Lớp 10–12 Phân 3 Vùng (`WEAK` / `MASTERED` / `UNASSESSED`), Truyền Ngữ Cảnh `Passage` Cho PLAR & Cổng Học Phí Backend
+
+- **Chẩn Đoán 9 Môn & Suy Luận Cold-Start (`SubmitDiagnosticCommandHandler.cs`, `GetDiagnosticSubmissionById.cs`, `DiagnosticSubmissionDtos.cs`)**:
+  - Sửa `NormalizeDomainCode` nhận đúng 4 Domain UUID, chính tả chuẩn GDPT 2018 (`Vật lí`, `Địa lí`, `Tiếng Anh`, `GDKT & Pháp luật`) và cả mã tiếng Anh `LANGUAGE`/`NATURAL_SCIENCES`/`SOCIAL_SCIENCES`; truyền `AllSkillIds` từ cây Pattern sang AI Engine; bổ sung `SubjectBreakdowns` cho báo cáo năng lực từng môn.
+- **Lộ Trình Toàn Diện Lớp 10–12 Khớp 337 Dạng Bài SGK Phân 3 Vùng Đánh Giá (`GenerateRoadmapCommandHandler.cs`, `GetMyRoadmapQueryHandler.cs`, `RoadmapNodeSummaryDto.cs`)**:
+  - Bỏ giới hạn 24 node, bao phủ toàn bộ ~337 dạng bài (`PATTERN`) Lớp 10–12 của 9 môn GDPT 2018 và phân tầng thành 3 nhóm dựa trên dữ liệu kiểm tra thực tế (`ClassSkillHeatmaps` + `StageProgress`): **(1) `WEAK` (Ưu tiên cải thiện ngay — xếp đầu)** → **(2) `MASTERED` / `COMPLETED` (Đã đạt điểm OK / Hoàn thành PLAR — xếp sau nhóm yếu)** → **(3) `UNASSESSED` (Chưa đánh giá — phổ Lớp 10–12 chưa gặp trong bài test, xếp ở cuối với `MasteryPlt = 0.0` và `GradeLevel` 10/11/12)**.
+- **Thanh Toán PayOS & Cổng Học Phí Thực Tế (`CreatePaymentLinkCommandHandler.cs`, `ProcessPayOsWebhookCommandHandler.cs`, `GetPaymentStatusQuery.cs`, `PaymentRepository.cs`)**:
+  - Sửa lỗi trùng `uq_courseregistrations` khi thanh toán lại; xóa đoạn sinh 4 node `Guid.NewGuid()` giả trong Webhook và tự động gọi `GenerateRoadmapCommand` thật khi xác nhận thanh toán (qua cả Webhook lẫn Polling).
+- **Truyền Ngữ Cảnh Đọc Hiểu `Passage`, Khắc Phục Chu Trình P-L-A-R & Sổ Tay Lỗi Sai SM-2 (`StartStageCommandHandler.cs`, `SubmitPreviewCommandHandler.cs`, `GetNextQuestionQueryHandler.cs`, `SubmitAnswerCommandHandler.cs`, `GetRemedialPackageQueryHandler.cs`, `ReflectCompleteCommandHandler.cs`, `SubmitDailyReviewCommandHandler.cs`, `SubmitMockExamCommandHandler.cs`)**:
+  - Truyền `PassageTitle`, `PassageContent`, `PassageImageUrl` xuyên suốt `Preview`, `Apply` (`ZpdQuestionSelector`) và `Remedial` (`BR-03`); thêm cổng học phí (`403 Tuition.Required`) và mở khóa tự do mọi chặng Lớp 10–12 trong `StartStage` khi đã đóng học phí; chấm thật trong `SubmitPreview` & `SubmitAnswer` qua `GetQuestionDetailAsync` (khôi phục điều kiện thoát `BR-01`, trả lời giải KaTeX, ghi `LearningProfiles` và `ClassSkillHeatmaps` đúng miền); lưu 3 cột Reflect vào `StageProgress` & cập nhật `CompletedMilestones` trong `ReflectComplete`; chấm biến thể `ReviewQuestionId` trong `SubmitDailyReview`; dùng `GetMilestoneQuizReadOnlyAsync` chống spam bảng `MockExams`.
+- **Kiểm Thử**: `dotnet build --no-restore` (`0 Error`), `dotnet test --no-build` (**20/20 Passed**).
+
 ## [19/11/2026] - Chuẩn Hóa Phân Giải Thực Thể Động, Ghi Danh & Dữ Liệu Khóa Học Cho Cổng Phụ Huynh
 
 - **Phân Giải Dữ Liệu Thực Thể Phụ Huynh & Học Sinh ([`GetParentDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs), [`IdentityGrpcClient.cs`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/IdentityGrpcClient.cs))**:

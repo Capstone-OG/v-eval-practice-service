@@ -96,7 +96,8 @@ public record TagCognitiveErrorResponseDto(
 /// </summary>
 public record SubmitDailyReviewRequestDto(
     string SelectedOption = "A",
-    int TimeSpentSeconds = 25
+    int TimeSpentSeconds = 25,
+    Guid? ReviewQuestionId = null
 );
 
 /// <summary>
