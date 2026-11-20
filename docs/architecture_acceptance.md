@@ -1247,3 +1247,19 @@
      - `CreateThematicClassWithEnrollmentsAsync` reuses existing active domain-tier classes `(CampusId, DomainCode, Name)` and marks previous tier enrollments within the same domain as `TRANSFERRED` when a student changes tier.
   3. **Verification**:
      - Clean .NET 9 build (`0 Warning(s), 0 Error(s)`) and 20/20 unit tests passing.
+
+### 10.9 [20/11/2026] - Course Management Lifecycle Endpoints (`PUT` Update & Safe Soft-Archive `DELETE`)
+- **Module**: `v_eval_enrollment.Courses` Management API.
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Application/Features/Schedules/DTOs/ScheduleDtos.cs`
+  - `V-Eval-Practice_Service.Application/Common/Interfaces/Services/IScheduleService.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Services/ScheduleService.cs`
+  - `V-Eval-Practice_Service.API/Controllers/CoursesController.cs`
+- **Key Architectural Deliverables**:
+  1. **Course Update (`PUT /api/v1/courses/{courseId:guid}`)**:
+     - Added `UpdateCourseRequestDto` and `UpdateCourseAsync` enforcing duplicate course code validation (`Course.DuplicateCode`) while allowing Academic Managers to adjust course name, code, tuition fee, duration, capacity, and active status.
+  2. **Safe Course Deletion / Soft-Archive (`DELETE /api/v1/courses/{courseId:guid}`)**:
+     - Implemented `DeleteCourseAsync` with referential integrity protection: if a course has linked `Classes` or `CourseRegistrations`, it is safely soft-archived (`IsActive = false`) to preserve tuition receipts and class histories; otherwise, it is hard-deleted from PostgreSQL.
+  3. **Verification**:
+     - `dotnet build V-Eval-Practice_Service.Infrastructure.csproj --no-restore` (`0 Warning(s), 0 Error(s)`); `dotnet test` passed 20/20 unit tests.

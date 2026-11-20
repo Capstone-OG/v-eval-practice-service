@@ -157,6 +157,12 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
                 ));
             }
 
+            var resolvedCampusId = !string.IsNullOrWhiteSpace(student.CampusId)
+                ? student.CampusId
+                : (enrolledClass != null && enrolledClass.CampusId != Guid.Empty
+                    ? enrolledClass.CampusId.ToString()
+                    : null);
+
             childrenList.Add(new ChildAnalyticsDto(
                 StudentId: studentId,
                 StudentName: student.Name,
@@ -167,7 +173,8 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
                 TeacherContactPhone: teacherPhone,
                 ExamReadiness: readinessDto,
                 WeeklyDisciplines: disciplinesDto,
-                AiParentAlerts: aiAlerts
+                AiParentAlerts: aiAlerts,
+                CampusId: resolvedCampusId
             ));
         }
 
