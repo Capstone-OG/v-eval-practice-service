@@ -22,7 +22,12 @@
   - Sửa lỗi trùng `uq_courseregistrations` khi thanh toán lại; xóa đoạn sinh 4 node `Guid.NewGuid()` giả trong Webhook và tự động gọi `GenerateRoadmapCommand` thật khi xác nhận thanh toán (qua cả Webhook lẫn Polling).
 - **Truyền Ngữ Cảnh Đọc Hiểu `Passage`, Khắc Phục Chu Trình P-L-A-R & Sổ Tay Lỗi Sai SM-2 (`StartStageCommandHandler.cs`, `SubmitPreviewCommandHandler.cs`, `GetNextQuestionQueryHandler.cs`, `SubmitAnswerCommandHandler.cs`, `GetRemedialPackageQueryHandler.cs`, `ReflectCompleteCommandHandler.cs`, `SubmitDailyReviewCommandHandler.cs`, `SubmitMockExamCommandHandler.cs`)**:
   - Truyền `PassageTitle`, `PassageContent`, `PassageImageUrl` xuyên suốt `Preview`, `Apply` (`ZpdQuestionSelector`) và `Remedial` (`BR-03`); thêm cổng học phí (`403 Tuition.Required`) và mở khóa tự do mọi chặng Lớp 10–12 trong `StartStage` khi đã đóng học phí; chấm thật trong `SubmitPreview` & `SubmitAnswer` qua `GetQuestionDetailAsync` (khôi phục điều kiện thoát `BR-01`, trả lời giải KaTeX, ghi `LearningProfiles` và `ClassSkillHeatmaps` đúng miền); lưu 3 cột Reflect vào `StageProgress` & cập nhật `CompletedMilestones` trong `ReflectComplete`; chấm biến thể `ReviewQuestionId` trong `SubmitDailyReview`; dùng `GetMilestoneQuizReadOnlyAsync` chống spam bảng `MockExams`.
-- **Kiểm Thử**: `dotnet build --no-restore` (`0 Error`), `dotnet test --no-build` (**20/20 Passed**).
+- **Bổ Sung API Chỉnh Sửa (`PUT`) & Xóa / Ngừng Mở Bán An Toàn (`DELETE`) Khóa Học Theo Đợt**:
+  - Thêm `UpdateCourseRequestDto` hỗ trợ sửa tên khóa, mã khóa, thời lượng tuần, mức học phí, sĩ số và `IsActive`.
+  - Cài đặt `UpdateCourseAsync` có kiểm tra trùng mã khóa trước khi lưu vào `v_eval_enrollment."Courses"`.
+  - Cài đặt `DeleteCourseAsync` Soft-Archive (`IsActive = false`) nếu khóa đã có ràng buộc tài chính/lớp học.
+  - Bổ sung `CampusId` trong `ChildAnalyticsDto` cho Cổng Phụ huynh lọc chuẩn theo cơ sở.
+- **Kiểm Thử**: `dotnet build --no-restore` (`0 Error`), `dotnet test --no-restore` (**20/20 Passed**).
 
 ## [19/11/2026] - Chuẩn Hóa Phân Giải Thực Thể Động, Ghi Danh & Dữ Liệu Khóa Học Cho Cổng Phụ Huynh
 

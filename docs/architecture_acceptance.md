@@ -1248,10 +1248,27 @@
   3. **Verification**:
      - Clean .NET 9 build (`0 Warning(s), 0 Error(s)`) and 20/20 unit tests passing.
 
+---
+
+### 10.9 [20/11/2026] - Course Management Lifecycle Endpoints (`PUT` Update & Safe Soft-Archive `DELETE`)
+- **Module**: `v_eval_enrollment.Courses` Management API.
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Application/Features/Schedules/DTOs/ScheduleDtos.cs`
+  - `V-Eval-Practice_Service.Application/Common/Interfaces/Services/IScheduleService.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Services/ScheduleService.cs`
+  - `V-Eval-Practice_Service.API/Controllers/CoursesController.cs`
+- **Key Architectural Deliverables**:
+  1. **Course Update (`PUT /api/v1/courses/{courseId:guid}`)**:
+     - Added `UpdateCourseRequestDto` and `UpdateCourseAsync` enforcing duplicate course code validation (`Course.DuplicateCode`) while allowing Academic Managers to adjust course name, code, tuition fee, duration, capacity, and active status.
+  2. **Safe Course Deletion / Soft-Archive (`DELETE /api/v1/courses/{courseId:guid}`)**:
+     - Implemented `DeleteCourseAsync` with referential integrity protection: if a course has linked `Classes` or `CourseRegistrations`, it is safely soft-archived (`IsActive = false`) to preserve tuition receipts and class histories; otherwise, it is hard-deleted from PostgreSQL.
+  3. **Verification**:
+     - `dotnet build V-Eval-Practice_Service.Infrastructure.csproj --no-restore` (`0 Warning(s), 0 Error(s)`); `dotnet test` passed 20/20 unit tests.
 
 ---
 
-### [20/11/2026] - End-to-End Student Journey Unification: 9-Subject Diagnostic, Full-Spectrum Grade 10–12 3-Zone Roadmap, Passage Context Delivery, Backend Tuition Gate & Authentic PLAR Engine
+### 10.10 [20/11/2026] - End-to-End Student Journey Unification: 9-Subject Diagnostic, Full-Spectrum Grade 10–12 3-Zone Roadmap, Passage Context Delivery, Backend Tuition Gate & Authentic PLAR Engine
 - **Key Architectural Deliverables**:
   1. **Multi-Subject Diagnostic Alignment (`SubmitDiagnosticCommandHandler`, `GetDiagnosticSubmissionById`)**: Fixed `NormalizeDomainCode` to recognize canonical Domain UUIDs and GDPT 2018 subject names (`Vật lí`, `Địa lí`, `Tiếng Anh`, `GDKT & Pháp luật`), hydrated `AllSkillIds` for cold-start BKT inference, and added `SubjectBreakdowns` across all 9 subjects.
   2. **Full-Spectrum Grade 10–12 3-Zone Personalized Roadmap (`GenerateRoadmapCommandHandler`, `GetMyRoadmapQueryHandler`, `RoadmapNodeSummaryDto`)**: Eliminated the 24-node cap to include all ~337 real curriculum `PATTERN` nodes across Grades 10–12 and all 9 subjects, classified using directly-assessed evidence (`ClassSkillHeatmaps` + `StageProgress` + `DiagnosticSubmission.Answers`) into 3 priority zones: **`WEAK`** (tested & `< 70%`, ordered first via Topological Sort) → **`MASTERED` / `COMPLETED`** (tested & `>= 70%` or finished PLAR, shown after weak nodes) → **`UNASSESSED`** (untested Grade 10–12 curriculum patterns placed at the end with `MasteryPlt = 0.0` and parsed `GradeLevel` `10`/`11`/`12`).
@@ -1261,7 +1278,7 @@
 
 ---
 
-### 10.9 [21/11/2026] - Phase Apply (Phase A) Hotfix: Elimination of Cross-Subject Leakage & Pure Skill-Directed Adaptive Delivery
+### 10.11 [21/11/2026] - Phase Apply (Phase A) Hotfix: Elimination of Cross-Subject Leakage & Pure Skill-Directed Adaptive Delivery
 - **Module**: `v_eval_practice.StageProgress` & `GetNextQuestionQueryHandler`.
 - **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
 - **Target Files**:
