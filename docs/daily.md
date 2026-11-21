@@ -12,6 +12,20 @@
   - `dotnet test`: Toàn bộ **20/20 unit tests Passed 100%**.
   - Kiểm thử trực tiếp API `GET /api/practice/classes/{classId}/heatmap`: Trả về chuẩn xác 100% họ tên học sinh tiếng Việt trong từng dòng dữ liệu `rows`.
 
+## [20/11/2026] - Bổ Sung API Chỉnh Sửa (`PUT`) & Xóa / Ngừng Mở Bán An Toàn (`DELETE`) Khóa Học Theo Đợt
+
+- **Mở Rộng DTO & Nghiệp Vụ Quản Lý Khóa Học ([`ScheduleDtos.cs`](../V-Eval-Practice_Service.Application/Features/Schedules/DTOs/ScheduleDtos.cs), [`IScheduleService.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Services/IScheduleService.cs), [`ScheduleService.cs`](../V-Eval-Practice_Service.Infrastructure/Services/ScheduleService.cs))**:
+  - Thêm `UpdateCourseRequestDto` hỗ trợ sửa đầy đủ tên khóa, mã khóa, thời lượng tuần, mức học phí, sĩ số tối đa và trạng thái hoạt động (`IsActive`).
+  - Cài đặt `UpdateCourseAsync` có kiểm tra trùng mã khóa (`Course.DuplicateCode`) trước khi lưu vào `v_eval_enrollment."Courses"`.
+  - Cài đặt `DeleteCourseAsync` phân nhánh an toàn: tự động Soft-Archive (`IsActive = false`) nếu khóa đã gắn với `Classes` hoặc `CourseRegistrations` để bảo toàn biên lai thanh toán; xóa cứng nếu chưa có dữ liệu liên kết.
+- **Mở Rộng Controller ([`CoursesController.cs`](../V-Eval-Practice_Service.API/Controllers/CoursesController.cs))**:
+  - Bổ sung `[HttpPut("{courseId:guid}")]` và `[HttpDelete("{courseId:guid}")]`.
+- **Bổ Sung `CampusId` Cho Cổng Phụ Huynh ([`ParentDashboardDtos.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/DTOs/ParentDashboardDtos.cs), [`GetParentDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs))**:
+  - Trả về `CampusId` của từng con trong `ChildAnalyticsDto` để Phụ huynh và Học sinh lọc đồng bộ 100% cùng một danh sách Đợt học & Khóa học theo cơ sở.
+- **Kiểm Thử & Nghiệm Thu**:
+  - `dotnet build V-Eval-Practice_Service.Infrastructure.csproj --no-restore`: **0 Warning, 0 Error**.
+  - `dotnet test V-Eval-Practice_Service.Tests.csproj --no-restore`: **20/20 tests Passed 100%**.
+
 ## [20/11/2026] - Triển Khai API Hậu Kiểm Liêm Chính Bài Thi Thử (Core Flow 3 - BR-20) & Thẩm Định Sư Phạm Giáo Viên
 
 - **Triển Khai API Truy Vấn Bài Thi Gắn Cờ Liêm Chính ([`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs), [`GetFlaggedSubmissionsQuery.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetFlaggedSubmissions/GetFlaggedSubmissionsQuery.cs), [`GetFlaggedSubmissionsQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetFlaggedSubmissions/GetFlaggedSubmissionsQueryHandler.cs), [`FlaggedMockExamDto.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/FlaggedMockExamDto.cs))**:

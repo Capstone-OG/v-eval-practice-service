@@ -67,6 +67,16 @@ public record CreateCourseRequestDto(
     int MaxClassSize = 20
 );
 
+public record UpdateCourseRequestDto(
+    string? Code = null,
+    string? Name = null,
+    string? PlanType = null,
+    int? DurationWeeks = null,
+    decimal? TuitionFee = null,
+    int? MaxClassSize = null,
+    bool? IsActive = null
+);
+
 // ==========================================
 // 3. CLASSES (LỚP HỌC THEO KỲ & KHÓA)
 // ==========================================

@@ -35,6 +35,15 @@ public interface IScheduleService
         CreateCourseRequestDto request,
         CancellationToken ct = default);
 
+    Task<Result<CourseSummaryDto>> UpdateCourseAsync(
+        Guid courseId,
+        UpdateCourseRequestDto request,
+        CancellationToken ct = default);
+
+    Task<Result<string>> DeleteCourseAsync(
+        Guid courseId,
+        CancellationToken ct = default);
+
     // 3. Classes & Weekly Schedule Patterns (Lớp học & Khung lịch tuần)
     Task<Result<IReadOnlyList<ClassOverviewDto>>> GetClassesAsync(
         Guid? campusId = null,

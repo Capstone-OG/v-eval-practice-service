@@ -34,7 +34,8 @@ public record ChildAnalyticsDto(
     string TeacherContactPhone,
     ExamReadinessDto ExamReadiness,
     WeeklyDisciplinesDto WeeklyDisciplines,
-    List<AiParentAlertDto> AiParentAlerts
+    List<AiParentAlertDto> AiParentAlerts,
+    string? CampusId = null
 );
 
 public record ParentDashboardResponseDto(

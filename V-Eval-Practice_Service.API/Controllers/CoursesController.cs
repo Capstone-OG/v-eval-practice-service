@@ -52,5 +52,35 @@ public class CoursesController : ApiControllerBase
         var result = await _scheduleService.CreateCourseAsync(request, ct);
         return HandleResult(result);
     }
+
+    /// <summary>
+    /// Cập nhật thông tin Khóa học (Tên khóa, Học phí, Thời lượng, Sĩ số tối đa)
+    /// </summary>
+    [HttpPut("{courseId:guid}")]
+    [ProducesResponseType(typeof(CourseSummaryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateCourse(
+        Guid courseId,
+        [FromBody] UpdateCourseRequestDto request,
+        CancellationToken ct = default)
+    {
+        var result = await _scheduleService.UpdateCourseAsync(courseId, request, ct);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Xóa hoặc ẩn mềm Khóa học (nếu đã có lớp hoặc giao dịch học phí thì tự động ẩn mềm IsActive = false)
+    /// </summary>
+    [HttpDelete("{courseId:guid}")]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteCourse(
+        Guid courseId,
+        CancellationToken ct = default)
+    {
+        var result = await _scheduleService.DeleteCourseAsync(courseId, ct);
+        return HandleResult(result);
+    }
 }
 
