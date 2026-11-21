@@ -1248,6 +1248,8 @@
   3. **Verification**:
      - Clean .NET 9 build (`0 Warning(s), 0 Error(s)`) and 20/20 unit tests passing.
 
+---
+
 ### 10.9 [20/11/2026] - Course Management Lifecycle Endpoints (`PUT` Update & Safe Soft-Archive `DELETE`)
 - **Module**: `v_eval_enrollment.Courses` Management API.
 - **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
@@ -1263,3 +1265,31 @@
      - Implemented `DeleteCourseAsync` with referential integrity protection: if a course has linked `Classes` or `CourseRegistrations`, it is safely soft-archived (`IsActive = false`) to preserve tuition receipts and class histories; otherwise, it is hard-deleted from PostgreSQL.
   3. **Verification**:
      - `dotnet build V-Eval-Practice_Service.Infrastructure.csproj --no-restore` (`0 Warning(s), 0 Error(s)`); `dotnet test` passed 20/20 unit tests.
+
+---
+
+### 10.10 [20/11/2026] - End-to-End Student Journey Unification: 9-Subject Diagnostic, Full-Spectrum Grade 10–12 3-Zone Roadmap, Passage Context Delivery, Backend Tuition Gate & Authentic PLAR Engine
+- **Key Architectural Deliverables**:
+  1. **Multi-Subject Diagnostic Alignment (`SubmitDiagnosticCommandHandler`, `GetDiagnosticSubmissionById`)**: Fixed `NormalizeDomainCode` to recognize canonical Domain UUIDs and GDPT 2018 subject names (`Vật lí`, `Địa lí`, `Tiếng Anh`, `GDKT & Pháp luật`), hydrated `AllSkillIds` for cold-start BKT inference, and added `SubjectBreakdowns` across all 9 subjects.
+  2. **Full-Spectrum Grade 10–12 3-Zone Personalized Roadmap (`GenerateRoadmapCommandHandler`, `GetMyRoadmapQueryHandler`, `RoadmapNodeSummaryDto`)**: Eliminated the 24-node cap to include all ~337 real curriculum `PATTERN` nodes across Grades 10–12 and all 9 subjects, classified using directly-assessed evidence (`ClassSkillHeatmaps` + `StageProgress` + `DiagnosticSubmission.Answers`) into 3 priority zones: **`WEAK`** (tested & `< 70%`, ordered first via Topological Sort) → **`MASTERED` / `COMPLETED`** (tested & `>= 70%` or finished PLAR, shown after weak nodes) → **`UNASSESSED`** (untested Grade 10–12 curriculum patterns placed at the end with `MasteryPlt = 0.0` and parsed `GradeLevel` `10`/`11`/`12`).
+  3. **PayOS Payment Retry & Real Backend Tuition Gate**: Reuses `PENDING_PAYMENT` registrations or increments `AttemptNo`, replaces dummy random-GUID webhook roadmap creation with real `GenerateRoadmapCommand` invocation (synced on both Webhook and Polling `PAID`), enforces `403 Tuition.Required` inside `StartStageCommandHandler`, and allows paid students to freely activate any non-pruned Grade 10–12 node (`UNLOCKED` / `LOCKED` -> `IN_PROGRESS`).
+  4. **Reading Passage Propagation, Authentic PLAR Engine & SM-2 Grading**: Propagated `PassageTitle`, `PassageContent`, and `PassageImageUrl` across `PreviewQuestionDto`, `CandidateQuestion` / `NextQuestionResponseDto`, and `RemedialQuestionDto`; fixed `SubmitPreviewCommandHandler` and `SubmitAnswerCommandHandler` to grade real Content Service questions via `GetQuestionDetailAsync`, persisted 3 reflection columns (`confidence_rating`, `learned_summary`, `mistake_notes`) into `StageProgress` and synced `LearningRoadmaps.CompletedMilestones` in `ReflectCompleteCommandHandler`, fixed isomorphic variant grading via `ReviewQuestionId` in `SubmitDailyReviewCommandHandler`, and switched PLAR/SM-2 queries to read-only gRPC fetches (`GetMilestoneQuizReadOnlyAsync`).
+  5. **Verification**: Clean `.NET 9` build (`0 Error(s)`) and `20/20` unit tests passing.
+
+---
+
+### 10.11 [21/11/2026] - Phase Apply (Phase A) Hotfix: Elimination of Cross-Subject Leakage & Pure Skill-Directed Adaptive Delivery
+- **Module**: `v_eval_practice.StageProgress` & `GetNextQuestionQueryHandler`.
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.Application/Features/Stages/Queries/GetNextQuestion/GetNextQuestionQueryHandler.cs`
+- **Key Architectural Deliverables**:
+  1. **Clean SkillId Sourcing**:
+     - Removed the invalid fallback GUID `6f3765db-943e-4810-bf74-d6a8bdc215da` (the Domain ID of Mathematics, which is not an entity in `Skills`) and added an explicit audit warning when a milestone lacks a valid `SkillId`.
+  2. **Dedicated Pure Adaptive Selection (`examId: null`)**:
+     - During Phase A (Adaptive Practice via IRT ZPD [0.60, 0.75] + BKT Mastery update), the handler now supplies `examId: null` to `GetMilestoneQuizReadOnlyAsync`. This instructs Content Service to draw purely from the target skill's hierarchical question pool across Bloom levels L1-L4 instead of being constrained to the static questions of an existing `QuizExamId`.
+  3. **Subject Boundary Enforcement Synchronization**:
+     - Handshakes with Content Service's new **Subject Boundary Isolation** engine to guarantee that 100% of questions in the candidate pool belong strictly to the subject of the active milestone (e.g., Mathematics milestones receive exclusively Mathematics questions), preventing literature proverbs or foreign language items from contaminating the learner's journey.
+  4. **Verification**:
+     - `dotnet build --no-restore`: 0 Errors, 0 Warnings.
+     - `dotnet test --no-restore`: **20/20 unit tests passed 100%**.

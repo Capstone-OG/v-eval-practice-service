@@ -47,6 +47,7 @@ public class GetRemedialPackageQueryHandler : IRequestHandler<GetRemedialPackage
         var remedialQuestions = new List<RemedialQuestionDto>();
         string skillName = "Chuyên đề trọng tâm";
         string skillDescription = string.Empty;
+        string realVideoUrl = string.Empty;
 
         // 0. Xác định các câu hỏi cứu trợ đã từng làm và số lần học sinh đã thử sức gói cứu trợ
         var attemptedQuestionIds = progress.AdaptiveAttempts?
@@ -67,6 +68,7 @@ public class GetRemedialPackageQueryHandler : IRequestHandler<GetRemedialPackage
                 {
                     skillName = matchedSkill.Name;
                     skillDescription = matchedSkill.Description;
+                    realVideoUrl = matchedSkill.VideoUrl ?? string.Empty;
                 }
             }
             catch (Exception ex)
@@ -74,11 +76,10 @@ public class GetRemedialPackageQueryHandler : IRequestHandler<GetRemedialPackage
                 _logger.LogWarning(ex, "Không thể tải SkillTree từ Content Service qua gRPC.");
             }
 
-            // 2. Truy vấn câu hỏi cơ bản từ Ngân hàng đề thuộc đúng Dạng bài này
+            // 2. Truy vấn câu hỏi cơ bản từ Ngân hàng đề thuộc đúng Dạng bài này (ReadOnly = true -> KHÔNG spam DB!)
             try
             {
-                // Yêu cầu ngân hàng đề cấp nhiều câu hỏi để lọc bỏ những câu đã từng làm
-                var quizResult = await _contentGrpcClient.GetMilestoneQuizAsync(skillId, node?.QuizExamId, questionCount: 20, ct);
+                var quizResult = await _contentGrpcClient.GetMilestoneQuizReadOnlyAsync(skillId, node?.QuizExamId, questionCount: 20, ct);
                 if (quizResult != null && quizResult.Questions.Count > 0)
                 {
                     if (string.IsNullOrEmpty(skillDescription))
@@ -120,7 +121,10 @@ public class GetRemedialPackageQueryHandler : IRequestHandler<GetRemedialPackage
                             q.Content,
                             q.Options.Select(o => new RemedialOptionDto(o.OptionId, o.Content)).ToList(),
                             difficultyB,
-                            cognitiveLevel
+                            cognitiveLevel,
+                            q.PassageTitle,
+                            q.PassageContent,
+                            q.PassageImageUrl
                         ));
                     }
 
@@ -145,7 +149,7 @@ public class GetRemedialPackageQueryHandler : IRequestHandler<GetRemedialPackage
             ? $"TỔNG HỢP KIẾN THỨC & PHƯƠNG PHÁP - [{skillName.ToUpperInvariant()}]:\n{skillDescription}\n\n* Hướng dẫn: Đọc kỹ câu hỏi, nhận diện đúng yêu cầu cốt lõi và kiểm tra lại phương án trước khi chọn."
             : $"TỔNG HỢP KIẾN THỨC & PHƯƠNG PHÁP - [{skillName.ToUpperInvariant()}]:\n1. Nắm chắc định nghĩa và tính chất cơ sở của {skillName}.\n2. Áp dụng quy tắc biến đổi tuần tự theo phương pháp chuẩn.\n3. Đọc kỹ đề bài và loại trừ các phương án gây nhiễu.";
 
-        string remedialVideoUrl = "https://storage.v-eval.edu.vn/videos/remedial/quick-concept-recap.mp4";
+        string remedialVideoUrl = realVideoUrl;
 
         var response = new RemedialPackageResponseDto(
             progress.Id,

@@ -1,18 +1,11 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [20/11/2026] - Bổ Sung API Chỉnh Sửa & Xóa / Ngừng Mở Khóa Học Theo Đợt (Course CRUD)
+## [21/11/2026] - Hotfix Pha Apply (Pha A): Khắc Phục Triệt Để Hiện Tượng Cấp Phát Sai Môn Học / Sai Dạng Bài Trong Chu Trình PLAR
 
-- **Mở Rộng Hợp Đồng DTO & Service Cho Chỉnh Sửa / Xóa Khóa Học ([`ScheduleDtos.cs`](./V-Eval-Practice_Service.Application/Features/Schedules/DTOs/ScheduleDtos.cs), [`IScheduleService.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/Services/IScheduleService.cs), [`ScheduleService.cs`](./V-Eval-Practice_Service.Infrastructure/Services/ScheduleService.cs))**:
-  - Bổ sung `UpdateCourseRequestDto` cho phép cập nhật tên khóa, mã khóa, loại chương trình (`PlanType`), thời lượng tuần (`DurationWeeks`), học phí (`TuitionFee`), sĩ số tối đa (`MaxClassSize`) và trạng thái mở bán (`IsActive`).
-  - Triển khai `UpdateCourseAsync`: kiểm tra trùng mã khóa (`Course.DuplicateCode`) khi thay đổi mã, cập nhật trực tiếp vào bảng `v_eval_enrollment."Courses"`.
-  - Triển khai `DeleteCourseAsync` với cơ chế bảo toàn dữ liệu tài chính & lớp học:
-    - Nếu khóa học đã có lớp học (`Classes`) hoặc đã có học sinh đăng ký/đóng học phí (`CourseRegistrations`) -> tự động chuyển sang ẩn/ngừng mở (`IsActive = false` - Soft Archive) để không phá vỡ lịch sử biên lai & ghi danh.
-    - Nếu khóa học chưa có ràng buộc nào -> xóa hẳn (`Remove`) khỏi cơ sở dữ liệu.
-- **Mở Rộng REST Endpoints Tại [`CoursesController.cs`](./V-Eval-Practice_Service.API/Controllers/CoursesController.cs)**:
-  - `PUT /api/v1/courses/{courseId:guid}` (cập nhật thông tin & học phí khóa học).
-  - `DELETE /api/v1/courses/{courseId:guid}` (xóa hoặc ngừng mở bán khóa học an toàn).
-- **Bổ Sung `CampusId` Vào `ChildAnalyticsDto` Cho Cổng Phụ Huynh ([`ParentDashboardDtos.cs`](./V-Eval-Practice_Service.Application/Features/Analytics/DTOs/ParentDashboardDtos.cs), [`GetParentDashboardQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs))**:
-  - Trả về `CampusId` thật của học sinh (từ Identity gRPC hoặc lớp đang ghi danh) trong `GET /api/practice/analytics/parent-dashboard/{parentId}` giúp Cổng Học Phí Phụ huynh lọc chính xác Đợt học & Khóa học theo cơ sở của con, đồng bộ 100% với Học sinh.
-- **Kiểm Thử & Nghiệm Thu**:
-  - `dotnet build V-Eval-Practice_Service.Infrastructure.csproj --no-restore`: Thành công **0 Warning, 0 Error**.
-  - `dotnet test V-Eval-Practice_Service.Tests.csproj --no-restore`: Toàn bộ **20/20 unit tests Passed 100%**.
+- **Chuẩn Hóa Truy Vấn Câu Hỏi Thích Ứng ZPD Theo Kỹ Năng Chuyên Đề ([`GetNextQuestionQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/Stages/Queries/GetNextQuestion/GetNextQuestionQueryHandler.cs))**:
+  - Loại bỏ hoàn toàn fallback GUID `6f3765db-943e-4810-bf74-d6a8bdc215da` (mã miền Toán học, không phải SkillId) khi tra cứu kỹ năng; bổ sung log cảnh báo rõ ràng khi chặng học thiếu `RoadmapNode` hoặc `SkillId`.
+  - Trong Pha APPLY (Luyện tập thích ứng IRT ZPD + BKT Mastery), truyền `examId: null` sang Content Service gRPC để hệ thống tập trung 100% vào việc rút ngân hàng câu hỏi thích ứng theo dạng bài `skillId` của chặng học và cây kỹ năng cùng môn học, không bị gò bó vào danh sách câu hỏi cố định của `QuizExamId`.
+  - Kết hợp với cơ chế **Subject Boundary Isolation** từ Content Service gRPC để đảm bảo 100% câu hỏi trả về vùng ZPD [0.60, 0.75] và dải thích ứng L1–L4 thuộc đúng dạng bài và đúng môn học của chặng học (Toán học ra đề Toán học, không bị lọt câu hỏi Ngữ văn/Ngoại ngữ).
+- **Kiểm Thử & Biên Dịch Sạch Sẽ**:
+  - `dotnet build --no-restore` (0 Warning, 0 Error).
+  - `dotnet test --no-restore` (**20/20 Passed 100%**).

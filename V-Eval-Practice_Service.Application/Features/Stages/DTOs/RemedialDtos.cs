@@ -17,7 +17,10 @@ public record RemedialQuestionDto(
     string Content,
     List<RemedialOptionDto> Options,
     double DifficultyB,
-    string CognitiveLevel
+    string CognitiveLevel,
+    string PassageTitle = "",
+    string PassageContent = "",
+    string PassageImageUrl = ""
 );
 
 /// <summary>

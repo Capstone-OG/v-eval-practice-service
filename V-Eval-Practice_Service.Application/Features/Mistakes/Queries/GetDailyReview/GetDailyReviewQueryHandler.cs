@@ -46,7 +46,7 @@ public class GetDailyReviewQueryHandler : IRequestHandler<GetDailyReviewQuery, R
             {
                 try
                 {
-                    var quizResult = await _contentGrpcClient.GetMilestoneQuizAsync(item.SkillId, null, questionCount: 5, ct);
+                    var quizResult = await _contentGrpcClient.GetMilestoneQuizReadOnlyAsync(item.SkillId, null, questionCount: 5, ct);
                     if (quizResult != null && quizResult.Questions.Count > 0)
                     {
                         // Chọn câu hỏi khác với câu đã làm sai ban đầu (Isomorphic variant)

@@ -50,15 +50,21 @@ public class CreatePaymentLinkCommandHandler : IRequestHandler<CreatePaymentLink
                 Error.Conflict("Registration.AlreadyActive", $"Học sinh đã có đăng ký hoạt động cho khóa học {course.Name}."));
         }
 
-        // 3. Tạo bản ghi CourseRegistration nếu chưa có, hoặc cập nhật bản ghi đang chờ thanh toán
-        var registration = new CourseRegistration
+        // 3. Tái sử dụng bản ghi PENDING_PAYMENT đang có (tránh lỗi trùng unique constraint uq_courseregistrations khi retry)
+        var registration = await _paymentRepository.GetPendingRegistrationAsync(request.StudentId, request.CourseId, cancellationToken);
+        if (registration == null)
         {
-            StudentId = request.StudentId,
-            CourseId = request.CourseId,
-            Status = "PENDING_PAYMENT",
-            RegisteredAt = DateTime.UtcNow
-        };
-        await _paymentRepository.AddRegistrationAsync(registration, cancellationToken);
+            int nextAttemptNo = await _paymentRepository.GetMaxAttemptNoAsync(request.StudentId, request.CourseId, cancellationToken) + 1;
+            registration = new CourseRegistration
+            {
+                StudentId = request.StudentId,
+                CourseId = request.CourseId,
+                AttemptNo = Math.Max(1, nextAttemptNo),
+                Status = "PENDING_PAYMENT",
+                RegisteredAt = DateTime.UtcNow
+            };
+            await _paymentRepository.AddRegistrationAsync(registration, cancellationToken);
+        }
 
         // 4. Sinh orderCode an toàn theo chuẩn JavaScript (< 9007199254740991)
         long orderCode = Random.Shared.NextInt64(1000000000, 9007199254740991);
@@ -121,4 +127,3 @@ public class CreatePaymentLinkCommandHandler : IRequestHandler<CreatePaymentLink
         }
     }
 }
-

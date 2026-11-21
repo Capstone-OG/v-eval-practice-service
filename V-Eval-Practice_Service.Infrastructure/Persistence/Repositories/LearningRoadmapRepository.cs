@@ -70,7 +70,7 @@ public class LearningRoadmapRepository : ILearningRoadmapRepository
     public async Task<RoadmapNode?> GetNextLockedNodeAsync(Guid roadmapId, int currentStepOrder, CancellationToken ct = default)
     {
         return await _context.RoadmapNodes
-            .Where(n => n.RoadmapId == roadmapId && n.StepOrder > currentStepOrder && !n.IsPruned && n.Status == "LOCKED")
+            .Where(n => n.RoadmapId == roadmapId && n.StepOrder > currentStepOrder && !n.IsPruned && (n.Status == "LOCKED" || n.Status == "UNLOCKED"))
             .OrderBy(n => n.StepOrder)
             .FirstOrDefaultAsync(ct);
     }

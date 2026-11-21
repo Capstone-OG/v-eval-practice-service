@@ -18,7 +18,11 @@ public record ExamQuestionKeyDto(
     IReadOnlyList<string>? Options = null,
     string Explanation = "",
     string PassageContent = "",
-    string PassageTitle = ""
+    string PassageTitle = "",
+    string DomainCode = "",
+    string SubjectName = "",
+    string ChapterName = "",
+    string LessonName = ""
 );
 
 public record SkillTreeNodeDto(
@@ -29,7 +33,15 @@ public record SkillTreeNodeDto(
     string Description = "",
     Guid DomainId = default,
     string DomainName = "",
-    string DomainCode = ""
+    string DomainCode = "",
+    Guid? ParentId = null,
+    string Level = "",
+    string ChapterName = "",
+    string LessonName = "",
+    string SubjectName = "",
+    Guid? MaterialId = null,
+    string VideoUrl = "",
+    int QuestionCount = 0
 );
 
 public record MilestoneQuizQuestionOptionDto(
@@ -44,7 +56,10 @@ public record MilestoneQuizQuestionDto(
     IReadOnlyList<MilestoneQuizQuestionOptionDto> Options,
     int DifficultyLevel,
     Guid SkillId,
-    string SkillName
+    string SkillName,
+    string PassageTitle = "",
+    string PassageContent = "",
+    string PassageImageUrl = ""
 );
 
 public record MilestoneQuizResultDto(
@@ -64,7 +79,11 @@ public record QuestionDetailDto(
     string Title,
     string Content,
     IReadOnlyList<QuestionDetailOptionDto> Options,
-    string Explanation
+    string Explanation,
+    string DomainId = "",
+    string DomainName = "",
+    string DomainCode = "",
+    string SubjectName = ""
 );
 
 public interface IContentGrpcClient
@@ -72,5 +91,6 @@ public interface IContentGrpcClient
     Task<IReadOnlyDictionary<Guid, ExamQuestionKeyDto>> GetExamAnswerKeysAsync(Guid examId, CancellationToken ct = default);
     Task<IReadOnlyList<SkillTreeNodeDto>> GetSkillsTreeAsync(CancellationToken ct = default);
     Task<MilestoneQuizResultDto?> GetMilestoneQuizAsync(Guid skillId, Guid? examId, int questionCount = 5, CancellationToken ct = default);
+    Task<MilestoneQuizResultDto?> GetMilestoneQuizReadOnlyAsync(Guid skillId, Guid? examId, int questionCount = 5, CancellationToken ct = default);
     Task<QuestionDetailDto?> GetQuestionDetailAsync(Guid questionId, CancellationToken ct = default);
 }

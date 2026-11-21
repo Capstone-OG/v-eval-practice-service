@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using V_Eval_Practice_Service.Application.Common.Interfaces.Repositories;
 using V_Eval_Practice_Service.Application.Common.Interfaces.Services;
 using V_Eval_Practice_Service.Application.Common.Models;
+using V_Eval_Practice_Service.Application.Features.Roadmaps.Commands.GenerateRoadmap;
 using V_Eval_Practice_Service.Domain.Entities;
 
 namespace V_Eval_Practice_Service.Application.Features.Payments.Commands.ProcessPayOsWebhook;
@@ -14,18 +16,24 @@ public class ProcessPayOsWebhookCommandHandler : IRequestHandler<ProcessPayOsWeb
 {
     private readonly IPaymentRepository _paymentRepository;
     private readonly ILearningRoadmapRepository _roadmapRepository;
+    private readonly IExamSubmissionRepository _submissionRepository;
     private readonly IPayOsPaymentService _payOsPaymentService;
+    private readonly ISender _mediator;
     private readonly ILogger<ProcessPayOsWebhookCommandHandler> _logger;
 
     public ProcessPayOsWebhookCommandHandler(
         IPaymentRepository paymentRepository,
         ILearningRoadmapRepository roadmapRepository,
+        IExamSubmissionRepository submissionRepository,
         IPayOsPaymentService payOsPaymentService,
+        ISender mediator,
         ILogger<ProcessPayOsWebhookCommandHandler> logger)
     {
         _paymentRepository = paymentRepository;
         _roadmapRepository = roadmapRepository;
+        _submissionRepository = submissionRepository;
         _payOsPaymentService = payOsPaymentService;
+        _mediator = mediator;
         _logger = logger;
     }
 
@@ -44,11 +52,12 @@ public class ProcessPayOsWebhookCommandHandler : IRequestHandler<ProcessPayOsWeb
         var webhookData = verifyResult.Data;
         _logger.LogInformation("Webhook PayOS xác thực chữ ký thành công cho OrderCode: {OrderCode}", webhookData.OrderCode);
 
+        Guid? activatedStudentId = null;
+
         // 2. Mở Transaction ACID để đảm bảo tính toàn vẹn tuyệt đối trên PostgreSQL
         await using var transaction = await _paymentRepository.BeginTransactionAsync(cancellationToken);
         try
         {
-            // 3. Tra cứu Payment theo OrderCode
             var payment = await _paymentRepository.GetByOrderCodeAsync(webhookData.OrderCode, cancellationToken);
             if (payment == null)
             {
@@ -56,7 +65,6 @@ public class ProcessPayOsWebhookCommandHandler : IRequestHandler<ProcessPayOsWeb
                 return Result<bool>.Failure(Error.NotFound("Payment.NotFound", $"Không tìm thấy đơn hàng {webhookData.OrderCode}."));
             }
 
-            // 4. Idempotency Check: Nếu đơn hàng đã hoàn tất trước đó thì bỏ qua xử lý trùng
             if (payment.Status == "SUCCESS")
             {
                 _logger.LogInformation("Đơn hàng {OrderCode} đã được xử lý SUCCESS trước đó (Idempotent bypass)", webhookData.OrderCode);
@@ -64,15 +72,13 @@ public class ProcessPayOsWebhookCommandHandler : IRequestHandler<ProcessPayOsWeb
                 return Result<bool>.Success(true);
             }
 
-            // 5. Cập nhật thông tin giao dịch Payment
             payment.Status = "SUCCESS";
             payment.PaidAt = DateTime.UtcNow;
             payment.TransactionRef = webhookData.Reference;
-            payment.CounterAccountBankName = string.IsNullOrWhiteSpace(webhookData.CounterAccountBankName) ? "MOMO / VIETQR" : webhookData.CounterAccountBankName;
+            payment.CounterAccountBankName = string.IsNullOrWhiteSpace(webhookData.CounterAccountBankName) ? "VIETQR" : webhookData.CounterAccountBankName;
             payment.CounterAccountName = webhookData.CounterAccountName;
             payment.CounterAccountNumber = webhookData.CounterAccountNumber;
 
-            // 6. Kích hoạt CourseRegistration
             var registration = await _paymentRepository.GetRegistrationByIdAsync(payment.RegistrationId, cancellationToken);
             if (registration != null)
             {
@@ -81,8 +87,8 @@ public class ProcessPayOsWebhookCommandHandler : IRequestHandler<ProcessPayOsWeb
                 var course = await _paymentRepository.GetCourseByIdAsync(registration.CourseId, cancellationToken);
                 int durationWeeks = course?.DurationWeeks ?? 12;
                 registration.EndDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(durationWeeks * 7));
+                activatedStudentId = registration.StudentId;
 
-                // 7. Tự động xếp lớp (ClassEnrollment) vào lớp học phù hợp còn chỗ
                 var availableClass = await _paymentRepository.GetAvailableClassByCourseIdAsync(registration.CourseId, cancellationToken);
                 if (availableClass != null)
                 {
@@ -95,43 +101,9 @@ public class ProcessPayOsWebhookCommandHandler : IRequestHandler<ProcessPayOsWeb
                         EnrolledAt = DateTime.UtcNow
                     };
                     await _paymentRepository.AddClassEnrollmentAsync(enrollment, cancellationToken);
-                    _logger.LogInformation("Đã tự động xếp học sinh {StudentId} vào lớp {ClassId}", registration.StudentId, availableClass.ClassId);
-                }
-
-                // 8. Tự động khởi tạo hoặc mở khóa Lộ trình học thích ứng PLAR (LearningRoadmap & RoadmapNodes)
-                var existingRoadmap = await _roadmapRepository.GetActiveByStudentIdAsync(registration.StudentId, cancellationToken);
-                if (existingRoadmap == null)
-                {
-                    var newRoadmap = new LearningRoadmap
-                    {
-                        StudentId = registration.StudentId,
-                        TargetScore = 800,
-                        Status = "ACTIVE",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-
-                    // Khởi tạo 4 chặng học cơ bản chu trình PLAR (Prerequisite, Learn, Adaptive Practice, Review)
-                    for (int step = 1; step <= 4; step++)
-                    {
-                        newRoadmap.Nodes.Add(new RoadmapNode
-                        {
-                            RoadmapId = newRoadmap.RoadmapId,
-                            SkillId = Guid.NewGuid(),
-                            StepOrder = step,
-                            Status = (step == 1) ? "IN_PROGRESS" : "LOCKED",
-                            UnlockedAt = (step == 1) ? DateTime.UtcNow : null
-                        });
-                    }
-                    newRoadmap.TotalMilestones = newRoadmap.Nodes.Count;
-                    newRoadmap.CompletedMilestones = 0;
-
-                    await _roadmapRepository.AddAsync(newRoadmap, cancellationToken);
-                    _logger.LogInformation("Đã khởi tạo Lộ trình học thích ứng PLAR cho học sinh {StudentId}", registration.StudentId);
                 }
             }
 
-            // 9. Ghi Audit Log vào PaymentTransactions
             var auditTxn = new PaymentTransaction
             {
                 PaymentId = payment.PaymentId,
@@ -143,12 +115,10 @@ public class ProcessPayOsWebhookCommandHandler : IRequestHandler<ProcessPayOsWeb
             };
             await _paymentRepository.AddTransactionAsync(auditTxn, cancellationToken);
 
-            // 10. Lưu tất cả thay đổi & Commit Transaction đồng bộ
             await _paymentRepository.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
             _logger.LogInformation("Xử lý Webhook PayOS thành công trọn vẹn (ACID) cho đơn hàng {OrderCode}", webhookData.OrderCode);
-            return Result<bool>.Success(true);
         }
         catch (Exception ex)
         {
@@ -156,6 +126,38 @@ public class ProcessPayOsWebhookCommandHandler : IRequestHandler<ProcessPayOsWeb
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+
+        // Sau khi commit thanh toán thành công: Tự động sinh Lộ trình cá nhân hóa THẬT từ kết quả Diagnostic (KHÔNG tạo 4 node Guid.NewGuid giả!)
+        if (activatedStudentId.HasValue)
+        {
+            try
+            {
+                var existingRoadmap = await _roadmapRepository.GetActiveByStudentIdAsync(activatedStudentId.Value, cancellationToken);
+                if (existingRoadmap == null)
+                {
+                    var submissions = await _submissionRepository.GetByStudentIdAsync(activatedStudentId.Value, cancellationToken);
+                    var latestDiag = submissions
+                        .Where(s => s.ExamType == "DIAGNOSTIC" && s.Status == "COMPLETED")
+                        .OrderByDescending(s => s.CompletedAt)
+                        .FirstOrDefault();
+
+                    if (latestDiag != null)
+                    {
+                        await _mediator.Send(new GenerateRoadmapCommand(
+                            StudentId: activatedStudentId.Value,
+                            DiagnosticSubmissionId: latestDiag.SubmissionId,
+                            ExamDate: DateTime.UtcNow.AddDays(90),
+                            StudyHoursPerDay: 2.0
+                        ), cancellationToken);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Thanh toán đã thành công nhưng chưa thể tự sinh lộ trình sau webhook cho học sinh {StudentId}", activatedStudentId.Value);
+            }
+        }
+
+        return Result<bool>.Success(true);
     }
 }
-

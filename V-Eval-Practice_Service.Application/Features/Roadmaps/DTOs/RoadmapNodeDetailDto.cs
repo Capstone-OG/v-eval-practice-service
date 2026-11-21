@@ -26,5 +26,9 @@ public record RoadmapNodeDetailDto(
     bool IsQuizEligible,
     // Thành phần 2: Bài Quiz củng cố 5-10 câu
     Guid? QuizExamId,
-    string DomainCode = ""
+    string DomainCode = "",
+    string SubjectName = "",
+    string ChapterName = "",
+    string LessonName = "",
+    string VideoUrl = ""
 );
