@@ -18,5 +18,13 @@ public record RoadmapNodeSummaryDto(
     bool IsPruned,
     DateTime? UnlockedAt,
     DateTime? CompletedAt,
-    string DomainCode = ""
+    string DomainCode = "",
+    string SubjectName = "",
+    string ChapterName = "",
+    string LessonName = "",
+    string VideoUrl = "",
+    double MasteryPlt = 0.0,
+    string CurrentPlarStep = "",
+    string AssessmentStatus = "UNASSESSED",
+    int GradeLevel = 0
 );

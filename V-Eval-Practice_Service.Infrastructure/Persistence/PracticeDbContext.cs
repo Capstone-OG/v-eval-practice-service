@@ -423,6 +423,9 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.ConsecutiveAdvancedCorrect).HasColumnName("consecutive_advanced_correct");
             entity.Property(e => e.ConsecutiveIncorrect).HasColumnName("consecutive_incorrect");
             entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+            entity.Property(e => e.ConfidenceRating).HasColumnName("confidence_rating");
+            entity.Property(e => e.LearnedSummary).HasColumnName("learned_summary");
+            entity.Property(e => e.MistakeNotes).HasColumnName("mistake_notes");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 

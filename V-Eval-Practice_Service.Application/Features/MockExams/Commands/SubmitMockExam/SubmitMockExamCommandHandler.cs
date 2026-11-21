@@ -251,7 +251,20 @@ public class SubmitMockExamCommandHandler : IRequestHandler<SubmitMockExamComman
                 cancellationToken);
 
             var enrollment = await _classEnrollmentRepository.GetEnrollmentByStudentIdAsync(submission.StudentId, cancellationToken);
-            if (enrollment != null && skillGroups.Count > 0)
+            Guid targetClassId = enrollment?.ClassId ?? Guid.Empty;
+            if (targetClassId == Guid.Empty && skillGroups.Count > 0)
+            {
+                var enrolled = await _classEnrollmentRepository.EnrollStudentAsync(
+                    submission.StudentId,
+                    "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                    "ACCELERATION",
+                    submission.SubmissionId,
+                    "Cơ sở 1: ĐHQG TP.HCM",
+                    cancellationToken);
+                targetClassId = enrolled.ClassId;
+            }
+
+            if (targetClassId != Guid.Empty && skillGroups.Count > 0)
             {
                 foreach (var group in skillGroups)
                 {
@@ -261,12 +274,22 @@ public class SubmitMockExamCommandHandler : IRequestHandler<SubmitMockExamComman
                         ? (double)skillAnswers.Count(a => a.IsCorrect) / skillAnswers.Count
                         : 0.5;
 
+                    var firstItem = group.First();
+                    ExamQuestionKeyDto? matchedKey = null;
+                    answerKeys?.TryGetValue(firstItem.QuestionId, out matchedKey);
+                    var resolvedSkillName = !string.IsNullOrWhiteSpace(matchedKey?.SkillName)
+                        ? matchedKey.SkillName
+                        : $"Kỹ năng {group.Key.ToString()[..8]}";
+                    var resolvedDomainCode = !string.IsNullOrWhiteSpace(matchedKey?.DomainCode)
+                        ? matchedKey.DomainCode
+                        : "DOM_MATH";
+
                     await _aggregatorService.UpdateCellWriteThroughAsync(
-                        enrollment.ClassId,
+                        targetClassId,
                         submission.StudentId,
                         group.Key,
-                        skillName: $"Kỹ năng {group.Key.ToString()[..8]}",
-                        domainCode: "DOM_MATH",
+                        skillName: resolvedSkillName,
+                        domainCode: resolvedDomainCode,
                         pltValue: mastery,
                         assessmentType: "MOCK_EXAM",
                         cancellationToken);

@@ -324,6 +324,9 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE v_eval_practice.""ExamSubmissions"" ADD COLUMN IF NOT EXISTS integrity_status VARCHAR(50) DEFAULT 'NORMAL';
             ALTER TABLE v_eval_practice.""ExamSubmissions"" ADD COLUMN IF NOT EXISTS mentor_verdict VARCHAR(50) DEFAULT 'PENDING';
             ALTER TABLE v_eval_practice.""ExamSubmissions"" ADD COLUMN IF NOT EXISTS mentor_notes TEXT;
+            ALTER TABLE v_eval_practice.""StageProgress"" ADD COLUMN IF NOT EXISTS confidence_rating INT;
+            ALTER TABLE v_eval_practice.""StageProgress"" ADD COLUMN IF NOT EXISTS learned_summary TEXT;
+            ALTER TABLE v_eval_practice.""StageProgress"" ADD COLUMN IF NOT EXISTS mistake_notes TEXT;
 
             CREATE TABLE IF NOT EXISTS v_eval_practice.""SubmissionAnswers"" (
                 answer_id UUID PRIMARY KEY,

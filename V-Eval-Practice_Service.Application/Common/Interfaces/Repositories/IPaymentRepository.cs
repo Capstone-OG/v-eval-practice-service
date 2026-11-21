@@ -18,6 +18,9 @@ public interface IPaymentRepository
     Task<Course?> GetCourseByIdAsync(Guid courseId, CancellationToken ct = default);
     Task<CourseRegistration?> GetRegistrationByIdAsync(Guid registrationId, CancellationToken ct = default);
     Task<CourseRegistration?> GetActiveRegistrationAsync(Guid studentId, Guid courseId, CancellationToken ct = default);
+    Task<CourseRegistration?> GetPendingRegistrationAsync(Guid studentId, Guid courseId, CancellationToken ct = default);
+    Task<int> GetMaxAttemptNoAsync(Guid studentId, Guid courseId, CancellationToken ct = default);
+    Task<bool> HasActiveTuitionAsync(Guid studentId, CancellationToken ct = default);
     Task<Class?> GetAvailableClassByCourseIdAsync(Guid courseId, CancellationToken ct = default);
 
     Task AddPaymentAsync(Payment payment, CancellationToken ct = default);
@@ -33,4 +36,3 @@ public interface IPaymentRepository
     Task<IExecutionTransaction> BeginTransactionAsync(CancellationToken ct = default);
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }
-

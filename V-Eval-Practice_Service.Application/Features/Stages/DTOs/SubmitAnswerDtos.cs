@@ -26,5 +26,6 @@ public record SubmitAnswerResponseDto(
     bool IsMasteryAchieved,
     bool IsRemedialTriggered,
     string FeedbackMessage,
-    string NextAction
+    string NextAction,
+    string Explanation = ""
 );

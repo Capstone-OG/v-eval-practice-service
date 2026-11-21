@@ -262,6 +262,10 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                 SkillName = key.SkillName,
                 DomainId = key.DomainId,
                 DomainName = key.DomainName,
+                DomainCode = !string.IsNullOrWhiteSpace(key.DomainCode) ? key.DomainCode : NormalizeDomainCode(key.DomainId, key.DomainName),
+                SubjectName = key.SubjectName,
+                ChapterName = key.ChapterName,
+                LessonName = key.LessonName,
                 DifficultyLevel = key.DifficultyLevel,
                 Content = key.Content,
                 Options = key.Options != null ? key.Options.ToList() : new List<string>(),
@@ -276,7 +280,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             ? Math.Round((totalCorrect / (double)totalQuestions) * 100, 2)
             : 0;
 
-        // 5. Phân tích chẩn đoán theo Kỹ năng & Độ khó
+        // 5. Phân tích chẩn đoán theo Kỹ năng, Môn học & Độ khó
         var skillBreakdowns = questionResults
             .GroupBy(q => string.IsNullOrWhiteSpace(q.SkillId) ? "sk_default" : q.SkillId)
             .Select(g =>
@@ -292,12 +296,38 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                     SkillName = !string.IsNullOrWhiteSpace(first.SkillName) ? first.SkillName : g.Key,
                     DomainId = first.DomainId,
                     DomainName = first.DomainName,
+                    DomainCode = first.DomainCode,
+                    SubjectName = first.SubjectName,
+                    ChapterName = first.ChapterName,
+                    LessonName = first.LessonName,
                     TotalQuestions = count,
                     CorrectCount = correct,
                     AccuracyPercentage = pct,
                     IsWeak = isWeak
                 };
             })
+            .ToList();
+
+        var subjectBreakdowns = questionResults
+            .GroupBy(q => !string.IsNullOrWhiteSpace(q.SubjectName) ? q.SubjectName : GetDefaultDomainName(q.DomainCode))
+            .Select(g =>
+            {
+                var first = g.First();
+                int count = g.Count();
+                int correct = g.Count(x => x.IsCorrect);
+                double pct = Math.Round((correct / (double)count) * 100, 2);
+                return new SubjectDiagnosticDto
+                {
+                    SubjectName = g.Key,
+                    DomainCode = first.DomainCode,
+                    DomainName = !string.IsNullOrWhiteSpace(first.DomainName) ? first.DomainName : GetDefaultDomainName(first.DomainCode),
+                    TotalQuestions = count,
+                    CorrectCount = correct,
+                    AccuracyPercentage = pct,
+                    IsWeak = pct < 60.0
+                };
+            })
+            .OrderBy(s => s.AccuracyPercentage)
             .ToList();
 
         var weakSkillIds = skillBreakdowns.Where(s => s.IsWeak).Select(s => s.SkillId).ToList();
@@ -333,7 +363,26 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             })
             .ToList();
 
-        // 6. Gửi dữ liệu sang AI Subsystem ước lượng theta_0 (IRT 2PL) & BKT P(L0) (có fallback tất định)
+        // 6. Nạp danh sách kỹ năng học tập (PATTERN) từ Content Service để AI suy luận cold-start P(L0) theo miền
+        var allCurriculumSkillDomainMap = new Dictionary<string, string>();
+        try
+        {
+            var skillsTree = await _contentGrpcClient.GetSkillsTreeAsync(cancellationToken);
+            foreach (var sk in skillsTree.Where(s => string.Equals(s.Level, "PATTERN", StringComparison.OrdinalIgnoreCase)))
+            {
+                var dId = sk.DomainId != Guid.Empty ? sk.DomainId.ToString() : sk.DomainCode;
+                if (!string.IsNullOrWhiteSpace(dId))
+                {
+                    allCurriculumSkillDomainMap[sk.SkillId.ToString()] = dId;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Không thể nạp cây kỹ năng để suy luận cold-start P(L0). Tiếp tục với các kỹ năng có trong đề.");
+        }
+
+        // Gửi dữ liệu sang AI Subsystem ước lượng theta_0 (IRT 2PL) & BKT P(L0) (có fallback tất định)
         var domainNamePayloads = questionResults
             .Where(q => !string.IsNullOrEmpty(q.DomainId))
             .GroupBy(q => q.DomainId)
@@ -367,7 +416,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                     TimeSpentSeconds: q.TimeSpentSeconds
                 )).ToList(),
                 DomainNames: domainNamePayloads,
-                AllSkillIds: new Dictionary<string, string>()
+                AllSkillIds: allCurriculumSkillDomainMap
             );
 
             aiResult = await _aiDiagnosticClient.AnalyzeDiagnosticAsync(aiPayload, cancellationToken);
@@ -610,6 +659,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             StartedAt = submission.StartedAt,
             CompletedAt = submission.CompletedAt,
             SkillBreakdowns = skillBreakdowns,
+            SubjectBreakdowns = subjectBreakdowns,
             WeakSkillIds = weakSkillIds,
             WeakSkills = weakSkills,
             DifficultyBreakdowns = difficultyBreakdowns,
@@ -644,18 +694,28 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
 
     private static string NormalizeDomainCode(string? domainId, string? domainName)
     {
+        string rawId = (domainId ?? string.Empty).Trim().ToLowerInvariant();
+        if (rawId == "b581ee4c-7277-4be8-a156-c5b20a0a59f6") return "DOM_LANG";
+        if (rawId == "6f3765db-943e-4810-bf74-d6a8bdc215da") return "DOM_MATH";
+        if (rawId == "77777777-7777-7777-7777-000000000001") return "DOM_NAT_SCI";
+        if (rawId == "77777777-7777-7777-7777-000000000002") return "DOM_SOC_SCI";
+
         string raw = $"{domainId} {domainName}".ToLowerInvariant();
-        if (raw.Contains("dom_lang") || raw.Contains("ngôn ngữ") || raw.Contains("tiếng việt") || raw.Contains("english") || raw.Contains("văn"))
-        {
-            return "DOM_LANG";
-        }
-        if (raw.Contains("dom_nat") || raw.Contains("tự nhiên") || raw.Contains("vật lý") || raw.Contains("hóa") || raw.Contains("sinh"))
+        if (raw.Contains("dom_nat") || raw.Contains("natural_sciences") || raw.Contains("tự nhiên")
+            || raw.Contains("vật lý") || raw.Contains("vật lí") || raw.Contains("hóa") || raw.Contains("hoá") || raw.Contains("sinh học"))
         {
             return "DOM_NAT_SCI";
         }
-        if (raw.Contains("dom_soc") || raw.Contains("xã hội") || raw.Contains("lịch sử") || raw.Contains("địa lý"))
+        if (raw.Contains("dom_soc") || raw.Contains("social_sciences") || raw.Contains("xã hội")
+            || raw.Contains("lịch sử") || raw.Contains("địa lý") || raw.Contains("địa lí")
+            || raw.Contains("gdkt") || raw.Contains("pháp luật") || raw.Contains("kinh tế"))
         {
             return "DOM_SOC_SCI";
+        }
+        if (raw.Contains("dom_lang") || raw.Contains("language") || raw.Contains("ngôn ngữ")
+            || raw.Contains("tiếng việt") || raw.Contains("ngữ văn") || raw.Contains("tiếng anh") || raw.Contains("english"))
+        {
+            return "DOM_LANG";
         }
         return "DOM_MATH";
     }

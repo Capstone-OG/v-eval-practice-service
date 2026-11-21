@@ -12,7 +12,10 @@ public record CandidateQuestion(
     double ItemDifficultyB,
     double ItemDiscriminationA,
     Guid SkillId,
-    string SkillName
+    string SkillName,
+    string PassageTitle = "",
+    string PassageContent = "",
+    string PassageImageUrl = ""
 );
 
 public record CandidateQuestionOption(

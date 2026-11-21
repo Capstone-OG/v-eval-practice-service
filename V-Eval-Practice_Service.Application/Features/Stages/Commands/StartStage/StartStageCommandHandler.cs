@@ -17,17 +17,23 @@ public class StartStageCommandHandler : IRequestHandler<StartStageCommand, Resul
 {
     private readonly IStageProgressRepository _stageProgressRepository;
     private readonly ILearningRoadmapRepository _roadmapRepository;
+    private readonly ILearningProfileRepository _learningProfileRepository;
+    private readonly IPaymentRepository _paymentRepository;
     private readonly IContentGrpcClient _contentGrpcClient;
     private readonly ILogger<StartStageCommandHandler> _logger;
 
     public StartStageCommandHandler(
         IStageProgressRepository stageProgressRepository,
         ILearningRoadmapRepository roadmapRepository,
+        ILearningProfileRepository learningProfileRepository,
+        IPaymentRepository paymentRepository,
         IContentGrpcClient contentGrpcClient,
         ILogger<StartStageCommandHandler> logger)
     {
         _stageProgressRepository = stageProgressRepository;
         _roadmapRepository = roadmapRepository;
+        _learningProfileRepository = learningProfileRepository;
+        _paymentRepository = paymentRepository;
         _contentGrpcClient = contentGrpcClient;
         _logger = logger;
     }
@@ -37,7 +43,7 @@ public class StartStageCommandHandler : IRequestHandler<StartStageCommand, Resul
         _logger.LogInformation("Khởi tạo chặng học P-L-A-R cho học sinh {StudentId}, chặng {NodeId}",
             request.StudentId, request.RoadmapNodeId);
 
-        // 1. Kiểm tra tồn tại của chặng học RoadmapNode
+        // 1. Kiểm tra tồn tại và quyền sở hữu của chặng học RoadmapNode
         var node = await _roadmapRepository.GetNodeByIdAsync(request.RoadmapNodeId, ct);
         if (node == null)
         {
@@ -45,10 +51,57 @@ public class StartStageCommandHandler : IRequestHandler<StartStageCommand, Resul
                 Error.NotFound("RoadmapNode.NotFound", $"Không tìm thấy chặng học {request.RoadmapNodeId}"));
         }
 
-        // 2. Tìm hoặc khởi tạo StageProgress của học sinh
+        if (node.Roadmap != null && node.Roadmap.StudentId != request.StudentId)
+        {
+            return Result<StartStageResponseDto>.Failure(
+                Error.Forbidden("RoadmapNode.Forbidden", "Bạn không có quyền truy cập chặng học của học sinh khác."));
+        }
+
+        // 2. Cổng kiểm soát học phí thực tế ở Backend (Bắt buộc đóng học phí để mở khóa PLAR)
+        bool hasPaidTuition = await _paymentRepository.HasActiveTuitionAsync(request.StudentId, ct);
+        if (!hasPaidTuition)
+        {
+            return Result<StartStageResponseDto>.Failure(
+                Error.Forbidden("Tuition.Required",
+                    "Vui lòng hoàn tất thanh toán học phí khóa học để mở khóa chu trình tự học thích ứng P-L-A-R trên lộ trình cá nhân."));
+        }
+
+        // 3. Kiểm tra trạng thái mở khóa chặng học trên lộ trình
+        // Học sinh đã đóng học phí được phép tự do mở chu trình P-L-A-R trên mọi chặng GDPT 2018 đang hoạt động (trừ SKIPPED_PRUNED)
+        if (string.Equals(node.Status, "SKIPPED_PRUNED", StringComparison.OrdinalIgnoreCase))
+        {
+            return Result<StartStageResponseDto>.Failure(
+                Error.Validation("RoadmapNode.Pruned",
+                    $"Chặng học #{node.StepOrder} đã được rút gọn khỏi lộ trình hiện tại."));
+        }
+
+        if (string.Equals(node.Status, "LOCKED", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(node.Status, "UNLOCKED", StringComparison.OrdinalIgnoreCase))
+        {
+            node.Status = "IN_PROGRESS";
+            node.UnlockedAt ??= DateTime.UtcNow;
+            await _roadmapRepository.SaveChangesAsync(ct);
+        }
+
+        // 4. Tìm hoặc khởi tạo StageProgress với tiên nghiệm BKT P(L0) thật từ LearningProfiles
         var progress = await _stageProgressRepository.GetByStudentAndNodeAsync(request.StudentId, request.RoadmapNodeId, ct);
         if (progress == null)
         {
+            double initialPlt = 0.2500;
+            try
+            {
+                var profiles = await _learningProfileRepository.GetByStudentIdAsync(request.StudentId, ct);
+                var matched = profiles.FirstOrDefault(p => p.SkillId == node.SkillId);
+                if (matched != null && matched.MasteryScore > 0)
+                {
+                    initialPlt = Math.Round(Math.Clamp(matched.MasteryScore, 0.10, 0.70), 4);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Không thể đọc P(L0) từ LearningProfiles, sử dụng mặc định 0.25.");
+            }
+
             progress = new StageProgress
             {
                 Id = Guid.NewGuid(),
@@ -57,7 +110,7 @@ public class StartStageCommandHandler : IRequestHandler<StartStageCommand, Resul
                 CurrentStep = "PREVIEW",
                 Status = "IN_PROGRESS",
                 VideoWatchPercentage = 0.00m,
-                BktMasteryPlt = 0.1000,
+                BktMasteryPlt = initialPlt,
                 ConsecutiveAdvancedCorrect = 0,
                 ConsecutiveIncorrect = 0,
                 CreatedAt = DateTime.UtcNow,
@@ -65,15 +118,15 @@ public class StartStageCommandHandler : IRequestHandler<StartStageCommand, Resul
             };
 
             await _stageProgressRepository.AddAsync(progress, ct);
-            _logger.LogInformation("Đã tạo mới tiến trình StageProgress {ProgressId} cho học sinh {StudentId}",
-                progress.Id, request.StudentId);
+            _logger.LogInformation("Đã tạo mới tiến trình StageProgress {ProgressId} (P(L0)={Plt}) cho học sinh {StudentId}",
+                progress.Id, initialPlt, request.StudentId);
         }
 
-        // 3. Nạp 3 câu hỏi Quick Check khởi động cho bước PREVIEW
+        // 5. Nạp 3 câu hỏi Quick Check thật từ ngân hàng câu hỏi (ReadOnly = true -> KHÔNG spam MockExam rác!)
         var previewQuestions = new List<PreviewQuestionDto>();
         try
         {
-            var quizResult = await _contentGrpcClient.GetMilestoneQuizAsync(node.SkillId, node.QuizExamId, questionCount: 3, ct);
+            var quizResult = await _contentGrpcClient.GetMilestoneQuizReadOnlyAsync(node.SkillId, node.QuizExamId, questionCount: 3, ct);
             if (quizResult != null && quizResult.Questions.Count > 0)
             {
                 int order = 1;
@@ -86,20 +139,17 @@ public class StartStageCommandHandler : IRequestHandler<StartStageCommand, Resul
                         q.Options.Select(o => new PreviewQuestionOptionDto(o.OptionId, o.Content)).ToList(),
                         q.DifficultyLevel,
                         q.SkillId,
-                        q.SkillName
+                        q.SkillName,
+                        q.PassageTitle,
+                        q.PassageContent,
+                        q.PassageImageUrl
                     ));
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không thể lấy câu hỏi Preview từ Content Service qua gRPC, sử dụng câu hỏi khởi động mặc định.");
-        }
-
-        // Fallback tạo 3 câu hỏi mẫu nếu chưa có từ Content Service để đảm bảo API luôn phản hồi mượt mà
-        if (previewQuestions.Count == 0)
-        {
-            previewQuestions.AddRange(GetDefaultPreviewQuestions(node.SkillId));
+            _logger.LogWarning(ex, "Không thể lấy câu hỏi Preview từ Content Service qua gRPC.");
         }
 
         var response = new StartStageResponseDto(
@@ -112,61 +162,12 @@ public class StartStageCommandHandler : IRequestHandler<StartStageCommand, Resul
             progress.BktMasteryPlt,
             progress.ConsecutiveAdvancedCorrect,
             progress.ConsecutiveIncorrect,
-            previewQuestions
+            previewQuestions,
+            progress.ConfidenceRating,
+            progress.LearnedSummary,
+            progress.MistakeNotes
         );
 
         return Result<StartStageResponseDto>.Success(response);
-    }
-
-    private static List<PreviewQuestionDto> GetDefaultPreviewQuestions(Guid skillId)
-    {
-        return new List<PreviewQuestionDto>
-        {
-            new(
-                Guid.NewGuid(),
-                1,
-                "Khởi động 1: Khái niệm cơ bản của dạng bài này là gì?",
-                new List<PreviewQuestionOptionDto>
-                {
-                    new("A", "Định nghĩa và tính chất cơ sở"),
-                    new("B", "Phương pháp mở rộng gián tiếp"),
-                    new("C", "Biến thể đặc biệt"),
-                    new("D", "Trường hợp ngoại lệ")
-                },
-                1,
-                skillId,
-                "Kiến thức nền tảng"
-            ),
-            new(
-                Guid.NewGuid(),
-                2,
-                "Khởi động 2: Công thức hoặc nguyên lý tiên quyết nào cần nhớ khi xử lý dạng này?",
-                new List<PreviewQuestionOptionDto>
-                {
-                    new("A", "Áp dụng định lý trực tiếp"),
-                    new("B", "Quy tắc loại trừ"),
-                    new("C", "Phương pháp thế đại số"),
-                    new("D", "Tất cả các phương pháp trên")
-                },
-                2,
-                skillId,
-                "Nguyên lý tiên quyết"
-            ),
-            new(
-                Guid.NewGuid(),
-                3,
-                "Khởi động 3: Dấu hiệu nhận biết dạng bài thường xuất hiện trong đề thi ĐGNL là gì?",
-                new List<PreviewQuestionOptionDto>
-                {
-                    new("A", "Dữ kiện dạng bảng hoặc biểu đồ phân tích"),
-                    new("B", "Bài toán có từ khóa điều kiện ràng buộc logic"),
-                    new("C", "Dữ kiện thực tế tích hợp liên môn"),
-                    new("D", "Cả A, B và C")
-                },
-                2,
-                skillId,
-                "Dấu hiệu nhận biết"
-            )
-        };
     }
 }

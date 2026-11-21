@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +23,8 @@ public class StageProgressRepository : IStageProgressRepository
         return await _context.StageProgresses
             .Include(s => s.AdaptiveAttempts)
             .Include(s => s.RoadmapNode)
+                .ThenInclude(n => n!.Roadmap)
+                    .ThenInclude(r => r.Nodes)
             .FirstOrDefaultAsync(s => s.Id == id, ct);
     }
 
@@ -29,7 +33,22 @@ public class StageProgressRepository : IStageProgressRepository
         return await _context.StageProgresses
             .Include(s => s.AdaptiveAttempts)
             .Include(s => s.RoadmapNode)
+                .ThenInclude(n => n!.Roadmap)
             .FirstOrDefaultAsync(s => s.StudentId == studentId && s.RoadmapNodeId == roadmapNodeId, ct);
+    }
+
+    public async Task<IReadOnlyList<StageProgress>> GetByStudentAndNodeIdsAsync(
+        Guid studentId,
+        IEnumerable<Guid> roadmapNodeIds,
+        CancellationToken ct = default)
+    {
+        var ids = roadmapNodeIds.ToList();
+        if (ids.Count == 0) return Array.Empty<StageProgress>();
+
+        return await _context.StageProgresses
+            .AsNoTracking()
+            .Where(s => s.StudentId == studentId && ids.Contains(s.RoadmapNodeId))
+            .ToListAsync(ct);
     }
 
     public async Task AddAsync(StageProgress progress, CancellationToken ct = default)
