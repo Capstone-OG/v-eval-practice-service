@@ -134,18 +134,11 @@ public class GenerateRoadmapCommandHandler : IRequestHandler<GenerateRoadmapComm
                 Error.Failure("ContentService.EmptySkillsTree", "Danh sách kỹ năng từ Content Service rỗng."));
         }
 
-        // Lấy TOÀN BỘ tầng dạng bài học tập thực tế (PATTERN) từ cây GDPT 2018 (bao phủ 9 môn & Lớp 10-12)
+        // Lấy TOÀN BỘ tầng dạng bài học tập thực tế (PATTERN) từ cây GDPT 2018 (bao phủ đủ 9 môn & Lớp 10-12)
+        // Không lọc bỏ dạng bài mới đồng bộ từ SGK chỉ vì chưa có QuestionCount trực tiếp (GetMilestoneQuiz sẽ tự lấy câu hỏi cùng bài/chương)
         var learningPatterns = fullSkillsTree
-            .Where(s => string.Equals(s.Level, "PATTERN", StringComparison.OrdinalIgnoreCase)
-                        && (s.QuestionCount > 0 || s.MaterialId.HasValue))
+            .Where(s => string.Equals(s.Level, "PATTERN", StringComparison.OrdinalIgnoreCase))
             .ToList();
-
-        if (learningPatterns.Count == 0)
-        {
-            learningPatterns = fullSkillsTree
-                .Where(s => string.Equals(s.Level, "PATTERN", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-        }
 
         if (learningPatterns.Count == 0)
         {
