@@ -1,11 +1,7 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [21/11/2026] - Hotfix Pha Apply (Pha A): Khắc Phục Triệt Để Hiện Tượng Cấp Phát Sai Môn Học / Sai Dạng Bài Trong Chu Trình PLAR
-
-- **Chuẩn Hóa Truy Vấn Câu Hỏi Thích Ứng ZPD Theo Kỹ Năng Chuyên Đề ([`GetNextQuestionQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/Stages/Queries/GetNextQuestion/GetNextQuestionQueryHandler.cs))**:
-  - Loại bỏ hoàn toàn fallback GUID `6f3765db-943e-4810-bf74-d6a8bdc215da` (mã miền Toán học, không phải SkillId) khi tra cứu kỹ năng; bổ sung log cảnh báo rõ ràng khi chặng học thiếu `RoadmapNode` hoặc `SkillId`.
-  - Trong Pha APPLY (Luyện tập thích ứng IRT ZPD + BKT Mastery), truyền `examId: null` sang Content Service gRPC để hệ thống tập trung 100% vào việc rút ngân hàng câu hỏi thích ứng theo dạng bài `skillId` của chặng học và cây kỹ năng cùng môn học, không bị gò bó vào danh sách câu hỏi cố định của `QuizExamId`.
-  - Kết hợp với cơ chế **Subject Boundary Isolation** từ Content Service gRPC để đảm bảo 100% câu hỏi trả về vùng ZPD [0.60, 0.75] và dải thích ứng L1–L4 thuộc đúng dạng bài và đúng môn học của chặng học (Toán học ra đề Toán học, không bị lọt câu hỏi Ngữ văn/Ngoại ngữ).
-- **Kiểm Thử & Biên Dịch Sạch Sẽ**:
-  - `dotnet build --no-restore` (0 Warning, 0 Error).
-  - `dotnet test --no-restore` (**20/20 Passed 100%**).
+## [22/11/2026]
+- **Mở Khóa Toàn Bộ Tầng Dạng Bài GDPT 2018 (750+ Dạng Bài Lớp 10–12) Khi Sinh Lộ Trình (`GenerateRoadmapCommandHandler.cs`)**:
+  - Loại bỏ điều kiện lọc cứng `&& (s.QuestionCount > 0 || s.MaterialId.HasValue)` trong `GenerateRoadmapCommandHandler.cs` vốn làm rơi toàn bộ 612 dạng bài mới đồng bộ từ bộ SGK Chân trời sáng tạo Lớp 10–12 (khiến lộ trình bị kẹt ở ~370 chặng).
+  - Đảm bảo khi học sinh bấm `Cập nhật` ➔ `Tạo Lộ Trình Ngay`, lộ trình nạp đầy đủ 100% tầng `PATTERN` từ cây năng lực Content Service gRPC.
+- **Kiểm Thử & Biên Dịch**: `dotnet test --no-restore` đạt **20/20 Passed (100%)**.

@@ -10,6 +10,7 @@ using V_Eval_Practice_Service.Application.Features.MockExams.Commands.StartMockE
 using V_Eval_Practice_Service.Application.Features.MockExams.Commands.SubmitMockExam;
 using V_Eval_Practice_Service.Application.Features.MockExams.Commands.UploadSnapshot;
 using V_Eval_Practice_Service.Application.Features.MockExams.DTOs;
+using V_Eval_Practice_Service.Application.Features.MockExams.Queries.GetFlaggedSubmissions;
 using V_Eval_Practice_Service.Application.Features.MockExams.Queries.GetMockExamDetail;
 
 namespace V_Eval_Practice_Service.API.Controllers;
@@ -135,6 +136,18 @@ public class MockExamsController : ApiControllerBase
     public async Task<IActionResult> GetMockExamDetail([FromRoute] Guid submissionId)
     {
         var query = new GetMockExamDetailQuery(submissionId);
+        var result = await Mediator.Send(query);
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// API 5.5: Lấy danh sách các bài thi thử bị gắn cờ liêm chính cần Mentor/Giáo viên hậu kiểm (Core Flow 3)
+    /// </summary>
+    [HttpGet("flagged-reviews")]
+    [ProducesResponseType(typeof(Result<System.Collections.Generic.IReadOnlyList<FlaggedMockExamDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFlaggedReviews([FromQuery] Guid? classId = null)
+    {
+        var query = new GetFlaggedSubmissionsQuery(classId);
         var result = await Mediator.Send(query);
         return HandleResult(result);
     }

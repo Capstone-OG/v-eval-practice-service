@@ -1266,9 +1266,33 @@
   3. **Verification**:
      - `dotnet build V-Eval-Practice_Service.Infrastructure.csproj --no-restore` (`0 Warning(s), 0 Error(s)`); `dotnet test` passed 20/20 unit tests.
 
+### 10.10 [20/11/2026] - Flagged Mock Exam Proctoring Review API (Core Flow 3 - BR-20)
+- **Module**: `v_eval_practice.MockExamSubmissions` Academic Integrity & Proctoring Reviews.
+- **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
+- **Target Files**:
+  - `V-Eval-Practice_Service.API/Controllers/MockExamsController.cs`
+  - `V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IMockExamRepository.cs`
+  - `V-Eval-Practice_Service.Application/Features/MockExams/DTOs/FlaggedMockExamDto.cs`
+  - `V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetFlaggedSubmissions/GetFlaggedSubmissionsQuery.cs`
+  - `V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetFlaggedSubmissions/GetFlaggedSubmissionsQueryHandler.cs`
+  - `V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/MockExamRepository.cs`
+- **Key Architectural Deliverables**:
+  1. **Flagged Submissions Queue Endpoint**:
+     - Endpoint `GET /api/practice/mock-exams/flagged-reviews?classId={classId}` returns all mock exam attempts with integrity irregularities (`IntegrityStatus` IN `FLAGGED_FOR_REVIEW`, `UNDER_REVIEW`, or `TabDepartureCount > 3`).
+  2. **Audit Trail Persistence & Retrieval**:
+     - `MockExamRepository.GetFlaggedSubmissionsAsync` queries PostgreSQL schema `v_eval_practice."MockExamSubmissions"` joining submission status, departure counts, and proctoring audit trails.
+  3. **Verification**:
+     - Clean .NET 9 build (`0 Warning(s), 0 Error(s)`). All architectural requirements accepted.
+
+### 14.12 Real-Time Student Identity Resolution Subsystem for Class Heatmap Matrix (`GetClassHeatmapQueryHandler.cs`, `IIdentityGrpcClient.cs`)
+- **Inter-Service gRPC Integration**: Injected `IIdentityGrpcClient` into `GetClassHeatmapQueryHandler`, invoking `GetStudentNamesAsync(studentIds)` across gRPC port 5156 to resolve authentic student full names directly from `v_eval_identity."Users"`.
+- **Eradication of Synthetic Identifiers**: Eliminated legacy masked placeholder formats (`Học sinh #{studentId[..6]}`) across heatmap rows.
+- **Stale Cache Invalidation Guard**: If cached response objects contain legacy masked identifiers (`r.StudentName.StartsWith("Học sinh #")`), the cache is immediately bypassed to re-query fresh live identities and re-populate the cache.
+- **Verification**: `dotnet test` passed 20/20 unit tests (100%); `dotnet build` succeeded with 0 warnings and 0 errors.
+
 ---
 
-### 10.10 [20/11/2026] - End-to-End Student Journey Unification: 9-Subject Diagnostic, Full-Spectrum Grade 10–12 3-Zone Roadmap, Passage Context Delivery, Backend Tuition Gate & Authentic PLAR Engine
+### 10.11 [20/11/2026] - End-to-End Student Journey Unification: 9-Subject Diagnostic, Full-Spectrum Grade 10–12 3-Zone Roadmap, Passage Context Delivery, Backend Tuition Gate & Authentic PLAR Engine
 - **Key Architectural Deliverables**:
   1. **Multi-Subject Diagnostic Alignment (`SubmitDiagnosticCommandHandler`, `GetDiagnosticSubmissionById`)**: Fixed `NormalizeDomainCode` to recognize canonical Domain UUIDs and GDPT 2018 subject names (`Vật lí`, `Địa lí`, `Tiếng Anh`, `GDKT & Pháp luật`), hydrated `AllSkillIds` for cold-start BKT inference, and added `SubjectBreakdowns` across all 9 subjects.
   2. **Full-Spectrum Grade 10–12 3-Zone Personalized Roadmap (`GenerateRoadmapCommandHandler`, `GetMyRoadmapQueryHandler`, `RoadmapNodeSummaryDto`)**: Eliminated the 24-node cap to include all ~337 real curriculum `PATTERN` nodes across Grades 10–12 and all 9 subjects, classified using directly-assessed evidence (`ClassSkillHeatmaps` + `StageProgress` + `DiagnosticSubmission.Answers`) into 3 priority zones: **`WEAK`** (tested & `< 70%`, ordered first via Topological Sort) → **`MASTERED` / `COMPLETED`** (tested & `>= 70%` or finished PLAR, shown after weak nodes) → **`UNASSESSED`** (untested Grade 10–12 curriculum patterns placed at the end with `MasteryPlt = 0.0` and parsed `GradeLevel` `10`/`11`/`12`).
@@ -1278,7 +1302,7 @@
 
 ---
 
-### 10.11 [21/11/2026] - Phase Apply (Phase A) Hotfix: Elimination of Cross-Subject Leakage & Pure Skill-Directed Adaptive Delivery
+### 10.12 [21/11/2026] - Phase Apply (Phase A) Hotfix: Elimination of Cross-Subject Leakage & Pure Skill-Directed Adaptive Delivery
 - **Module**: `v_eval_practice.StageProgress` & `GetNextQuestionQueryHandler`.
 - **Acceptance Status**: 🟢 **APPROVED / ACCEPTED**.
 - **Target Files**:

@@ -1,5 +1,23 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [22/11/2026] - Mở Khóa Toàn Bộ Tầng Dạng Bài Lớp 10–12 Khi Sinh Lộ Trình (`GenerateRoadmapCommandHandler.cs`)
+
+- **Xóa Bộ Lọc Cứng Làm Rơi Dạng Bài Mới Đồng Bộ Từ SGK ([`GenerateRoadmapCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Commands/GenerateRoadmap/GenerateRoadmapCommandHandler.cs))**:
+  - Loại bỏ điều kiện `&& (s.QuestionCount > 0 || s.MaterialId.HasValue)` để toàn bộ các dạng bài thực tế (`Level == "PATTERN"`) mới đồng bộ từ bộ SGK Lớp 10–12 đều được đưa vào lộ trình cá nhân hóa (hết bị kẹt ở 337/370 chặng).
+- **Kiểm Thử**: `dotnet test --no-restore` đạt **20/20 Passed (100%)**.
+
+## [21/11/2026] - Đồng Bộ Danh Tính Họ Tên Học Sinh Thực Tế Qua Identity Service gRPC Cho Ma Trận Nhiệt Lớp Học (Class Heatmap Matrix)
+
+- **Liên Thông gRPC Truy Vấn Họ Tên Học Sinh Thực Tế Cho Ma Trận Nhiệt ([`GetClassHeatmapQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Queries/GetClassHeatmap/GetClassHeatmapQueryHandler.cs), [`IIdentityGrpcClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs))**:
+  - Tiêm phụ thuộc `IIdentityGrpcClient` vào `GetClassHeatmapQueryHandler` để gọi `GetStudentNamesAsync(studentIds)` sang Identity Service qua giao thức gRPC.
+  - Phân giải trực tiếp họ tên từ bảng `v_eval_identity."Users"` trên CSDL PostgreSQL: `Nguyễn Hoàng An`, `Trần Ngọc Mai`, `Phạm Tấn Lộc`, `Mai Thành Nhân`, `Trần Thái Thịnh`, `Lê Hoàng Long`.
+  - Loại bỏ hoàn toàn định dạng mã hóa ẩn danh tĩnh `Học sinh #{studentId[..6]}` trước đây.
+  - Bổ sung cơ chế phát hiện bộ đệm Cache lỗi thời: nếu dữ liệu trong bộ đệm vẫn chứa chuỗi `Học sinh #`, tự động bỏ qua cache và truy vấn làm mới danh tính thực tế từ Identity gRPC, sau đó cập nhật lại vào bộ nhớ đệm Cache.
+- **Kiểm Thử & Nghiệm Thu**:
+  - `dotnet build`: Hoàn thành 100%, 0 lỗi, 0 cảnh báo.
+  - `dotnet test`: Toàn bộ **20/20 unit tests Passed 100%**.
+  - Kiểm thử trực tiếp API `GET /api/practice/classes/{classId}/heatmap`: Trả về chuẩn xác 100% họ tên học sinh tiếng Việt trong từng dòng dữ liệu `rows`.
+
 ## [21/11/2026] - Hotfix Pha Apply (Pha A): Khắc Phục Triệt Để Hiện Tượng Cấp Phát Sai Môn Học / Sai Dạng Bài Trong Chu Trình PLAR
 
 - **Chuẩn Hóa Truy Vấn Câu Hỏi Thích Ứng ZPD Theo Kỹ Năng Chuyên Đề ([`GetNextQuestionQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Queries/GetNextQuestion/GetNextQuestionQueryHandler.cs))**:
@@ -28,6 +46,17 @@
   - Cài đặt `DeleteCourseAsync` Soft-Archive (`IsActive = false`) nếu khóa đã có ràng buộc tài chính/lớp học.
   - Bổ sung `CampusId` trong `ChildAnalyticsDto` cho Cổng Phụ huynh lọc chuẩn theo cơ sở.
 - **Kiểm Thử**: `dotnet build --no-restore` (`0 Error`), `dotnet test --no-restore` (**20/20 Passed**).
+
+## [20/11/2026] - Triển Khai API Hậu Kiểm Liêm Chính Bài Thi Thử (Core Flow 3 - BR-20) & Thẩm Định Sư Phạm Giáo Viên
+
+- **Triển Khai API Truy Vấn Bài Thi Gắn Cờ Liêm Chính ([`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs), [`GetFlaggedSubmissionsQuery.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetFlaggedSubmissions/GetFlaggedSubmissionsQuery.cs), [`GetFlaggedSubmissionsQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetFlaggedSubmissions/GetFlaggedSubmissionsQueryHandler.cs), [`FlaggedMockExamDto.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/FlaggedMockExamDto.cs))**:
+  - Bổ sung endpoint `GET /api/practice/mock-exams/flagged-reviews?classId={classId}` truy vấn toàn bộ các phiên thi thử có dấu hiệu vi phạm liêm chính (`IntegrityStatus` là `FLAGGED_FOR_REVIEW` hoặc `UNDER_REVIEW`, hoặc `TabDepartureCount > 3`).
+  - Hỗ trợ lọc theo mã lớp học `classId` hoặc truy vấn toàn trường/cơ sở đào tạo.
+- **Mở Rộng Repository & Truy Vấn Dữ Liệu Thời Gian Thực ([`IMockExamRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IMockExamRepository.cs), [`MockExamRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/MockExamRepository.cs))**:
+  - Bổ sung phương thức `GetFlaggedSubmissionsAsync(Guid? classId, CancellationToken ct)` truy vấn trực tiếp bảng `v_eval_practice."MockExamSubmissions"` trên PostgreSQL.
+  - Phân giải thông tin bài nộp, số lần rời tab (BR-20), trạng thái liêm chính học thuật và quyết định thẩm duyệt của giáo viên.
+- **Kiểm Thử & Nghiệm Thu**:
+  - `dotnet build`: Hoàn thành thành công, 0 lỗi, 0 cảnh báo.
 
 ## [19/11/2026] - Chuẩn Hóa Phân Giải Thực Thể Động, Ghi Danh & Dữ Liệu Khóa Học Cho Cổng Phụ Huynh
 

@@ -69,6 +69,22 @@ public class MockExamRepository : IMockExamRepository
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<ExamSubmission>> GetFlaggedSubmissionsAsync(Guid? classId = null, CancellationToken ct = default)
+    {
+        var query = _context.ExamSubmissions
+            .Include(s => s.ProctoringSnapshots)
+            .Where(s => s.ExamType == "MOCK_EXAM" && (s.IntegrityStatus == "FLAGGED_FOR_REVIEW" || s.TabDepartureCount > 3 || s.Status == "UNDER_REVIEW"));
+
+        if (classId.HasValue)
+        {
+            query = query.Where(s => s.EnrolledClassId == classId.Value);
+        }
+
+        return await query
+            .OrderByDescending(s => s.CompletedAt)
+            .ToListAsync(ct);
+    }
+
     public async Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
         return await _context.SaveChangesAsync(ct);
