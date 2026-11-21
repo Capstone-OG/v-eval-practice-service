@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using V_Eval_Practice_Service.Application.Common.Interfaces;
 using V_Eval_Practice_Service.Application.Common.Interfaces.Repositories;
 using V_Eval_Practice_Service.Application.Common.Interfaces.Services;
 using V_Eval_Practice_Service.Application.Common.Models;
@@ -18,6 +19,7 @@ public class GetClassHeatmapQueryHandler : IRequestHandler<GetClassHeatmapQuery,
     private readonly IStudentActivityRepository _activityRepo;
     private readonly IClassHeatmapCacheService _cacheService;
     private readonly IClassHeatmapAggregatorService _aggregatorService;
+    private readonly IIdentityGrpcClient _identityGrpcClient;
     private readonly ILogger<GetClassHeatmapQueryHandler> _logger;
 
     public GetClassHeatmapQueryHandler(
@@ -25,12 +27,14 @@ public class GetClassHeatmapQueryHandler : IRequestHandler<GetClassHeatmapQuery,
         IStudentActivityRepository activityRepo,
         IClassHeatmapCacheService cacheService,
         IClassHeatmapAggregatorService aggregatorService,
+        IIdentityGrpcClient identityGrpcClient,
         ILogger<GetClassHeatmapQueryHandler> logger)
     {
         _heatmapRepo = heatmapRepo;
         _activityRepo = activityRepo;
         _cacheService = cacheService;
         _aggregatorService = aggregatorService;
+        _identityGrpcClient = identityGrpcClient;
         _logger = logger;
     }
 
@@ -44,8 +48,13 @@ public class GetClassHeatmapQueryHandler : IRequestHandler<GetClassHeatmapQuery,
             var cached = await _cacheService.GetAsync<ClassHeatmapResponseDto>(cacheKey, ct);
             if (cached != null)
             {
-                _logger.LogInformation("[Heatmap] Trả kết quả từ bộ đệm Cache cho Lớp {ClassId} (Key: {Key}).", request.ClassId, cacheKey);
-                return Result<ClassHeatmapResponseDto>.Success(cached);
+                // Nếu cache cũ còn chứa mã định danh giả lập dạng "Học sinh #", bỏ qua để nạp tên thật từ Identity
+                bool hasMaskedNames = cached.Rows.Any(r => r.StudentName.StartsWith("Học sinh #"));
+                if (!hasMaskedNames)
+                {
+                    _logger.LogInformation("[Heatmap] Trả kết quả từ bộ đệm Cache cho Lớp {ClassId} (Key: {Key}).", request.ClassId, cacheKey);
+                    return Result<ClassHeatmapResponseDto>.Success(cached);
+                }
             }
         }
 
@@ -104,6 +113,9 @@ public class GetClassHeatmapQueryHandler : IRequestHandler<GetClassHeatmapQuery,
         var cells = await _heatmapRepo.GetHeatmapsByClassIdAsync(request.ClassId, request.DomainCode, ct);
         var cellsByStudent = cells.GroupBy(c => c.StudentId).ToDictionary(g => g.Key, g => g.ToList());
 
+        var studentIds = enrollments.Select(e => e.StudentId).Distinct().ToList();
+        var studentNames = await _identityGrpcClient.GetStudentNamesAsync(studentIds, ct);
+
         var rows = new List<HeatmapRowDto>();
 
         foreach (var enrollment in enrollments)
@@ -133,9 +145,13 @@ public class GetClassHeatmapQueryHandler : IRequestHandler<GetClassHeatmapQuery,
                 ? Math.Round(studentCellsList.Average(c => c.PltValue), 2)
                 : 0.50;
 
+            string studentName = studentNames.TryGetValue(studentId, out var resolvedName) && !string.IsNullOrWhiteSpace(resolvedName)
+                ? resolvedName
+                : $"Học sinh #{studentId.ToString()[..6].ToUpper()}";
+
             rows.Add(new HeatmapRowDto(
                 StudentId: studentId,
-                StudentName: $"Học sinh #{studentId.ToString()[..6].ToUpper()}",
+                StudentName: studentName,
                 AvatarUrl: null,
                 ThetaScore: avgPlt,
                 RiskStatus: riskStatus,

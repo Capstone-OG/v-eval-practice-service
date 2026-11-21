@@ -1,5 +1,17 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [21/11/2026] - Đồng Bộ Danh Tính Họ Tên Học Sinh Thực Tế Qua Identity Service gRPC Cho Ma Trận Nhiệt Lớp Học (Class Heatmap Matrix)
+
+- **Liên Thông gRPC Truy Vấn Họ Tên Học Sinh Thực Tế Cho Ma Trận Nhiệt ([`GetClassHeatmapQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Queries/GetClassHeatmap/GetClassHeatmapQueryHandler.cs), [`IIdentityGrpcClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs))**:
+  - Tiêm phụ thuộc `IIdentityGrpcClient` vào `GetClassHeatmapQueryHandler` để gọi `GetStudentNamesAsync(studentIds)` sang Identity Service qua giao thức gRPC.
+  - Phân giải trực tiếp họ tên từ bảng `v_eval_identity."Users"` trên CSDL PostgreSQL: `Nguyễn Hoàng An`, `Trần Ngọc Mai`, `Phạm Tấn Lộc`, `Mai Thành Nhân`, `Trần Thái Thịnh`, `Lê Hoàng Long`.
+  - Loại bỏ hoàn toàn định dạng mã hóa ẩn danh tĩnh `Học sinh #{studentId[..6]}` trước đây.
+  - Bổ sung cơ chế phát hiện bộ đệm Cache lỗi thời: nếu dữ liệu trong bộ đệm vẫn chứa chuỗi `Học sinh #`, tự động bỏ qua cache và truy vấn làm mới danh tính thực tế từ Identity gRPC, sau đó cập nhật lại vào bộ nhớ đệm Cache.
+- **Kiểm Thử & Nghiệm Thu**:
+  - `dotnet build`: Hoàn thành 100%, 0 lỗi, 0 cảnh báo.
+  - `dotnet test`: Toàn bộ **20/20 unit tests Passed 100%**.
+  - Kiểm thử trực tiếp API `GET /api/practice/classes/{classId}/heatmap`: Trả về chuẩn xác 100% họ tên học sinh tiếng Việt trong từng dòng dữ liệu `rows`.
+
 ## [20/11/2026] - Triển Khai API Hậu Kiểm Liêm Chính Bài Thi Thử (Core Flow 3 - BR-20) & Thẩm Định Sư Phạm Giáo Viên
 
 - **Triển Khai API Truy Vấn Bài Thi Gắn Cờ Liêm Chính ([`MockExamsController.cs`](../V-Eval-Practice_Service.API/Controllers/MockExamsController.cs), [`GetFlaggedSubmissionsQuery.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetFlaggedSubmissions/GetFlaggedSubmissionsQuery.cs), [`GetFlaggedSubmissionsQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetFlaggedSubmissions/GetFlaggedSubmissionsQueryHandler.cs), [`FlaggedMockExamDto.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/FlaggedMockExamDto.cs))**:

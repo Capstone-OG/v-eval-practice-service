@@ -1266,3 +1266,9 @@
      - `MockExamRepository.GetFlaggedSubmissionsAsync` queries PostgreSQL schema `v_eval_practice."MockExamSubmissions"` joining submission status, departure counts, and proctoring audit trails.
   3. **Verification**:
      - Clean .NET 9 build (`0 Warning(s), 0 Error(s)`). All architectural requirements accepted.
+
+### 14.12 Real-Time Student Identity Resolution Subsystem for Class Heatmap Matrix (`GetClassHeatmapQueryHandler.cs`, `IIdentityGrpcClient.cs`)
+- **Inter-Service gRPC Integration**: Injected `IIdentityGrpcClient` into `GetClassHeatmapQueryHandler`, invoking `GetStudentNamesAsync(studentIds)` across gRPC port 5156 to resolve authentic student full names directly from `v_eval_identity."Users"`.
+- **Eradication of Synthetic Identifiers**: Eliminated legacy masked placeholder formats (`Học sinh #{studentId[..6]}`) across heatmap rows.
+- **Stale Cache Invalidation Guard**: If cached response objects contain legacy masked identifiers (`r.StudentName.StartsWith("Học sinh #")`), the cache is immediately bypassed to re-query fresh live identities and re-populate the cache.
+- **Verification**: `dotnet test` passed 20/20 unit tests (100%); `dotnet build` succeeded with 0 warnings and 0 errors.

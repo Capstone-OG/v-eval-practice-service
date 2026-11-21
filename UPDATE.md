@@ -1,12 +1,12 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [20/11/2026] - Triển Khai API Hậu Kiểm Liêm Chính Bài Thi Thử (Core Flow 3 - BR-20) & Thẩm Định Sư Phạm Giáo Viên
-
-- **Triển Khai API Truy Vấn Bài Thi Gắn Cờ Liêm Chính ([`MockExamsController.cs`](./V-Eval-Practice_Service.API/Controllers/MockExamsController.cs), [`GetFlaggedSubmissionsQuery.cs`](./V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetFlaggedSubmissions/GetFlaggedSubmissionsQuery.cs), [`GetFlaggedSubmissionsQueryHandler.cs`](./V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetFlaggedSubmissions/GetFlaggedSubmissionsQueryHandler.cs), [`FlaggedMockExamDto.cs`](./V-Eval-Practice_Service.Application/Features/MockExams/DTOs/FlaggedMockExamDto.cs))**:
-  - Bổ sung endpoint `GET /api/practice/mock-exams/flagged-reviews?classId={classId}` truy vấn toàn bộ các phiên thi thử có dấu hiệu vi phạm liêm chính (`IntegrityStatus` là `FLAGGED_FOR_REVIEW` hoặc `UNDER_REVIEW`, hoặc `TabDepartureCount > 3`).
-  - Hỗ trợ lọc theo mã lớp học `classId` hoặc truy vấn toàn trường/cơ sở đào tạo.
-- **Mở Rộng Repository & Truy Vấn Dữ Liệu Thời Gian Thực ([`IMockExamRepository.cs`](./V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IMockExamRepository.cs), [`MockExamRepository.cs`](./V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/MockExamRepository.cs))**:
-  - Bổ sung phương thức `GetFlaggedSubmissionsAsync(Guid? classId, CancellationToken ct)` truy vấn trực tiếp bảng `v_eval_practice."MockExamSubmissions"` trên PostgreSQL.
-  - Phân giải thông tin bài nộp, số lần rời tab (BR-20), trạng thái liêm chính học thuật và quyết định thẩm duyệt của giáo viên.
-- **Kiểm Thử & Nghiệm Thu**:
-  - `dotnet build`: Hoàn thành thành công, 0 lỗi, 0 cảnh báo.
+## [21/11/2026]
+- **Đồng Bộ Danh Tính Họ Tên Học Sinh Thực Tế Qua Identity Service gRPC Cho Ma Trận Nhiệt Lớp Học (Class Heatmap Matrix) (`GetClassHeatmapQueryHandler.cs`, `IIdentityGrpcClient.cs`)**:
+  - Tiêm phụ thuộc `IIdentityGrpcClient` vào `GetClassHeatmapQueryHandler` và gọi `GetStudentNamesAsync(studentIds)` liên thông Identity Service qua gRPC port 5156.
+  - Phân giải trực tiếp 100% họ tên học sinh thực tế từ bảng `v_eval_identity."Users"` trên CSDL PostgreSQL: `Nguyễn Hoàng An`, `Trần Ngọc Mai`, `Phạm Tấn Lộc`, `Mai Thành Nhân`, `Trần Thái Thịnh`, `Lê Hoàng Long`.
+  - Loại bỏ hoàn toàn chuỗi mã định danh giả lập `Học sinh #{studentId[..6]}` trong danh sách `rows` của bản đồ nhiệt.
+  - Tích hợp bộ lọc bỏ qua Cache lỗi thời: tự động phát hiện và làm tươi dữ liệu khi bộ đệm vẫn chứa định danh cũ, sau đó lưu lại vào MemoryCache với TTL 20 phút.
+- **Kiểm Thử & Biên Dịch**:
+  - `dotnet build`: Hoàn thành 100%, 0 lỗi, 0 cảnh báo.
+  - `dotnet test`: Toàn bộ **20/20 unit tests Passed 100%**.
+  - Kiểm thử trực tiếp API `GET /api/practice/classes/{classId}/heatmap`: Trả về chuẩn xác 100% họ tên học sinh tiếng Việt trong từng dòng dữ liệu `rows`.
