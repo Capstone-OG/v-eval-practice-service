@@ -30,6 +30,12 @@
 
 ---
 
+## [23/11/2026]
+- **Tích Hợp Continuous Deployment (Auto-CD) Lên Máy Chủ Ubuntu Docker Server (`veval.io.vn`)**:
+  - Bổ sung file workflow [`.github/workflows/cd-main.yml`](../.github/workflows/cd-main.yml) kích hoạt tự động mỗi khi merge PR vào nhánh `main`.
+  - Thiết lập 2 stage: `ci-verify` (GitHub Cloud Runner) và `deploy-ubuntu` (Self-Hosted Runner mang nhãn `[self-hosted, veval-prod]`) gọi `/data/Capstone/Scripts/deploy_service.sh practice`.
+  - Vận hành cơ chế rebuild độc lập (`--no-deps`), đảm bảo Zero-Downtime, bảo vệ `veval-tunnel` và tự động thu hồi tài nguyên với `docker image prune -f`.
+
 ## [20/11/2026] - Chuẩn Hóa Toàn Diện Hành Trình Học Sinh End-to-End: Diagnostic 9 Môn, Lộ Trình Toàn Diện Lớp 10–12 Phân 3 Vùng (`WEAK` / `MASTERED` / `UNASSESSED`), Truyền Ngữ Cảnh `Passage` Cho PLAR & Cổng Học Phí Backend
 
 - **Chẩn Đoán 9 Môn & Suy Luận Cold-Start (`SubmitDiagnosticCommandHandler.cs`, `GetDiagnosticSubmissionById.cs`, `DiagnosticSubmissionDtos.cs`)**:

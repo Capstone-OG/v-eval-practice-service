@@ -1,7 +1,9 @@
-# NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
+# UPDATE — V-Eval-Practice_Service
 
-## [22/11/2026]
-- **Mở Khóa Toàn Bộ Tầng Dạng Bài GDPT 2018 (750+ Dạng Bài Lớp 10–12) Khi Sinh Lộ Trình (`GenerateRoadmapCommandHandler.cs`)**:
-  - Loại bỏ điều kiện lọc cứng `&& (s.QuestionCount > 0 || s.MaterialId.HasValue)` trong `GenerateRoadmapCommandHandler.cs` vốn làm rơi toàn bộ 612 dạng bài mới đồng bộ từ bộ SGK Chân trời sáng tạo Lớp 10–12 (khiến lộ trình bị kẹt ở ~370 chặng).
-  - Đảm bảo khi học sinh bấm `Cập nhật` ➔ `Tạo Lộ Trình Ngay`, lộ trình nạp đầy đủ 100% tầng `PATTERN` từ cây năng lực Content Service gRPC.
-- **Kiểm Thử & Biên Dịch**: `dotnet test --no-restore` đạt **20/20 Passed (100%)**.
+## [23/11/2026]
+- **Tích Hợp Continuous Deployment (Auto-CD) Lên Máy Chủ Ubuntu Docker Server (`veval.io.vn`)**:
+  - Bổ sung file workflow [`.github/workflows/cd-main.yml`](./.github/workflows/cd-main.yml) kích hoạt tự động mỗi khi có Pull Request được merge vào nhánh `main`.
+  - Cấu hình 2 job tuần tự:
+    1. **`ci-verify` (`runs-on: ubuntu-latest`)**: Chạy kiểm tra lint, build và automated tests trên hạ tầng GitHub Cloud.
+    2. **`deploy-ubuntu` (`runs-on: [self-hosted, veval-prod]`)**: Gọi script `/data/Capstone/Scripts/deploy_service.sh practice` trên máy chủ Ubuntu production.
+  - Áp dụng cơ chế selective rebuild (`--no-deps`), đồng bộ Git hard reset nhánh `main` và bảo toàn kết nối Zero-Downtime của Cloudflare Tunnel.
