@@ -357,6 +357,10 @@ public class GenerateRoadmapCommandHandler : IRequestHandler<GenerateRoadmapComm
             }
         }
 
+        string resolvedStatus = string.IsNullOrWhiteSpace(request.InitialStatus)
+            ? "DRAFT_PENDING_TEACHER"
+            : request.InitialStatus.Trim().ToUpperInvariant();
+
         var roadmap = new LearningRoadmap
         {
             RoadmapId = roadmapId,
@@ -367,24 +371,28 @@ public class GenerateRoadmapCommandHandler : IRequestHandler<GenerateRoadmapComm
             CompletedMilestones = 0,
             IsPruned = false,
             PrunedReason = null,
-            Status = "ACTIVE",
+            Status = resolvedStatus,
             CreatedAt = nowUtc,
             UpdatedAt = nowUtc,
             Nodes = nodes
         };
 
         // =====================================================================
-        // Bước 6: Lưu trữ nguyên tử (Archive lộ trình cũ + Thêm lộ trình toàn diện mới)
+        // Bước 6: Lưu trữ nguyên tử (Archive bản nháp cũ; chỉ Archive ACTIVE khi được phê duyệt/khởi tạo ACTIVE)
         // =====================================================================
         try
         {
-            await _roadmapRepository.ArchiveExistingActiveRoadmapsAsync(request.StudentId, ct);
+            if (resolvedStatus == "ACTIVE")
+            {
+                await _roadmapRepository.ArchiveExistingActiveRoadmapsAsync(request.StudentId, ct);
+            }
+            await _roadmapRepository.ArchiveExistingDraftRoadmapsAsync(request.StudentId, ct);
             await _roadmapRepository.AddAsync(roadmap, ct);
             await _roadmapRepository.SaveChangesAsync(ct);
 
             _logger.LogInformation(
-                "Khởi tạo thành công Roadmap toàn diện {RoadmapId} cho học sinh {StudentId}: Total={Total} (Weak={Weak} -> Unassessed={Unassessed} -> Mastered={Mastered})",
-                roadmap.RoadmapId, request.StudentId, nodes.Count, sortedWeakIds.Count, sortedUnassessedIds.Count, sortedMasteredIds.Count);
+                "Khởi tạo thành công Roadmap ({Status}) {RoadmapId} cho học sinh {StudentId}: Total={Total} (Weak={Weak} -> Unassessed={Unassessed} -> Mastered={Mastered})",
+                roadmap.Status, roadmap.RoadmapId, request.StudentId, nodes.Count, sortedWeakIds.Count, sortedUnassessedIds.Count, sortedMasteredIds.Count);
         }
         catch (Exception ex)
         {

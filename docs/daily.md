@@ -1,5 +1,13 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [23/11/2026] - Cố Định Thứ Tự Chặng Tuần Tự (`StepOrder`) & Luồng Phê Duyệt Lộ Trình 2 Cấp
+
+- **Giữ Bất Biến Thứ Tự Chặng Khi Truy Vấn Lộ Trình ([`GetMyRoadmapQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Queries/GetMyRoadmap/GetMyRoadmapQueryHandler.cs))**:
+  - Chuyển sang sắp xếp cố định theo `StepOrder` đã lưu trong DB, không tự ý xáo trộn và ghi đè `StepOrder` khi `MasteryPlt` tăng sau Preview hoặc khi chặng chuyển sang `COMPLETED`.
+- **Luồng Phê Duyệt Lộ Trình 2 Cấp (`DRAFT_PENDING_TEACHER` -> `PENDING_DIRECTOR_APPROVAL` -> `ACTIVE`) ([`SubmitDiagnosticCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/Commands/SubmitDiagnostic/SubmitDiagnosticCommandHandler.cs), [`RoadmapApprovalWorkflow.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Approval/RoadmapApprovalWorkflow.cs), [`RoadmapsController.cs`](../V-Eval-Practice_Service.API/Controllers/RoadmapsController.cs), [`StartStageCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/StartStage/StartStageCommandHandler.cs))**:
+  - Tự động sinh bản nháp lộ trình (`DRAFT_PENDING_TEACHER`) sau khi học sinh nộp bài thi đầu vào 30 câu (tái sử dụng cột `status` và `pruned_reason`, không cần migration DB).
+  - Bổ sung 4 API duyệt & tinh chỉnh lộ trình cho Giảng viên và Director / Quản lý học thuật; chặn mở học P-L-A-R nếu lộ trình chưa `ACTIVE`.
+
 ## [22/11/2026] - Mở Khóa Toàn Bộ Tầng Dạng Bài Lớp 10–12 Khi Sinh Lộ Trình (`GenerateRoadmapCommandHandler.cs`)
 
 - **Xóa Bộ Lọc Cứng Làm Rơi Dạng Bài Mới Đồng Bộ Từ SGK ([`GenerateRoadmapCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Commands/GenerateRoadmap/GenerateRoadmapCommandHandler.cs))**:
