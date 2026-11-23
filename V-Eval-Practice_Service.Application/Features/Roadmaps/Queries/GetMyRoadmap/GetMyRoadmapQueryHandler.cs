@@ -50,13 +50,13 @@ public class GetMyRoadmapQueryHandler : IRequestHandler<GetMyRoadmapQuery, Resul
     {
         _logger.LogInformation("Tra cứu & đánh giá lại lộ trình học tập cá nhân hóa (ACTIVE) cho học sinh {StudentId}", request.StudentId);
 
-        var roadmap = await _roadmapRepository.GetActiveByStudentIdAsync(request.StudentId, ct);
+        var roadmap = await _roadmapRepository.GetLatestByStudentIdAsync(request.StudentId, ct);
 
         if (roadmap == null)
         {
             return Result<RoadmapTimelineDto>.Failure(
                 Error.NotFound("Roadmap.NotFound",
-                    $"Học sinh {request.StudentId} chưa có lộ trình học tập nào đang kích hoạt (ACTIVE). Vui lòng hoàn thành bài thi chẩn đoán và khởi tạo lộ trình."));
+                    $"Học sinh {request.StudentId} chưa có lộ trình học tập nào. Vui lòng hoàn thành bài thi chẩn đoán 30 câu để hệ thống khởi tạo bản nháp lộ trình."));
         }
 
         // Nạp metadata kỹ năng, môn, chương, bài từ Content Service qua gRPC
@@ -147,40 +147,24 @@ public class GetMyRoadmapQueryHandler : IRequestHandler<GetMyRoadmapQuery, Resul
                     IsCompleted = isCompleted
                 };
             })
-            // Sắp xếp mạch học tuần tự từ đầu đến cuối:
-            //   0 = WEAK (Ưu tiên cải thiện ngay)
-            //   1 = UNASSESSED (Chưa đánh giá — học tuần tự theo SGK: Môn -> Lớp 10..12 -> Chương 1..N -> Bài 1..M)
-            //   2 = MASTERED (Đã làm bài test đạt điểm OK — hiển thị sau)
-            //   3 = COMPLETED (Đã hoàn thành trọn vẹn PLAR — hiển thị sau)
-            .OrderBy(x => GetAssessmentZoneOrder(x.AssessmentStatus))
-            .ThenBy(x => x.AssessmentStatus == "WEAK" ? x.MasteryPlt : 0.0)
-            .ThenBy(x => GenerateRoadmapCommandHandler.GetSubjectSortOrder(x.SkillInfo?.SubjectName))
-            .ThenBy(x => x.GradeLevel == 0 ? 99 : x.GradeLevel)
-            .ThenBy(x => GenerateRoadmapCommandHandler.ExtractChapterNumber(x.SkillInfo?.ChapterName))
-            .ThenBy(x => x.SkillInfo?.ChapterName ?? "")
-            .ThenBy(x => GenerateRoadmapCommandHandler.ExtractLessonNumber(x.SkillInfo?.LessonName))
-            .ThenBy(x => x.SkillInfo?.LessonName ?? "")
-            .ThenBy(x => x.Entity.StepOrder)
+            // GIỮ NGUYÊN THỨ TỰ CHẶNG TUẦN TỰ (StepOrder 1..N) ĐÃ LƯU TRONG DB:
+            // Tuyệt đối không xáo trộn hay ghi đè StepOrder khi học sinh đang học dở (Preview -> Learn -> Apply)
+            // hoặc khi đã hoàn thành chặng (COMPLETED), để Chặng #1 luôn là #1, Chặng #2 luôn là #2...
+            .OrderBy(x => x.Entity.StepOrder)
             .ToList();
 
-        // Đồng bộ lại StepOrder tuần tự 1..N khi có sự đánh giá lại từ các bài test về sau (ví dụ UNASSESSED -> MASTERED hoặc WEAK)
-        bool stepOrderChanged = false;
+        bool statusChanged = false;
         var nodeDtos = new List<RoadmapNodeSummaryDto>(evaluatedEntries.Count);
 
         for (int idx = 0; idx < evaluatedEntries.Count; idx++)
         {
             var item = evaluatedEntries[idx];
-            int newStepOrder = idx + 1;
-            if (item.Entity.StepOrder != newStepOrder)
-            {
-                item.Entity.StepOrder = newStepOrder;
-                stepOrderChanged = true;
-            }
+            int stableStepOrder = item.Entity.StepOrder > 0 ? item.Entity.StepOrder : idx + 1;
 
             if (item.IsCompleted && item.Entity.Status != "COMPLETED")
             {
                 item.Entity.Status = "COMPLETED";
-                stepOrderChanged = true;
+                statusChanged = true;
             }
 
             nodeDtos.Add(new RoadmapNodeSummaryDto(
@@ -189,7 +173,7 @@ public class GetMyRoadmapQueryHandler : IRequestHandler<GetMyRoadmapQuery, Resul
                 item.SkillInfo?.Name ?? "Kỹ năng chuyên đề",
                 item.SkillInfo?.DomainId ?? Guid.Empty,
                 !string.IsNullOrWhiteSpace(item.SkillInfo?.DomainName) ? item.SkillInfo.DomainName : "Lĩnh vực chung",
-                newStepOrder,
+                stableStepOrder,
                 item.Entity.MaterialId ?? item.SkillInfo?.MaterialId,
                 item.Entity.QuizExamId,
                 item.IsCompleted ? "COMPLETED" : item.Entity.Status,
@@ -208,7 +192,7 @@ public class GetMyRoadmapQueryHandler : IRequestHandler<GetMyRoadmapQuery, Resul
             ));
         }
 
-        if (stepOrderChanged)
+        if (statusChanged)
         {
             try
             {
@@ -218,7 +202,7 @@ public class GetMyRoadmapQueryHandler : IRequestHandler<GetMyRoadmapQuery, Resul
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Không thể lưu cập nhật thứ tự tái đánh giá StepOrder cho Roadmap {RoadmapId}.", roadmap.RoadmapId);
+                _logger.LogWarning(ex, "Không thể đồng bộ trạng thái COMPLETED cho Roadmap {RoadmapId}.", roadmap.RoadmapId);
             }
         }
 
@@ -261,13 +245,4 @@ public class GetMyRoadmapQueryHandler : IRequestHandler<GetMyRoadmapQuery, Resul
 
         return Result<RoadmapTimelineDto>.Success(timelineDto);
     }
-
-    private static int GetAssessmentZoneOrder(string assessmentStatus) => assessmentStatus switch
-    {
-        "WEAK" => 0,        // Phần 1: Ưu tiên cải thiện ngay (hiển thị đầu tiên)
-        "UNASSESSED" => 1,  // Phần 2: Chưa đánh giá — nối tiếp lộ trình học tuần tự từ đầu đến cuối Lớp 10-12
-        "MASTERED" => 2,    // Phần 3a: Đã làm bài test đạt điểm OK (hiển thị ở sau)
-        "COMPLETED" => 3,   // Phần 3b: Đã hoàn thành chu trình PLAR (hiển thị ở sau)
-        _ => 1
-    };
 }
