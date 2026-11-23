@@ -57,6 +57,13 @@ public class StartStageCommandHandler : IRequestHandler<StartStageCommand, Resul
                 Error.Forbidden("RoadmapNode.Forbidden", "Bạn không có quyền truy cập chặng học của học sinh khác."));
         }
 
+        if (node.Roadmap != null && !string.Equals(node.Roadmap.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+        {
+            return Result<StartStageResponseDto>.Failure(
+                Error.Forbidden("Roadmap.PendingApproval",
+                    "Lộ trình học tập của bạn đang ở trạng thái chờ Giảng viên tinh chỉnh và Ban Giám đốc phê duyệt. Bạn sẽ có thể bắt đầu chu trình P-L-A-R ngay khi lộ trình được kích hoạt."));
+        }
+
         // 2. Cổng kiểm soát học phí thực tế ở Backend (Bắt buộc đóng học phí để mở khóa PLAR)
         bool hasPaidTuition = await _paymentRepository.HasActiveTuitionAsync(request.StudentId, ct);
         if (!hasPaidTuition)

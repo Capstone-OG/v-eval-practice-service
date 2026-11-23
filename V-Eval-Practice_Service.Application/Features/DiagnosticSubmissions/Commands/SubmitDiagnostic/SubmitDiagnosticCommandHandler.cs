@@ -11,6 +11,7 @@ using V_Eval_Practice_Service.Application.Common.Interfaces;
 using V_Eval_Practice_Service.Application.Common.Interfaces.Repositories;
 using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.DiagnosticSubmissions.DTOs;
+using V_Eval_Practice_Service.Application.Features.Roadmaps.Commands.GenerateRoadmap;
 using V_Eval_Practice_Service.Domain.Constants;
 using V_Eval_Practice_Service.Domain.Entities;
 
@@ -29,6 +30,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
     private readonly IIdentityGrpcClient _identityGrpcClient;
     private readonly IContentGrpcClient _contentGrpcClient;
     private readonly IAiDiagnosticClient _aiDiagnosticClient;
+    private readonly ISender _mediator;
     private readonly ILogger<SubmitDiagnosticCommandHandler> _logger;
 
     public SubmitDiagnosticCommandHandler(
@@ -40,6 +42,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
         IIdentityGrpcClient identityGrpcClient,
         IContentGrpcClient contentGrpcClient,
         IAiDiagnosticClient aiDiagnosticClient,
+        ISender mediator,
         ILogger<SubmitDiagnosticCommandHandler> logger)
     {
         _submissionRepository = submissionRepository;
@@ -50,6 +53,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
         _identityGrpcClient = identityGrpcClient;
         _contentGrpcClient = contentGrpcClient;
         _aiDiagnosticClient = aiDiagnosticClient;
+        _mediator = mediator;
         _logger = logger;
     }
 
@@ -578,6 +582,35 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
         _logger.LogInformation(
             "Diagnostic submission {SubmissionId} persisted & synced to Flow 5: correct={Correct}/{Total}, theta_0={Theta0}, class={ClassName}",
             submissionId, totalCorrect, totalQuestions, theta0, className);
+
+        // 10b. Tự động sinh Bản nháp Lộ trình học tập (DRAFT_PENDING_TEACHER) lưu vào DB để Giảng viên rà soát & Giám đốc phê duyệt
+        try
+        {
+            var draftResult = await _mediator.Send(new GenerateRoadmapCommand(
+                StudentId: request.StudentId,
+                DiagnosticSubmissionId: submissionId,
+                ExamDate: DateTime.UtcNow.AddDays(90),
+                StudyHoursPerDay: 2.0,
+                InitialStatus: "DRAFT_PENDING_TEACHER"
+            ), cancellationToken);
+
+            if (draftResult.IsSuccess)
+            {
+                _logger.LogInformation(
+                    "Auto-generated DRAFT_PENDING_TEACHER roadmap {RoadmapId} for Student {StudentId} from Diagnostic {SubmissionId}.",
+                    draftResult.Value.RoadmapId, request.StudentId, submissionId);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Auto-draft roadmap generation returned failure for Student {StudentId}: {Error}",
+                    request.StudentId, draftResult.Error.Description);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Non-fatal error while auto-generating DRAFT_PENDING_TEACHER roadmap for Student {StudentId}.", request.StudentId);
+        }
 
         // 11. Tạo DTO phản hồi hoàn chỉnh cho Client
         var radarDtos = aiResult?.RadarChart?.Select(r => new DiagnosticRadarAxisDto
