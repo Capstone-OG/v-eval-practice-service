@@ -10,7 +10,9 @@ public record AutoPartitionMicroGroupsRequestDto(
 public record ClassGroupMemberDto(
     Guid GroupMemberId,
     Guid StudentId,
-    DateTime JoinedAt
+    DateTime JoinedAt,
+    string? Name = null,
+    double? Mastery = null
 );
 
 public record ClassMicroGroupDto(
@@ -25,7 +27,8 @@ public record ClassMicroGroupDto(
     DateTime? WorksheetAssignedAt,
     DateTime CreatedAt,
     int MemberCount,
-    List<ClassGroupMemberDto> Members
+    List<ClassGroupMemberDto> Members,
+    List<string>? CommonWeakSkillNames = null
 );
 
 public record AutoPartitionMicroGroupsResponseDto(

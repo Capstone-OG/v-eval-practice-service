@@ -21,6 +21,7 @@ public class AutoPartitionMicroGroupsCommandHandler : IRequestHandler<AutoPartit
     private readonly IClassGroupRepository _classGroupRepository;
     private readonly ILearningProfileRepository _learningProfileRepository;
     private readonly IContentGrpcClient _contentGrpcClient;
+    private readonly IIdentityGrpcClient _identityGrpcClient;
     private readonly IClassMicroClusterer _microClusterer;
     private readonly ILogger<AutoPartitionMicroGroupsCommandHandler> _logger;
 
@@ -29,6 +30,7 @@ public class AutoPartitionMicroGroupsCommandHandler : IRequestHandler<AutoPartit
         IClassGroupRepository classGroupRepository,
         ILearningProfileRepository learningProfileRepository,
         IContentGrpcClient contentGrpcClient,
+        IIdentityGrpcClient identityGrpcClient,
         IClassMicroClusterer microClusterer,
         ILogger<AutoPartitionMicroGroupsCommandHandler> logger)
     {
@@ -36,6 +38,7 @@ public class AutoPartitionMicroGroupsCommandHandler : IRequestHandler<AutoPartit
         _classGroupRepository = classGroupRepository;
         _learningProfileRepository = learningProfileRepository;
         _contentGrpcClient = contentGrpcClient;
+        _identityGrpcClient = identityGrpcClient;
         _microClusterer = microClusterer;
         _logger = logger;
     }
@@ -63,6 +66,17 @@ public class AutoPartitionMicroGroupsCommandHandler : IRequestHandler<AutoPartit
             return Result<AutoPartitionMicroGroupsResponseDto>.Failure(
                 Error.Validation("Class.InsufficientStudents",
                     $"Lớp '{targetClass.Name}' hiện chỉ có {studentIds.Count} học sinh. Cần tối thiểu 3 học sinh để phân nhóm học tập vi mô (3 - 5 bạn/bàn)."));
+        }
+
+        // Lấy họ tên học sinh thật từ Identity Service qua gRPC
+        var studentNames = new Dictionary<Guid, string>();
+        try
+        {
+            studentNames = await _identityGrpcClient.GetStudentNamesAsync(studentIds, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Không thể kết nối gRPC Identity Service để lấy họ tên học sinh.");
         }
 
         // 3. Nạp cây kỹ năng từ Content Service qua gRPC (ánh xạ tên kỹ năng và mã miền)
@@ -175,27 +189,50 @@ public class AutoPartitionMicroGroupsCommandHandler : IRequestHandler<AutoPartit
         _logger.LogInformation("Đã phân chia thành công {GroupCount} nhóm vi mô cho lớp '{ClassName}' ({TotalStudents} học sinh)",
             newClassGroups.Count, targetClass.Name, studentIds.Count);
 
-        // 8. Đóng gói DTO phản hồi
-        var groupDtos = newClassGroups.Select(g => new ClassMicroGroupDto(
-            GroupId: g.GroupId,
-            ClassId: g.ClassId,
-            GroupName: g.GroupName,
-            FocusArea: g.FocusArea,
-            CommonWeakSkillIds: !string.IsNullOrEmpty(g.CommonWeakSkillIds)
+        // 8. Đóng gói DTO phản hồi với họ tên học sinh thật và tên kỹ năng cụ thể
+        var groupDtos = newClassGroups.Select(g => {
+            var weakIds = !string.IsNullOrEmpty(g.CommonWeakSkillIds)
                 ? JsonSerializer.Deserialize<List<string>>(g.CommonWeakSkillIds) ?? new List<string>()
-                : new List<string>(),
-            RecommendedWorksheetTitle: g.RecommendedWorksheetTitle,
-            AssignedWorksheetId: g.AssignedWorksheetId,
-            AssignedWorksheetTitle: g.AssignedWorksheetTitle,
-            WorksheetAssignedAt: g.WorksheetAssignedAt,
-            CreatedAt: g.CreatedAt,
-            MemberCount: g.Members.Count,
-            Members: g.Members.Select(m => new ClassGroupMemberDto(
-                GroupMemberId: m.GroupMemberId,
-                StudentId: m.StudentId,
-                JoinedAt: m.JoinedAt
-            )).ToList()
-        )).ToList();
+                : new List<string>();
+
+            var weakNames = weakIds
+                .Select(idStr => Guid.TryParse(idStr, out var gid) && skillNameMap.TryGetValue(gid, out var sName) ? sName : null)
+                .Where(n => !string.IsNullOrEmpty(n))
+                .Select(n => n!)
+                .Distinct()
+                .Take(3)
+                .ToList();
+
+            return new ClassMicroGroupDto(
+                GroupId: g.GroupId,
+                ClassId: g.ClassId,
+                GroupName: g.GroupName,
+                FocusArea: g.FocusArea,
+                CommonWeakSkillIds: weakIds,
+                RecommendedWorksheetTitle: g.RecommendedWorksheetTitle,
+                AssignedWorksheetId: g.AssignedWorksheetId,
+                AssignedWorksheetTitle: g.AssignedWorksheetTitle,
+                WorksheetAssignedAt: g.WorksheetAssignedAt,
+                CreatedAt: g.CreatedAt,
+                MemberCount: g.Members.Count,
+                Members: g.Members.Select(m => {
+                    studentNames.TryGetValue(m.StudentId, out var sName);
+                    double? mastery = null;
+                    if (profilesByStudent.TryGetValue(m.StudentId, out var sProfs) && sProfs.Count > 0)
+                    {
+                        mastery = Math.Round(sProfs.Average(p => p.MasteryScore), 2);
+                    }
+                    return new ClassGroupMemberDto(
+                        GroupMemberId: m.GroupMemberId,
+                        StudentId: m.StudentId,
+                        JoinedAt: m.JoinedAt,
+                        Name: sName,
+                        Mastery: mastery
+                    );
+                }).ToList(),
+                CommonWeakSkillNames: weakNames
+            );
+        }).ToList();
 
         var response = new AutoPartitionMicroGroupsResponseDto(
             ClassId: targetClass.ClassId,

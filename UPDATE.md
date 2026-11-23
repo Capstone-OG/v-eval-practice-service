@@ -1,12 +1,10 @@
 # NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
 
-## [21/11/2026]
-- **Đồng Bộ Danh Tính Họ Tên Học Sinh Thực Tế Qua Identity Service gRPC Cho Ma Trận Nhiệt Lớp Học (Class Heatmap Matrix) (`GetClassHeatmapQueryHandler.cs`, `IIdentityGrpcClient.cs`)**:
-  - Tiêm phụ thuộc `IIdentityGrpcClient` vào `GetClassHeatmapQueryHandler` và gọi `GetStudentNamesAsync(studentIds)` liên thông Identity Service qua gRPC port 5156.
-  - Phân giải trực tiếp 100% họ tên học sinh thực tế từ bảng `v_eval_identity."Users"` trên CSDL PostgreSQL: `Nguyễn Hoàng An`, `Trần Ngọc Mai`, `Phạm Tấn Lộc`, `Mai Thành Nhân`, `Trần Thái Thịnh`, `Lê Hoàng Long`.
-  - Loại bỏ hoàn toàn chuỗi mã định danh giả lập `Học sinh #{studentId[..6]}` trong danh sách `rows` của bản đồ nhiệt.
-  - Tích hợp bộ lọc bỏ qua Cache lỗi thời: tự động phát hiện và làm tươi dữ liệu khi bộ đệm vẫn chứa định danh cũ, sau đó lưu lại vào MemoryCache với TTL 20 phút.
+## [23/11/2026]
+- **Phân Giải Danh Tính Họ Tên Học Sinh & Tên Kỹ Năng Thực Tế Cho Phân Nhóm Học Tập Vi Mô (`AutoPartitionMicroGroupsCommandHandler.cs`, `GetClassMicroGroupsQueryHandler.cs`, `ClassMicroGroupDtos.cs`)**:
+  - Mở rộng DTO `ClassGroupMemberDto` bổ sung `Name` và `Mastery` phân giải trực tiếp từ Identity Service gRPC (`_identityGrpcClient.GetStudentNamesAsync`) và `LearningProfiles`.
+  - Mở rộng DTO `ClassMicroGroupDto` bổ sung `CommonWeakSkillNames` ánh xạ từ cây kỹ năng Content Service gRPC (`_contentGrpcClient.GetSkillsTreeAsync`), cung cấp sẵn danh sách tên chuyên đề tiếng Việt chuẩn cho client thay vì chỉ có danh sách GUID thô.
+  - Cập nhật `AutoPartitionMicroGroupsCommandHandler` và `GetClassMicroGroupsQueryHandler` tiêm phụ thuộc `IIdentityGrpcClient`, `IContentGrpcClient`, `ILearningProfileRepository` để tự động làm giàu dữ liệu thực tế cho từng nhóm vi mô (3–5 học sinh/bàn).
+  - Tối ưu hóa hiệu năng truy vấn: gom nhóm toàn bộ `StudentId` trong các nhóm bàn học để truy vấn phân giải họ tên một lần qua gRPC, loại bỏ hiện tượng N+1.
 - **Kiểm Thử & Biên Dịch**:
-  - `dotnet build`: Hoàn thành 100%, 0 lỗi, 0 cảnh báo.
-  - `dotnet test`: Toàn bộ **20/20 unit tests Passed 100%**.
-  - Kiểm thử trực tiếp API `GET /api/practice/classes/{classId}/heatmap`: Trả về chuẩn xác 100% họ tên học sinh tiếng Việt trong từng dòng dữ liệu `rows`.
+  - `dotnet build`: Hoàn thành 100%, 0 lỗi, 0 cảnh báo cho `V-Eval-Practice_Service.Application.csproj` và `V-Eval-Practice_Service.Infrastructure.csproj`.

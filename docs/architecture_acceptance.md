@@ -1287,3 +1287,11 @@
 - **Eradication of Synthetic Identifiers**: Eliminated legacy masked placeholder formats (`Học sinh #{studentId[..6]}`) across heatmap rows.
 - **Stale Cache Invalidation Guard**: If cached response objects contain legacy masked identifiers (`r.StudentName.StartsWith("Học sinh #")`), the cache is immediately bypassed to re-query fresh live identities and re-populate the cache.
 - **Verification**: `dotnet test` passed 20/20 unit tests (100%); `dotnet build` succeeded with 0 warnings and 0 errors.
+
+### 14.13 Real-Time Student Identity & Skill Name Enrichment for Micro Study Groups (`AutoPartitionMicroGroupsCommandHandler.cs`, `GetClassMicroGroupsQueryHandler.cs`, `ClassMicroGroupDtos.cs`) [23/11/2026]
+- **Inter-Service gRPC Integration**: Injected `IIdentityGrpcClient` and `IContentGrpcClient` into `AutoPartitionMicroGroupsCommandHandler` and `GetClassMicroGroupsQueryHandler`. Resolves real student full names from `v_eval_identity."Users"` via `GetStudentNamesAsync` and resolves human-readable skill names from Content Service via `GetSkillsTreeAsync`.
+- **DTO Model Enrichment**:
+  - `ClassGroupMemberDto`: Extended with `Name` and `Mastery` properties, directly delivering student full names and mastery scores to clients without client-side guessing.
+  - `ClassMicroGroupDto`: Extended with `CommonWeakSkillNames` containing resolved Vietnamese pedagogical skill names, preventing raw GUID leakage.
+- **Performance Optimization**: Gathers all unique `StudentId` references across micro-groups into a single batch query, preventing N+1 gRPC calls.
+- **Verification**: `V-Eval-Practice_Service.Application.csproj` and `V-Eval-Practice_Service.Infrastructure.csproj` compiled with 0 warnings and 0 errors.
