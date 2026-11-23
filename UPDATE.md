@@ -1,11 +1,9 @@
-# V-Eval Practice Service — Cập Nhật Tiến Độ
+# UPDATE — V-Eval-Practice_Service
 
-## [23/11/2026] - Cố Định Thứ Tự Chặng Tuần Tự (Immutable StepOrder) & Luồng Phê Duyệt Lộ Trình 2 Cấp
-
-- **Cố Định `StepOrder` Trong `GetMyRoadmapQueryHandler.cs`**:
-  - Loại bỏ cơ chế tự sắp xếp lại và ghi đè `StepOrder` theo `MasteryPlt` / `COMPLETED` trên mỗi yêu cầu `GET /api/practice/roadmaps/my-roadmap`, khắc phục triệt để lỗi chặng đang học (Preview -> Learn) bị đẩy xuống cuối và chặng kế tiếp bị đánh số lại thành Chặng #1 sau khi refresh.
-- **Triển Khai Luồng Phê Duyệt Lộ Trình 2 Cấp (Không Đổi Schema DB)**:
-  - `SubmitDiagnosticCommandHandler.cs`: Tự động sinh bản nháp lộ trình (`DRAFT_PENDING_TEACHER`) lưu xuống DB ngay sau khi học sinh hoàn thành bài thi đầu vào 30 câu.
-  - `StartStageCommandHandler.cs`: Chặn bắt đầu học P-L-A-R nếu lộ trình chưa được phê duyệt kích hoạt (`Status != ACTIVE`).
-  - `RoadmapApprovalWorkflow.cs` & `RoadmapsController.cs`: Bổ sung 4 API (`GET /review-queue`, `GET /{roadmapId}`, `PUT /{roadmapId}/teacher-review`, `POST /{roadmapId}/director-decision`) phục vụ Giảng viên tinh chỉnh bản nháp và Giám đốc / Quản lý học thuật phê duyệt kích hoạt `ACTIVE`.
-  - `ILearningRoadmapRepository.cs` & `LearningRoadmapRepository.cs`: Bổ sung các phương thức truy vấn lộ trình mới nhất, hàng đợi theo trạng thái và thêm node kỹ năng.
+## [23/11/2026]
+- **Tích Hợp Continuous Deployment (Auto-CD) Lên Máy Chủ Ubuntu Docker Server (`veval.io.vn`)**:
+  - Bổ sung file workflow [`.github/workflows/cd-main.yml`](./.github/workflows/cd-main.yml) kích hoạt tự động mỗi khi có Pull Request được merge vào nhánh `main`.
+  - Cấu hình 2 job tuần tự:
+    1. **`ci-verify` (`runs-on: ubuntu-latest`)**: Chạy kiểm tra lint, build và automated tests trên hạ tầng GitHub Cloud.
+    2. **`deploy-ubuntu` (`runs-on: [self-hosted, veval-prod]`)**: Gọi script `/data/Capstone/Scripts/deploy_service.sh practice` trên máy chủ Ubuntu production.
+  - Áp dụng cơ chế selective rebuild (`--no-deps`), đồng bộ Git hard reset nhánh `main` và bảo toàn kết nối Zero-Downtime của Cloudflare Tunnel.
