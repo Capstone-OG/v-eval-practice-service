@@ -14,7 +14,13 @@ public record MockExamAnswerDetailDto(
     Guid QuestionId,
     string? SelectedOption,
     bool IsCorrect,
-    int TimeSpentSeconds
+    int TimeSpentSeconds,
+    string? CorrectOption = null,
+    int QuestionOrder = 0,
+    string? Content = null,
+    IReadOnlyList<string>? Options = null,
+    string? Explanation = null,
+    string? SkillName = null
 );
 
 public record GetMockExamDetailResponseDto(

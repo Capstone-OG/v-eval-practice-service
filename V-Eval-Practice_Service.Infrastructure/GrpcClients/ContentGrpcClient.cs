@@ -22,13 +22,19 @@ public class ContentGrpcClient : IContentGrpcClient
         _logger = logger;
     }
 
+    private GrpcChannel CreateChannel() => GrpcChannel.ForAddress(_serviceUrl, new GrpcChannelOptions
+    {
+        MaxReceiveMessageSize = 32 * 1024 * 1024,
+        MaxSendMessageSize = 32 * 1024 * 1024
+    });
+
     public async Task<IReadOnlyDictionary<Guid, ExamQuestionKeyDto>> GetExamAnswerKeysAsync(
         Guid examId,
         CancellationToken ct = default)
     {
         try
         {
-            using var channel = GrpcChannel.ForAddress(_serviceUrl);
+            using var channel = CreateChannel();
             var client = new ContentService.ContentServiceClient(channel);
 
             var request = new GetExamAnswerKeyRequest
@@ -84,7 +90,7 @@ public class ContentGrpcClient : IContentGrpcClient
     {
         try
         {
-            using var channel = GrpcChannel.ForAddress(_serviceUrl);
+            using var channel = CreateChannel();
             var client = new ContentService.ContentServiceClient(channel);
 
             var request = new GetSkillsTreeRequest();

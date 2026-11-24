@@ -46,7 +46,9 @@ public record TeacherReviewRoadmapRequestDto(
 
 public record DirectorDecisionRequestDto(
     bool Approve,
-    string? DirectorNote
+    string? DirectorNote,
+    bool EscalateToDirector = false,
+    string? ReviewerRole = null
 );
 
 public record RoadmapActionResponseDto(
@@ -61,22 +63,28 @@ public record RoadmapActionResponseDto(
 );
 
 // =========================================================================
-// 1. Query: Lấy danh sách lộ trình theo trạng thái duyệt (Teacher & Director)
+// 1. Query: Lấy danh sách lộ trình theo trạng thái duyệt (Teacher, Manager theo CampusId, Director liên cơ sở)
 // =========================================================================
-public record GetRoadmapReviewQueueQuery(string? StatusFilter = null) : IRequest<Result<IReadOnlyList<RoadmapReviewQueueItemDto>>>;
+public record GetRoadmapReviewQueueQuery(
+    string? StatusFilter = null,
+    Guid? CampusId = null
+) : IRequest<Result<IReadOnlyList<RoadmapReviewQueueItemDto>>>;
 
 public class GetRoadmapReviewQueueQueryHandler : IRequestHandler<GetRoadmapReviewQueueQuery, Result<IReadOnlyList<RoadmapReviewQueueItemDto>>>
 {
     private readonly ILearningRoadmapRepository _roadmapRepository;
+    private readonly IClassEnrollmentRepository _enrollmentRepository;
     private readonly IIdentityGrpcClient _identityGrpcClient;
     private readonly ILogger<GetRoadmapReviewQueueQueryHandler> _logger;
 
     public GetRoadmapReviewQueueQueryHandler(
         ILearningRoadmapRepository roadmapRepository,
+        IClassEnrollmentRepository enrollmentRepository,
         IIdentityGrpcClient identityGrpcClient,
         ILogger<GetRoadmapReviewQueueQueryHandler> logger)
     {
         _roadmapRepository = roadmapRepository;
+        _enrollmentRepository = enrollmentRepository;
         _identityGrpcClient = identityGrpcClient;
         _logger = logger;
     }
@@ -86,10 +94,18 @@ public class GetRoadmapReviewQueueQueryHandler : IRequestHandler<GetRoadmapRevie
         CancellationToken ct)
     {
         var statuses = string.IsNullOrWhiteSpace(request.StatusFilter) || string.Equals(request.StatusFilter, "ALL", StringComparison.OrdinalIgnoreCase)
-            ? new[] { "DRAFT_PENDING_TEACHER", "PENDING_DIRECTOR_APPROVAL", "ACTIVE" }
+            ? new[] { "DRAFT_PENDING_TEACHER", "PENDING_MANAGER_APPROVAL", "PENDING_DIRECTOR_APPROVAL", "ACTIVE" }
             : request.StatusFilter.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         var roadmaps = await _roadmapRepository.GetByStatusesAsync(statuses, ct);
+
+        // Nếu lọc theo cơ sở (Academic Manager hoặc Director chọn lọc cơ sở) -> chỉ giữ học sinh thuộc cơ sở đó
+        if (request.CampusId.HasValue && request.CampusId.Value != Guid.Empty)
+        {
+            var campusStudentIds = await _enrollmentRepository.GetEnrolledStudentIdsByCampusIdAsync(request.CampusId.Value, ct);
+            var campusSet = campusStudentIds.ToHashSet();
+            roadmaps = roadmaps.Where(r => campusSet.Contains(r.StudentId)).ToList();
+        }
 
         var studentNames = new Dictionary<Guid, string>();
         try
@@ -262,7 +278,11 @@ public class GetRoadmapByIdQueryHandler : IRequestHandler<GetRoadmapByIdQuery, R
             CreatedAt: roadmap.CreatedAt,
             UpdatedAt: roadmap.UpdatedAt,
             Stages: stageDtos,
-            Nodes: nodeDtos
+            Nodes: nodeDtos,
+            IsTeacherApproved: roadmap.IsTeacherApproved,
+            ApprovedByTeacherId: roadmap.ApprovedByTeacherId,
+            ApprovedAt: roadmap.ApprovedAt,
+            TeacherKickoffNote: roadmap.TeacherKickoffNote
         ));
     }
 }
@@ -389,7 +409,7 @@ public class TeacherReviewRoadmapCommandHandler : IRequestHandler<TeacherReviewR
 
         if (req.SubmitForDirectorApproval)
         {
-            roadmap.Status = "PENDING_DIRECTOR_APPROVAL";
+            roadmap.Status = "PENDING_MANAGER_APPROVAL";
         }
 
         roadmap.UpdatedAt = DateTime.UtcNow;
@@ -400,7 +420,7 @@ public class TeacherReviewRoadmapCommandHandler : IRequestHandler<TeacherReviewR
             command.ReviewerId, roadmap.RoadmapId, roadmap.Status, activeCount, prunedCount);
 
         string msg = req.SubmitForDirectorApproval
-            ? "Đã lưu chỉnh sửa và gửi lộ trình lên Ban Giám đốc phê duyệt."
+            ? "Đã lưu chỉnh sửa và gửi lộ trình lên Quản lý Cơ sở phê duyệt."
             : "Đã lưu bản chỉnh sửa nháp lộ trình của học sinh.";
 
         return Result<RoadmapActionResponseDto>.Success(new RoadmapActionResponseDto(
@@ -451,8 +471,24 @@ public class DirectorDecisionCommandHandler : IRequestHandler<DirectorDecisionCo
 
         var req = command.Request;
         var nowUtc = DateTime.UtcNow;
+        bool isManagerAction = string.Equals(req.ReviewerRole, "manager", StringComparison.OrdinalIgnoreCase);
+        string actorTag = isManagerAction ? "Manager" : "Director";
+        string actionLabel;
+        string msg;
 
-        if (req.Approve)
+        if (req.EscalateToDirector)
+        {
+            roadmap.Status = "PENDING_DIRECTOR_APPROVAL";
+            string note = string.IsNullOrWhiteSpace(req.DirectorNote)
+                ? "Quản lý cơ sở chuyển ca ngoại lệ lên Giám đốc Học thuật xem xét."
+                : req.DirectorNote.Trim();
+            roadmap.PrunedReason = string.IsNullOrWhiteSpace(roadmap.PrunedReason)
+                ? $"[Manager chuyển Giám đốc] {note}"
+                : $"{roadmap.PrunedReason} | [Manager chuyển Giám đốc] {note}";
+            actionLabel = "CHUYỂN GIÁM ĐỐC";
+            msg = "Đã chuyển lộ trình (ca ngoại lệ) lên Giám đốc Học thuật phê duyệt.";
+        }
+        else if (req.Approve)
         {
             // Archive các lộ trình ACTIVE cũ (nếu có) trước khi kích hoạt bản mới được phê duyệt
             var allStudentRoadmaps = await _roadmapRepository.GetByStudentIdAsync(roadmap.StudentId, ct);
@@ -469,8 +505,8 @@ public class DirectorDecisionCommandHandler : IRequestHandler<DirectorDecisionCo
             if (!string.IsNullOrWhiteSpace(req.DirectorNote))
             {
                 roadmap.PrunedReason = string.IsNullOrWhiteSpace(roadmap.PrunedReason)
-                    ? $"[Director] {req.DirectorNote.Trim()}"
-                    : $"{roadmap.PrunedReason} | [Director] {req.DirectorNote.Trim()}";
+                    ? $"[{actorTag}] {req.DirectorNote.Trim()}"
+                    : $"{roadmap.PrunedReason} | [{actorTag}] {req.DirectorNote.Trim()}";
             }
 
             // Đảm bảo chặng đầu tiên không bị prune ở trạng thái IN_PROGRESS để học sinh vào học ngay
@@ -484,6 +520,11 @@ public class DirectorDecisionCommandHandler : IRequestHandler<DirectorDecisionCo
                 firstActiveNode.Status = "IN_PROGRESS";
                 firstActiveNode.UnlockedAt ??= nowUtc;
             }
+
+            actionLabel = "PHÊ DUYỆT";
+            msg = isManagerAction
+                ? "Quản lý Cơ sở đã phê duyệt và kích hoạt lộ trình (ACTIVE)! Học sinh có thể vào học ngay."
+                : "Giám đốc Học thuật đã phê duyệt và kích hoạt lộ trình (ACTIVE)! Học sinh có thể vào học ngay.";
         }
         else
         {
@@ -491,7 +532,9 @@ public class DirectorDecisionCommandHandler : IRequestHandler<DirectorDecisionCo
             string note = string.IsNullOrWhiteSpace(req.DirectorNote)
                 ? "Yêu cầu giảng viên rà soát và điều chỉnh lại lộ trình."
                 : req.DirectorNote.Trim();
-            roadmap.PrunedReason = $"[Director yêu cầu sửa] {note}";
+            roadmap.PrunedReason = $"[{actorTag} yêu cầu sửa] {note}";
+            actionLabel = "TRẢ LẠI";
+            msg = "Đã trả lại lộ trình cho Giảng viên điều chỉnh thêm.";
         }
 
         roadmap.UpdatedAt = nowUtc;
@@ -501,12 +544,8 @@ public class DirectorDecisionCommandHandler : IRequestHandler<DirectorDecisionCo
         int activeCount = roadmap.Nodes.Count - prunedCount;
 
         _logger.LogInformation(
-            "Director {DirectorId} đã {Action} lộ trình {RoadmapId} của học sinh {StudentId} -> Status={Status}.",
-            command.DirectorId, req.Approve ? "PHÊ DUYỆT" : "TRẢ LẠI", roadmap.RoadmapId, roadmap.StudentId, roadmap.Status);
-
-        string msg = req.Approve
-            ? "Đã phê duyệt và kích hoạt lộ trình học tập (ACTIVE)! Học sinh có thể bắt đầu học P-L-A-R ngay."
-            : "Đã trả lại lộ trình cho Giảng viên điều chỉnh thêm.";
+            "{ActorTag} {DirectorId} đã {Action} lộ trình {RoadmapId} của học sinh {StudentId} -> Status={Status}.",
+            actorTag, command.DirectorId, actionLabel, roadmap.RoadmapId, roadmap.StudentId, roadmap.Status);
 
         return Result<RoadmapActionResponseDto>.Success(new RoadmapActionResponseDto(
             roadmap.RoadmapId,
@@ -517,6 +556,90 @@ public class DirectorDecisionCommandHandler : IRequestHandler<DirectorDecisionCo
             prunedCount,
             roadmap.PrunedReason,
             msg
+        ));
+    }
+}
+
+// =========================================================================
+// 5. Command: Giảng viên Phê duyệt & Mô tả Định hướng Lộ trình (Non-Blocking)
+// =========================================================================
+public record ApproveRoadmapRequestDto(
+    string? TeacherKickoffNote,
+    Guid? TeacherId = null
+);
+
+public record RoadmapApprovalResultDto(
+    Guid RoadmapId,
+    Guid StudentId,
+    string Status,
+    bool IsTeacherApproved,
+    Guid? ApprovedByTeacherId,
+    DateTime? ApprovedAt,
+    string? TeacherKickoffNote,
+    string Message
+);
+
+public record ApproveRoadmapCommand(
+    Guid RoadmapId,
+    Guid TeacherId,
+    ApproveRoadmapRequestDto Request
+) : IRequest<Result<RoadmapApprovalResultDto>>;
+
+public class ApproveRoadmapCommandHandler : IRequestHandler<ApproveRoadmapCommand, Result<RoadmapApprovalResultDto>>
+{
+    private readonly ILearningRoadmapRepository _roadmapRepository;
+    private readonly ILogger<ApproveRoadmapCommandHandler> _logger;
+
+    public ApproveRoadmapCommandHandler(
+        ILearningRoadmapRepository roadmapRepository,
+        ILogger<ApproveRoadmapCommandHandler> logger)
+    {
+        _roadmapRepository = roadmapRepository;
+        _logger = logger;
+    }
+
+    public async Task<Result<RoadmapApprovalResultDto>> Handle(ApproveRoadmapCommand command, CancellationToken ct)
+    {
+        var roadmap = await _roadmapRepository.GetByIdAsync(command.RoadmapId, ct);
+        if (roadmap == null)
+        {
+            return Result<RoadmapApprovalResultDto>.Failure(
+                Error.NotFound("Roadmap.NotFound", $"Không tìm thấy lộ trình {command.RoadmapId}"));
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        roadmap.IsTeacherApproved = true;
+        if (command.TeacherId != Guid.Empty)
+        {
+            roadmap.ApprovedByTeacherId = command.TeacherId;
+        }
+        roadmap.ApprovedAt = nowUtc;
+        roadmap.TeacherKickoffNote = string.IsNullOrWhiteSpace(command.Request.TeacherKickoffNote)
+            ? roadmap.TeacherKickoffNote
+            : command.Request.TeacherKickoffNote.Trim();
+
+        if (!string.Equals(roadmap.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(roadmap.Status, "COMPLETED", StringComparison.OrdinalIgnoreCase))
+        {
+            roadmap.Status = "ACTIVE";
+        }
+        roadmap.UpdatedAt = nowUtc;
+
+        await _roadmapRepository.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "Teacher {TeacherId} approved roadmap {RoadmapId} (Non-Blocking) for student {StudentId}.",
+            roadmap.ApprovedByTeacherId, roadmap.RoadmapId, roadmap.StudentId);
+
+        return Result<RoadmapApprovalResultDto>.Success(new RoadmapApprovalResultDto(
+            RoadmapId: roadmap.RoadmapId,
+            StudentId: roadmap.StudentId,
+            Status: roadmap.Status,
+            IsTeacherApproved: roadmap.IsTeacherApproved,
+            ApprovedByTeacherId: roadmap.ApprovedByTeacherId,
+            ApprovedAt: roadmap.ApprovedAt,
+            TeacherKickoffNote: roadmap.TeacherKickoffNote,
+            Message: "Đã phê duyệt lộ trình và đồng bộ mô tả định hướng đến Học sinh & Phụ huynh."
         ));
     }
 }

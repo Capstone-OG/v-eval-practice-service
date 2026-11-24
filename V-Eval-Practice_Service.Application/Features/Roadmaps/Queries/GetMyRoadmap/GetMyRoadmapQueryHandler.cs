@@ -240,7 +240,11 @@ public class GetMyRoadmapQueryHandler : IRequestHandler<GetMyRoadmapQuery, Resul
             CreatedAt: roadmap.CreatedAt,
             UpdatedAt: roadmap.UpdatedAt,
             Stages: stageDtos,
-            Nodes: nodeDtos
+            Nodes: nodeDtos,
+            IsTeacherApproved: roadmap.IsTeacherApproved,
+            ApprovedByTeacherId: roadmap.ApprovedByTeacherId,
+            ApprovedAt: roadmap.ApprovedAt,
+            TeacherKickoffNote: roadmap.TeacherKickoffNote
         );
 
         return Result<RoadmapTimelineDto>.Success(timelineDto);

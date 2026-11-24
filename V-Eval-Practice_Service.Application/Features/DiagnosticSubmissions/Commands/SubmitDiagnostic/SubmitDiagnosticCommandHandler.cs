@@ -369,13 +369,26 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
 
         // 6. Nạp danh sách kỹ năng học tập (PATTERN) từ Content Service để AI suy luận cold-start P(L0) theo miền
         var allCurriculumSkillDomainMap = new Dictionary<string, string>();
+        var curriculumSkillInfoMap = new Dictionary<string, (string SkillName, string DomainName)>(StringComparer.OrdinalIgnoreCase);
+        var curriculumDomainNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         try
         {
             var skillsTree = await _contentGrpcClient.GetSkillsTreeAsync(cancellationToken);
-            foreach (var sk in skillsTree.Where(s => string.Equals(s.Level, "PATTERN", StringComparison.OrdinalIgnoreCase)))
+            foreach (var sk in skillsTree)
             {
                 var dId = sk.DomainId != Guid.Empty ? sk.DomainId.ToString() : sk.DomainCode;
-                if (!string.IsNullOrWhiteSpace(dId))
+                var resolvedDomainName = !string.IsNullOrWhiteSpace(sk.DomainName)
+                    ? sk.DomainName
+                    : GetDefaultDomainName(NormalizeDomainCode(dId, sk.DomainCode));
+                if (!string.IsNullOrWhiteSpace(dId) && !string.IsNullOrWhiteSpace(resolvedDomainName))
+                {
+                    curriculumDomainNameMap[dId] = resolvedDomainName;
+                }
+                if (!string.IsNullOrWhiteSpace(sk.Name))
+                {
+                    curriculumSkillInfoMap[sk.SkillId.ToString()] = (sk.Name, resolvedDomainName);
+                }
+                if (string.Equals(sk.Level, "PATTERN", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(dId))
                 {
                     allCurriculumSkillDomainMap[sk.SkillId.ToString()] = dId;
                 }
@@ -439,7 +452,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             ?? (theta0 >= 0.5 ? "BREAKTHROUGH" : theta0 >= -0.5 ? "ACCELERATION" : "FOUNDATION");
         string aiCommentary = !string.IsNullOrWhiteSpace(aiResult?.AiCommentary)
             ? aiResult!.AiCommentary
-            : $"Hoàn thành {totalCorrect}/{totalQuestions} câu ({accuracyPercentage}%), năng lực ước tính IRT theta_0 = {theta0:0.##}.";
+            : $"Bạn đã hoàn thành {totalCorrect}/{totalQuestions} câu ({accuracyPercentage}%). Hệ thống đã ghi nhận kết quả và xây dựng lộ trình ôn luyện phù hợp cho bạn.";
 
         // 7. Lưu trữ bài thi vào PostgreSQL
         DateTime actualStartedAt = request.StartedAt.HasValue
@@ -583,7 +596,7 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
             "Diagnostic submission {SubmissionId} persisted & synced to Flow 5: correct={Correct}/{Total}, theta_0={Theta0}, class={ClassName}",
             submissionId, totalCorrect, totalQuestions, theta0, className);
 
-        // 10b. Tự động sinh Bản nháp Lộ trình học tập (DRAFT_PENDING_TEACHER) lưu vào DB để Giảng viên rà soát & Giám đốc phê duyệt
+        // 10b. Tự động sinh Lộ trình học tập Non-Blocking (ACTIVE ngay, IsTeacherApproved = false chờ Giảng viên rà soát & gửi định hướng song song)
         try
         {
             var draftResult = await _mediator.Send(new GenerateRoadmapCommand(
@@ -591,13 +604,13 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
                 DiagnosticSubmissionId: submissionId,
                 ExamDate: DateTime.UtcNow.AddDays(90),
                 StudyHoursPerDay: 2.0,
-                InitialStatus: "DRAFT_PENDING_TEACHER"
+                InitialStatus: "ACTIVE"
             ), cancellationToken);
 
             if (draftResult.IsSuccess)
             {
                 _logger.LogInformation(
-                    "Auto-generated DRAFT_PENDING_TEACHER roadmap {RoadmapId} for Student {StudentId} from Diagnostic {SubmissionId}.",
+                    "Auto-generated Non-Blocking ACTIVE roadmap {RoadmapId} for Student {StudentId} from Diagnostic {SubmissionId}.",
                     draftResult.Value.RoadmapId, request.StudentId, submissionId);
             }
             else
@@ -638,17 +651,31 @@ public class SubmitDiagnosticCommandHandler : IRequestHandler<SubmitDiagnosticCo
         var skillNameMap = questionResults
             .Where(q => !string.IsNullOrEmpty(q.SkillId))
             .GroupBy(q => q.SkillId)
-            .ToDictionary(g => g.Key, g => (SkillName: g.First().SkillName, DomainName: g.First().DomainName));
+            .ToDictionary(g => g.Key, g => (SkillName: g.First().SkillName, DomainName: g.First().DomainName), StringComparer.OrdinalIgnoreCase);
 
         var skillPriorDtos = aiResult?.SkillPriors?.Select(p =>
         {
-            skillNameMap.TryGetValue(p.SkillId, out var info);
+            skillNameMap.TryGetValue(p.SkillId, out var directInfo);
+            curriculumSkillInfoMap.TryGetValue(p.SkillId, out var treeInfo);
+
+            var resolvedSkillName = !string.IsNullOrWhiteSpace(directInfo.SkillName)
+                ? directInfo.SkillName
+                : (!string.IsNullOrWhiteSpace(treeInfo.SkillName) ? treeInfo.SkillName : string.Empty);
+
+            var resolvedDomainName = !string.IsNullOrWhiteSpace(directInfo.DomainName)
+                ? directInfo.DomainName
+                : !string.IsNullOrWhiteSpace(treeInfo.DomainName)
+                    ? treeInfo.DomainName
+                    : curriculumDomainNameMap.TryGetValue(p.DomainId ?? string.Empty, out var mappedDom)
+                        ? mappedDom
+                        : GetDefaultDomainName(NormalizeDomainCode(p.DomainId, null));
+
             return new DiagnosticSkillPriorDto
             {
                 SkillId = p.SkillId,
-                SkillName = !string.IsNullOrEmpty(info.SkillName) ? info.SkillName : p.SkillId,
-                DomainId = p.DomainId,
-                DomainName = !string.IsNullOrEmpty(info.DomainName) ? info.DomainName : p.DomainId,
+                SkillName = !string.IsNullOrWhiteSpace(resolvedSkillName) ? resolvedSkillName : "Dạng bài chuyên đề",
+                DomainId = p.DomainId ?? string.Empty,
+                DomainName = resolvedDomainName,
                 ThetaSkill = p.ThetaSkill,
                 PL0 = p.PL0,
                 Source = p.Source

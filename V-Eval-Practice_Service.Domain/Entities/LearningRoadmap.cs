@@ -17,6 +17,10 @@ public class LearningRoadmap
     public bool IsPruned { get; set; } = false;
     public string? PrunedReason { get; set; }
     public string Status { get; set; } = "ACTIVE"; // ACTIVE, COMPLETED, ARCHIVED
+    public bool IsTeacherApproved { get; set; } = false;
+    public Guid? ApprovedByTeacherId { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public string? TeacherKickoffNote { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

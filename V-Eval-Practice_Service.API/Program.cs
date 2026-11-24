@@ -254,6 +254,10 @@ using (var scope = app.Services.CreateScope())
             -- Bổ sung các cột mới cho Core Flow 2 & Enrollment nếu chưa tồn tại
             ALTER TABLE v_eval_practice.""Classes"" ADD COLUMN IF NOT EXISTS course_id UUID;
             ALTER TABLE v_eval_practice.""ClassEnrollments"" ADD COLUMN IF NOT EXISTS registration_id UUID;
+            ALTER TABLE v_eval_practice.""LearningRoadmaps"" ADD COLUMN IF NOT EXISTS is_teacher_approved BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE v_eval_practice.""LearningRoadmaps"" ADD COLUMN IF NOT EXISTS approved_by_teacher_id UUID;
+            ALTER TABLE v_eval_practice.""LearningRoadmaps"" ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP WITH TIME ZONE;
+            ALTER TABLE v_eval_practice.""LearningRoadmaps"" ADD COLUMN IF NOT EXISTS teacher_kickoff_note TEXT;
             ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS daily_exam_id UUID;
             ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS video_watched_seconds INT DEFAULT 0;
             ALTER TABLE v_eval_practice.""RoadmapNodes"" ADD COLUMN IF NOT EXISTS video_total_seconds INT DEFAULT 0;
@@ -275,6 +279,8 @@ using (var scope = app.Services.CreateScope())
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT (now()),
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now())
             );
+
+            ALTER TABLE v_eval_practice.""StageProgress"" ADD COLUMN IF NOT EXISTS preview_submission_json TEXT;
 
             CREATE TABLE IF NOT EXISTS v_eval_practice.""AdaptiveQuizAttempts"" (
                 id UUID PRIMARY KEY,
