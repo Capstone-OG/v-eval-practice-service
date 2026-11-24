@@ -1,9 +1,7 @@
-# UPDATE — V-Eval-Practice_Service
+# [24/11/2026]
 
-## [23/11/2026]
-- **Tích Hợp Continuous Deployment (Auto-CD) Lên Máy Chủ Ubuntu Docker Server (`veval.io.vn`)**:
-  - Bổ sung file workflow [`.github/workflows/cd-main.yml`](./.github/workflows/cd-main.yml) kích hoạt tự động mỗi khi có Pull Request được merge vào nhánh `main`.
-  - Cấu hình 2 job tuần tự:
-    1. **`ci-verify` (`runs-on: ubuntu-latest`)**: Chạy kiểm tra lint, build và automated tests trên hạ tầng GitHub Cloud.
-    2. **`deploy-ubuntu` (`runs-on: [self-hosted, veval-prod]`)**: Gọi script `/data/Capstone/Scripts/deploy_service.sh practice` trên máy chủ Ubuntu production.
-  - Áp dụng cơ chế selective rebuild (`--no-deps`), đồng bộ Git hard reset nhánh `main` và bảo toàn kết nối Zero-Downtime của Cloudflare Tunnel.
+- Raised gRPC client `MaxReceiveMessageSize` / `MaxSendMessageSize` to `32 MB` in `ContentGrpcClient.cs` so `GetSkillsTreeAsync` no longer drops skill names to `"Kỹ năng chuyên đề"`.
+- Added `EnableRetryOnFailure(3, 3s)` on `PracticeDbContext` (`DependencyInjection.cs`) and `.AsSplitQuery()` on `GetStudentTimetableAsync` / `GetTeacherScheduleAsync` (`ScheduleService.cs`) to eliminate transient 500 errors.
+- Linked `CourseRegistrations` (`ACTIVE`/`COMPLETED`/`PAID`) in `GetStudentTimetableAsync` so enrolled classes/sessions inherit the student's purchased course and active term metadata, and scoped `availableTerms` to the student's actual terms.
+- Upgraded roadmap approval workflow (`RoadmapApprovalWorkflow.cs`, `RoadmapsController.cs`) to a 3-tier model (`DRAFT_PENDING_TEACHER` -> `PENDING_MANAGER_APPROVAL` -> `PENDING_DIRECTOR_APPROVAL` -> `ACTIVE`) with `campusId` scoping for Academic Manager and `EscalateToDirector` support.
+- Verified with `dotnet build` (0 warnings, 0 errors).

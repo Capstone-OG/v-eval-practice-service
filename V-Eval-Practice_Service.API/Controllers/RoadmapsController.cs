@@ -126,13 +126,13 @@ public class RoadmapsController : ApiControllerBase
     }
 
     /// <summary>
-    /// Lấy hàng đợi lộ trình học sinh theo trạng thái duyệt (Giảng viên &amp; Ban Giám đốc)
+    /// Lấy hàng đợi lộ trình học sinh theo trạng thái duyệt (Teacher, Academic Manager theo CampusId, Academic Director liên cơ sở)
     /// </summary>
     [HttpGet("review-queue")]
     [ProducesResponseType(typeof(IReadOnlyList<RoadmapReviewQueueItemDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetReviewQueue([FromQuery] string? status = null)
+    public async Task<IActionResult> GetReviewQueue([FromQuery] string? status = null, [FromQuery] Guid? campusId = null)
     {
-        var result = await Mediator.Send(new GetRoadmapReviewQueueQuery(status));
+        var result = await Mediator.Send(new GetRoadmapReviewQueueQuery(status, campusId));
         return HandleResult(result);
     }
 
