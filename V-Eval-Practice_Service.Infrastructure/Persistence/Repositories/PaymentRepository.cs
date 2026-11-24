@@ -61,6 +61,37 @@ public class PaymentRepository : IPaymentRepository
             .FirstOrDefaultAsync(r => r.StudentId == studentId && r.CourseId == courseId && r.Status == "ACTIVE", ct);
     }
 
+    public async Task<CourseRegistration?> GetPendingRegistrationAsync(Guid studentId, Guid courseId, CancellationToken ct = default)
+    {
+        return await _context.CourseRegistrations
+            .Where(r => r.StudentId == studentId && r.CourseId == courseId && r.Status == "PENDING_PAYMENT")
+            .OrderByDescending(r => r.RegisteredAt)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<int> GetMaxAttemptNoAsync(Guid studentId, Guid courseId, CancellationToken ct = default)
+    {
+        return await _context.CourseRegistrations
+            .Where(r => r.StudentId == studentId && r.CourseId == courseId)
+            .Select(r => (int?)r.AttemptNo)
+            .MaxAsync(ct) ?? 0;
+    }
+
+    public async Task<bool> HasActiveTuitionAsync(Guid studentId, CancellationToken ct = default)
+    {
+        bool hasActiveReg = await _context.CourseRegistrations
+            .AsNoTracking()
+            .AnyAsync(r => r.StudentId == studentId && r.Status == "ACTIVE", ct);
+
+        if (hasActiveReg) return true;
+
+        return await _context.Payments
+            .AsNoTracking()
+            .AnyAsync(p => p.Registration != null
+                && p.Registration.StudentId == studentId
+                && (p.Status == "SUCCESS" || p.Status == "PAID"), ct);
+    }
+
     public async Task<Class?> GetAvailableClassByCourseIdAsync(Guid courseId, CancellationToken ct = default)
     {
         return await _context.Classes
@@ -100,7 +131,7 @@ public class PaymentRepository : IPaymentRepository
         return await _context.Payments
             .Include(p => p.Registration)
                 .ThenInclude(r => r!.Course)
-            .Where(p => (p.Registration != null && p.Registration.StudentId == studentId) || p.ParentId == studentId)
+            .Where(p => p.Registration != null && p.Registration.StudentId == studentId)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync(ct);
     }
@@ -159,4 +190,3 @@ public class PaymentRepository : IPaymentRepository
         }
     }
 }
-

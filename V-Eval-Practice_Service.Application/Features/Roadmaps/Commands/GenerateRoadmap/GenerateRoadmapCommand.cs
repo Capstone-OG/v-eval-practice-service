@@ -12,5 +12,6 @@ public record GenerateRoadmapCommand(
     Guid StudentId,
     Guid DiagnosticSubmissionId,
     DateTime ExamDate,
-    double StudyHoursPerDay = 2.0
+    double StudyHoursPerDay = 2.0,
+    string InitialStatus = "ACTIVE"
 ) : IRequest<Result<GenerateRoadmapResponseDto>>;

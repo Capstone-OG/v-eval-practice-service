@@ -13,6 +13,14 @@ public record SubmitPreviewRequestDto(
     IReadOnlyList<PreviewAnswerSubmissionDto> Answers
 );
 
+public record PreviewQuestionFeedbackDto(
+    Guid QuestionId,
+    string SelectedOption,
+    string CorrectOption,
+    bool IsCorrect,
+    string Explanation
+);
+
 public record SubmitPreviewResponseDto(
     Guid StageProgressId,
     Guid RoadmapNodeId,
@@ -23,5 +31,6 @@ public record SubmitPreviewResponseDto(
     string Message,
     string NextAction,
     Guid? MaterialId,
-    string? VideoUrl
+    string? VideoUrl,
+    IReadOnlyList<PreviewQuestionFeedbackDto>? Feedbacks = null
 );

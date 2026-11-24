@@ -19,7 +19,10 @@ public record PreviewQuestionDto(
     IReadOnlyList<PreviewQuestionOptionDto> Options,
     int DifficultyLevel,
     Guid SkillId,
-    string SkillName
+    string SkillName,
+    string PassageTitle = "",
+    string PassageContent = "",
+    string PassageImageUrl = ""
 );
 
 public record StartStageResponseDto(
@@ -32,5 +35,9 @@ public record StartStageResponseDto(
     double BktMasteryPlt,
     int ConsecutiveAdvancedCorrect,
     int ConsecutiveIncorrect,
-    IReadOnlyList<PreviewQuestionDto> PreviewQuestions
+    IReadOnlyList<PreviewQuestionDto> PreviewQuestions,
+    int? ConfidenceRating = null,
+    string? LearnedSummary = null,
+    string? MistakeNotes = null,
+    string? PreviewSubmissionJson = null
 );

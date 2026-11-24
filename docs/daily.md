@@ -10,6 +10,20 @@
 - **Kiểm Thử & Nghiệm Thu**:
   - `dotnet build`: Hoàn thành 100%, 0 lỗi, 0 cảnh báo cho `V-Eval-Practice_Service.Application.csproj` và `V-Eval-Practice_Service.Infrastructure.csproj`.
 
+## [23/11/2026] - Cố Định Thứ Tự Chặng Tuần Tự (`StepOrder`) & Luồng Phê Duyệt Lộ Trình 2 Cấp
+
+- **Giữ Bất Biến Thứ Tự Chặng Khi Truy Vấn Lộ Trình ([`GetMyRoadmapQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Queries/GetMyRoadmap/GetMyRoadmapQueryHandler.cs))**:
+  - Chuyển sang sắp xếp cố định theo `StepOrder` đã lưu trong DB, không tự ý xáo trộn và ghi đè `StepOrder` khi `MasteryPlt` tăng sau Preview hoặc khi chặng chuyển sang `COMPLETED`.
+- **Luồng Phê Duyệt Lộ Trình 2 Cấp (`DRAFT_PENDING_TEACHER` -> `PENDING_DIRECTOR_APPROVAL` -> `ACTIVE`) ([`SubmitDiagnosticCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/DiagnosticSubmissions/Commands/SubmitDiagnostic/SubmitDiagnosticCommandHandler.cs), [`RoadmapApprovalWorkflow.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Approval/RoadmapApprovalWorkflow.cs), [`RoadmapsController.cs`](../V-Eval-Practice_Service.API/Controllers/RoadmapsController.cs), [`StartStageCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Commands/StartStage/StartStageCommandHandler.cs))**:
+  - Tự động sinh bản nháp lộ trình (`DRAFT_PENDING_TEACHER`) sau khi học sinh nộp bài thi đầu vào 30 câu (tái sử dụng cột `status` và `pruned_reason`, không cần migration DB).
+  - Bổ sung 4 API duyệt & tinh chỉnh lộ trình cho Giảng viên và Director / Quản lý học thuật; chặn mở học P-L-A-R nếu lộ trình chưa `ACTIVE`.
+
+## [22/11/2026] - Mở Khóa Toàn Bộ Tầng Dạng Bài Lớp 10–12 Khi Sinh Lộ Trình (`GenerateRoadmapCommandHandler.cs`)
+
+- **Xóa Bộ Lọc Cứng Làm Rơi Dạng Bài Mới Đồng Bộ Từ SGK ([`GenerateRoadmapCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Commands/GenerateRoadmap/GenerateRoadmapCommandHandler.cs))**:
+  - Loại bỏ điều kiện `&& (s.QuestionCount > 0 || s.MaterialId.HasValue)` để toàn bộ các dạng bài thực tế (`Level == "PATTERN"`) mới đồng bộ từ bộ SGK Lớp 10–12 đều được đưa vào lộ trình cá nhân hóa (hết bị kẹt ở 337/370 chặng).
+- **Kiểm Thử**: `dotnet test --no-restore` đạt **20/20 Passed (100%)**.
+
 ## [21/11/2026] - Đồng Bộ Danh Tính Họ Tên Học Sinh Thực Tế Qua Identity Service gRPC Cho Ma Trận Nhiệt Lớp Học (Class Heatmap Matrix)
 
 - **Liên Thông gRPC Truy Vấn Họ Tên Học Sinh Thực Tế Cho Ma Trận Nhiệt ([`GetClassHeatmapQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Queries/GetClassHeatmap/GetClassHeatmapQueryHandler.cs), [`IIdentityGrpcClient.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/IIdentityGrpcClient.cs))**:
@@ -22,19 +36,40 @@
   - `dotnet test`: Toàn bộ **20/20 unit tests Passed 100%**.
   - Kiểm thử trực tiếp API `GET /api/practice/classes/{classId}/heatmap`: Trả về chuẩn xác 100% họ tên học sinh tiếng Việt trong từng dòng dữ liệu `rows`.
 
-## [20/11/2026] - Bổ Sung API Chỉnh Sửa (`PUT`) & Xóa / Ngừng Mở Bán An Toàn (`DELETE`) Khóa Học Theo Đợt
+## [21/11/2026] - Hotfix Pha Apply (Pha A): Khắc Phục Triệt Để Hiện Tượng Cấp Phát Sai Môn Học / Sai Dạng Bài Trong Chu Trình PLAR
 
-- **Mở Rộng DTO & Nghiệp Vụ Quản Lý Khóa Học ([`ScheduleDtos.cs`](../V-Eval-Practice_Service.Application/Features/Schedules/DTOs/ScheduleDtos.cs), [`IScheduleService.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Services/IScheduleService.cs), [`ScheduleService.cs`](../V-Eval-Practice_Service.Infrastructure/Services/ScheduleService.cs))**:
-  - Thêm `UpdateCourseRequestDto` hỗ trợ sửa đầy đủ tên khóa, mã khóa, thời lượng tuần, mức học phí, sĩ số tối đa và trạng thái hoạt động (`IsActive`).
-  - Cài đặt `UpdateCourseAsync` có kiểm tra trùng mã khóa (`Course.DuplicateCode`) trước khi lưu vào `v_eval_enrollment."Courses"`.
-  - Cài đặt `DeleteCourseAsync` phân nhánh an toàn: tự động Soft-Archive (`IsActive = false`) nếu khóa đã gắn với `Classes` hoặc `CourseRegistrations` để bảo toàn biên lai thanh toán; xóa cứng nếu chưa có dữ liệu liên kết.
-- **Mở Rộng Controller ([`CoursesController.cs`](../V-Eval-Practice_Service.API/Controllers/CoursesController.cs))**:
-  - Bổ sung `[HttpPut("{courseId:guid}")]` và `[HttpDelete("{courseId:guid}")]`.
-- **Bổ Sung `CampusId` Cho Cổng Phụ Huynh ([`ParentDashboardDtos.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/DTOs/ParentDashboardDtos.cs), [`GetParentDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetParentDashboard/GetParentDashboardQueryHandler.cs))**:
-  - Trả về `CampusId` của từng con trong `ChildAnalyticsDto` để Phụ huynh và Học sinh lọc đồng bộ 100% cùng một danh sách Đợt học & Khóa học theo cơ sở.
-- **Kiểm Thử & Nghiệm Thu**:
-  - `dotnet build V-Eval-Practice_Service.Infrastructure.csproj --no-restore`: **0 Warning, 0 Error**.
-  - `dotnet test V-Eval-Practice_Service.Tests.csproj --no-restore`: **20/20 tests Passed 100%**.
+- **Chuẩn Hóa Truy Vấn Câu Hỏi Thích Ứng ZPD Theo Kỹ Năng Chuyên Đề ([`GetNextQuestionQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Stages/Queries/GetNextQuestion/GetNextQuestionQueryHandler.cs))**:
+  - Loại bỏ hoàn toàn fallback GUID `6f3765db-943e-4810-bf74-d6a8bdc215da` (mã miền Toán học, không phải SkillId) khi tra cứu kỹ năng; bổ sung log cảnh báo rõ ràng khi chặng học thiếu `RoadmapNode` hoặc `SkillId`.
+  - Trong Pha APPLY (Luyện tập thích ứng IRT ZPD + BKT Mastery), truyền `examId: null` sang Content Service gRPC để hệ thống tập trung 100% vào việc rút ngân hàng câu hỏi thích ứng theo dạng bài `skillId` của chặng học và cây kỹ năng cùng môn học, không bị gò bó vào danh sách câu hỏi cố định của `QuizExamId`.
+  - Kết hợp với cơ chế **Subject Boundary Isolation** từ Content Service gRPC để đảm bảo 100% câu hỏi trả về vùng ZPD [0.60, 0.75] và dải thích ứng L1–L4 thuộc đúng dạng bài và đúng môn học của chặng học (Toán học ra đề Toán học, không bị lọt câu hỏi Ngữ văn/Ngoại ngữ).
+- **Kiểm Thử & Biên Dịch Sạch Sẽ**:
+  - `dotnet build --no-restore`: 0 Warning, 0 Error.
+  - `dotnet test --no-restore`: **20/20 Passed 100%**.
+
+---
+
+## [23/11/2026]
+- **Tích Hợp Continuous Deployment (Auto-CD) Lên Máy Chủ Ubuntu Docker Server (`veval.io.vn`)**:
+  - Bổ sung file workflow [`.github/workflows/cd-main.yml`](../.github/workflows/cd-main.yml) kích hoạt tự động mỗi khi merge PR vào nhánh `main`.
+  - Thiết lập 2 stage: `ci-verify` (GitHub Cloud Runner) và `deploy-ubuntu` (Self-Hosted Runner mang nhãn `[self-hosted, veval-prod]`) gọi `/data/Capstone/Scripts/deploy_service.sh practice`.
+  - Vận hành cơ chế rebuild độc lập (`--no-deps`), đảm bảo Zero-Downtime, bảo vệ `veval-tunnel` và tự động thu hồi tài nguyên với `docker image prune -f`.
+
+## [20/11/2026] - Chuẩn Hóa Toàn Diện Hành Trình Học Sinh End-to-End: Diagnostic 9 Môn, Lộ Trình Toàn Diện Lớp 10–12 Phân 3 Vùng (`WEAK` / `MASTERED` / `UNASSESSED`), Truyền Ngữ Cảnh `Passage` Cho PLAR & Cổng Học Phí Backend
+
+- **Chẩn Đoán 9 Môn & Suy Luận Cold-Start (`SubmitDiagnosticCommandHandler.cs`, `GetDiagnosticSubmissionById.cs`, `DiagnosticSubmissionDtos.cs`)**:
+  - Sửa `NormalizeDomainCode` nhận đúng 4 Domain UUID, chính tả chuẩn GDPT 2018 (`Vật lí`, `Địa lí`, `Tiếng Anh`, `GDKT & Pháp luật`) và cả mã tiếng Anh `LANGUAGE`/`NATURAL_SCIENCES`/`SOCIAL_SCIENCES`; truyền `AllSkillIds` từ cây Pattern sang AI Engine; bổ sung `SubjectBreakdowns` cho báo cáo năng lực từng môn.
+- **Lộ Trình Toàn Diện Lớp 10–12 Khớp 337 Dạng Bài SGK Phân 3 Vùng Đánh Giá (`GenerateRoadmapCommandHandler.cs`, `GetMyRoadmapQueryHandler.cs`, `RoadmapNodeSummaryDto.cs`)**:
+  - Bỏ giới hạn 24 node, bao phủ toàn bộ ~337 dạng bài (`PATTERN`) Lớp 10–12 của 9 môn GDPT 2018 và phân tầng thành 3 nhóm dựa trên dữ liệu kiểm tra thực tế (`ClassSkillHeatmaps` + `StageProgress`): **(1) `WEAK` (Ưu tiên cải thiện ngay — xếp đầu)** → **(2) `MASTERED` / `COMPLETED` (Đã đạt điểm OK / Hoàn thành PLAR — xếp sau nhóm yếu)** → **(3) `UNASSESSED` (Chưa đánh giá — phổ Lớp 10–12 chưa gặp trong bài test, xếp ở cuối với `MasteryPlt = 0.0` và `GradeLevel` 10/11/12)**.
+- **Thanh Toán PayOS & Cổng Học Phí Thực Tế (`CreatePaymentLinkCommandHandler.cs`, `ProcessPayOsWebhookCommandHandler.cs`, `GetPaymentStatusQuery.cs`, `PaymentRepository.cs`)**:
+  - Sửa lỗi trùng `uq_courseregistrations` khi thanh toán lại; xóa đoạn sinh 4 node `Guid.NewGuid()` giả trong Webhook và tự động gọi `GenerateRoadmapCommand` thật khi xác nhận thanh toán (qua cả Webhook lẫn Polling).
+- **Truyền Ngữ Cảnh Đọc Hiểu `Passage`, Khắc Phục Chu Trình P-L-A-R & Sổ Tay Lỗi Sai SM-2 (`StartStageCommandHandler.cs`, `SubmitPreviewCommandHandler.cs`, `GetNextQuestionQueryHandler.cs`, `SubmitAnswerCommandHandler.cs`, `GetRemedialPackageQueryHandler.cs`, `ReflectCompleteCommandHandler.cs`, `SubmitDailyReviewCommandHandler.cs`, `SubmitMockExamCommandHandler.cs`)**:
+  - Truyền `PassageTitle`, `PassageContent`, `PassageImageUrl` xuyên suốt `Preview`, `Apply` (`ZpdQuestionSelector`) và `Remedial` (`BR-03`); thêm cổng học phí (`403 Tuition.Required`) và mở khóa tự do mọi chặng Lớp 10–12 trong `StartStage` khi đã đóng học phí; chấm thật trong `SubmitPreview` & `SubmitAnswer` qua `GetQuestionDetailAsync` (khôi phục điều kiện thoát `BR-01`, trả lời giải KaTeX, ghi `LearningProfiles` và `ClassSkillHeatmaps` đúng miền); lưu 3 cột Reflect vào `StageProgress` & cập nhật `CompletedMilestones` trong `ReflectComplete`; chấm biến thể `ReviewQuestionId` trong `SubmitDailyReview`; dùng `GetMilestoneQuizReadOnlyAsync` chống spam bảng `MockExams`.
+- **Bổ Sung API Chỉnh Sửa (`PUT`) & Xóa / Ngừng Mở Bán An Toàn (`DELETE`) Khóa Học Theo Đợt**:
+  - Thêm `UpdateCourseRequestDto` hỗ trợ sửa tên khóa, mã khóa, thời lượng tuần, mức học phí, sĩ số và `IsActive`.
+  - Cài đặt `UpdateCourseAsync` có kiểm tra trùng mã khóa trước khi lưu vào `v_eval_enrollment."Courses"`.
+  - Cài đặt `DeleteCourseAsync` Soft-Archive (`IsActive = false`) nếu khóa đã có ràng buộc tài chính/lớp học.
+  - Bổ sung `CampusId` trong `ChildAnalyticsDto` cho Cổng Phụ huynh lọc chuẩn theo cơ sở.
+- **Kiểm Thử**: `dotnet build --no-restore` (`0 Error`), `dotnet test --no-restore` (**20/20 Passed**).
 
 ## [20/11/2026] - Triển Khai API Hậu Kiểm Liêm Chính Bài Thi Thử (Core Flow 3 - BR-20) & Thẩm Định Sư Phạm Giáo Viên
 
@@ -1491,3 +1526,15 @@
 - **Khởi Tạo `appsettings.example.json`**: Tạo file mẫu chứa đầy đủ `ConnectionStrings` và `JwtSettings` với label mẫu.
 - **Bảo Mật Git Security**: Cập nhật `.gitignore` ẩn tất cả file `appsettings.json` chứa thông tin nhạy cảm.
 - **Định Tuyến Gateway YARP**: Định tuyến `/api/practice/{**catch-all}` tại Gateway V-Eval trỏ về cổng `:5002`.
+
+## [24/11/2026]
+- Fixed roadmap skill-name fallback (`"Kỹ năng chuyên đề"`) by upgrading `ContentGrpcClient` channel limits to 32 MB.
+- Added Npgsql `EnableRetryOnFailure` and `.AsSplitQuery()` on Student/Teacher schedule queries; linked paid `CourseRegistrations` into `GetStudentTimetableAsync`.
+- Implemented 3-tier roadmap approval (`Teacher` -> `Academic Manager` scoped by `campusId` -> `Academic Director` for escalated/cross-campus cases) in `RoadmapApprovalWorkflow.cs` and `RoadmapsController.cs`.
+- Fix triệt để GUID thô ở kỹ năng suy diễn trong `SubmitDiagnosticCommandHandler.cs` và làm sạch ngôn ngữ phản hồi học sinh trong `SubmitAnswerCommandHandler.cs`.
+- Enrich chi tiết câu hỏi/đáp án đúng/lời giải cho `GetMockExamDetailQueryHandler.cs`.
+- Triển khai đầy đủ Non-Blocking Teacher Roadmap Approval: 4 cột mới trên `LearningRoadmaps` + EF Migration `AddRoadmapTeacherApprovalFields`, API `PUT /api/v1/roadmaps/{roadmapId}/approve`, mở học ngay không chặn tại `StartStageCommandHandler`, và trả dữ liệu định hướng cho cả Student & Parent Dashboard.
+
+### [24/11/2026 - Cập nhật chiều] Lưu trạng thái Pha Preview vào DB & Auto-Migration Startup
+- Bổ sung cột `preview_submission_json` vào `StageProgress.cs`, `PracticeDbContext.cs`, `Program.cs`, `SubmitPreviewCommandHandler.cs`, `StartStageDtos.cs` và `StartStageCommandHandler.cs`.
+- Bổ sung auto `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` trong `Program.cs` cho cả cột phê duyệt lộ trình và cột Preview.

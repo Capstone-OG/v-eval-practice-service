@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using V_Eval_Practice_Service.API.Controllers.Base;
 using V_Eval_Practice_Service.Application.Common.Models;
+using V_Eval_Practice_Service.Application.Features.Roadmaps.Approval;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Commands.GenerateRoadmap;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.DTOs;
 using V_Eval_Practice_Service.Application.Features.Roadmaps.Queries.GetMyRoadmap;
@@ -120,6 +122,86 @@ public class RoadmapsController : ApiControllerBase
         }
 
         var result = await Mediator.Send(new GetRoadmapNodeDetailQuery(nodeId, studentId));
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Lấy hàng đợi lộ trình học sinh theo trạng thái duyệt (Teacher, Academic Manager theo CampusId, Academic Director liên cơ sở)
+    /// </summary>
+    [HttpGet("review-queue")]
+    [ProducesResponseType(typeof(IReadOnlyList<RoadmapReviewQueueItemDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetReviewQueue([FromQuery] string? status = null, [FromQuery] Guid? campusId = null)
+    {
+        var result = await Mediator.Send(new GetRoadmapReviewQueueQuery(status, campusId));
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Xem chi tiết một lộ trình cụ thể theo RoadmapId (phục vụ Giảng viên &amp; Giám đốc rà soát)
+    /// </summary>
+    [HttpGet("{roadmapId:guid}")]
+    [ProducesResponseType(typeof(RoadmapTimelineDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetRoadmapById(Guid roadmapId)
+    {
+        var result = await Mediator.Send(new GetRoadmapByIdQuery(roadmapId));
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Giảng viên tinh chỉnh bản nháp lộ trình (thêm/ẩn chặng, đổi thứ tự, ghi chú) và gửi lên Giám đốc duyệt
+    /// </summary>
+    [HttpPut("{roadmapId:guid}/teacher-review")]
+    [ProducesResponseType(typeof(RoadmapActionResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> TeacherReviewRoadmap(Guid roadmapId, [FromBody] TeacherReviewRoadmapRequestDto request)
+    {
+        Guid reviewerId = Guid.Empty;
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            reviewerId = parsedId;
+        }
+
+        var result = await Mediator.Send(new TeacherReviewRoadmapCommand(roadmapId, reviewerId, request));
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Giám đốc / Quản lý học thuật phê duyệt cuối cùng (kích hoạt ACTIVE) hoặc trả lại Giảng viên chỉnh sửa
+    /// </summary>
+    [HttpPost("{roadmapId:guid}/director-decision")]
+    [ProducesResponseType(typeof(RoadmapActionResponseDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DirectorDecision(Guid roadmapId, [FromBody] DirectorDecisionRequestDto request)
+    {
+        Guid directorId = Guid.Empty;
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            directorId = parsedId;
+        }
+
+        var result = await Mediator.Send(new DirectorDecisionCommand(roadmapId, directorId, request));
+        return HandleResult(result);
+    }
+
+    /// <summary>
+    /// Giảng viên phê duyệt &amp; cập nhật mô tả định hướng lộ trình học tập (Non-Blocking Approval)
+    /// </summary>
+    [HttpPut("{roadmapId:guid}/approve")]
+    [HttpPut("/api/v1/roadmaps/{roadmapId:guid}/approve")]
+    [ProducesResponseType(typeof(RoadmapApprovalResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ApproveRoadmap(Guid roadmapId, [FromBody] ApproveRoadmapRequestDto request)
+    {
+        Guid teacherId = Guid.Empty;
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            teacherId = parsedId;
+        }
+        else if (request.TeacherId.HasValue && request.TeacherId.Value != Guid.Empty)
+        {
+            teacherId = request.TeacherId.Value;
+        }
+
+        var result = await Mediator.Send(new ApproveRoadmapCommand(roadmapId, teacherId, request));
         return HandleResult(result);
     }
 }

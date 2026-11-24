@@ -22,13 +22,19 @@ public class ContentGrpcClient : IContentGrpcClient
         _logger = logger;
     }
 
+    private GrpcChannel CreateChannel() => GrpcChannel.ForAddress(_serviceUrl, new GrpcChannelOptions
+    {
+        MaxReceiveMessageSize = 32 * 1024 * 1024,
+        MaxSendMessageSize = 32 * 1024 * 1024
+    });
+
     public async Task<IReadOnlyDictionary<Guid, ExamQuestionKeyDto>> GetExamAnswerKeysAsync(
         Guid examId,
         CancellationToken ct = default)
     {
         try
         {
-            using var channel = GrpcChannel.ForAddress(_serviceUrl);
+            using var channel = CreateChannel();
             var client = new ContentService.ContentServiceClient(channel);
 
             var request = new GetExamAnswerKeyRequest
@@ -56,7 +62,11 @@ public class ContentGrpcClient : IContentGrpcClient
                         key.Options,
                         key.Explanation,
                         key.PassageContent,
-                        key.PassageTitle
+                        key.PassageTitle,
+                        key.DomainCode,
+                        key.SubjectName,
+                        key.ChapterName,
+                        key.LessonName
                     );
                 }
             }
@@ -80,7 +90,7 @@ public class ContentGrpcClient : IContentGrpcClient
     {
         try
         {
-            using var channel = GrpcChannel.ForAddress(_serviceUrl);
+            using var channel = CreateChannel();
             var client = new ContentService.ContentServiceClient(channel);
 
             var request = new GetSkillsTreeRequest();
@@ -102,6 +112,8 @@ public class ContentGrpcClient : IContentGrpcClient
 
                     double weight = node.Weight > 0 ? node.Weight : 0.05;
                     Guid.TryParse(node.DomainId, out var domainId);
+                    Guid? parentId = Guid.TryParse(node.ParentId, out var pidVal) ? pidVal : null;
+                    Guid? materialId = Guid.TryParse(node.MaterialId, out var midVal) ? midVal : null;
 
                     list.Add(new SkillTreeNodeDto(
                         skillId,
@@ -111,7 +123,15 @@ public class ContentGrpcClient : IContentGrpcClient
                         node.Description,
                         domainId,
                         node.DomainName,
-                        node.DomainCode
+                        node.DomainCode,
+                        parentId,
+                        node.Level,
+                        node.ChapterName,
+                        node.LessonName,
+                        node.SubjectName,
+                        materialId,
+                        node.VideoUrl,
+                        node.QuestionCount
                     ));
                 }
             }
@@ -127,11 +147,26 @@ public class ContentGrpcClient : IContentGrpcClient
         }
     }
 
-    public async Task<MilestoneQuizResultDto?> GetMilestoneQuizAsync(
+    public Task<MilestoneQuizResultDto?> GetMilestoneQuizAsync(
         Guid skillId,
         Guid? examId,
         int questionCount = 5,
         CancellationToken ct = default)
+        => FetchMilestoneQuizInternalAsync(skillId, examId, questionCount, readOnly: false, ct);
+
+    public Task<MilestoneQuizResultDto?> GetMilestoneQuizReadOnlyAsync(
+        Guid skillId,
+        Guid? examId,
+        int questionCount = 5,
+        CancellationToken ct = default)
+        => FetchMilestoneQuizInternalAsync(skillId, examId, questionCount, readOnly: true, ct);
+
+    private async Task<MilestoneQuizResultDto?> FetchMilestoneQuizInternalAsync(
+        Guid skillId,
+        Guid? examId,
+        int questionCount,
+        bool readOnly,
+        CancellationToken ct)
     {
         try
         {
@@ -142,7 +177,8 @@ public class ContentGrpcClient : IContentGrpcClient
             {
                 SkillId = skillId.ToString(),
                 ExamId = examId?.ToString() ?? string.Empty,
-                QuestionCount = questionCount
+                QuestionCount = questionCount,
+                ReadOnly = readOnly
             };
 
             var response = await client.GetMilestoneQuizAsync(request, cancellationToken: ct);
@@ -171,7 +207,10 @@ public class ContentGrpcClient : IContentGrpcClient
                         Options: options,
                         DifficultyLevel: q.DifficultyLevel,
                         SkillId: qSkillId,
-                        SkillName: q.SkillName
+                        SkillName: q.SkillName,
+                        PassageTitle: q.PassageTitle ?? string.Empty,
+                        PassageContent: q.PassageContent ?? string.Empty,
+                        PassageImageUrl: q.PassageImageUrl ?? string.Empty
                     ));
                 }
             }
@@ -230,7 +269,11 @@ public class ContentGrpcClient : IContentGrpcClient
                 Title: response.Title,
                 Content: response.Content,
                 Options: options,
-                Explanation: response.Explanation
+                Explanation: response.Explanation,
+                DomainId: response.DomainId,
+                DomainName: response.DomainName,
+                DomainCode: response.DomainCode,
+                SubjectName: response.SubjectName
             );
         }
         catch (Exception ex)

@@ -23,5 +23,8 @@ public record NextQuestionResponseDto(
     double? ItemDifficultyB = null,
     double? ItemDiscriminationA = null,
     Guid? SkillId = null,
-    string? SkillName = null
+    string? SkillName = null,
+    string? PassageTitle = null,
+    string? PassageContent = null,
+    string? PassageImageUrl = null
 );

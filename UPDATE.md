@@ -1,10 +1,15 @@
-# NHẬT KÝ CẬP NHẬT (UPDATE LOG) - PRACTICE SERVICE
+# UPDATE LOG — V-Eval Practice Service
 
-## [23/11/2026]
-- **Phân Giải Danh Tính Họ Tên Học Sinh & Tên Kỹ Năng Thực Tế Cho Phân Nhóm Học Tập Vi Mô (`AutoPartitionMicroGroupsCommandHandler.cs`, `GetClassMicroGroupsQueryHandler.cs`, `ClassMicroGroupDtos.cs`)**:
-  - Mở rộng DTO `ClassGroupMemberDto` bổ sung `Name` và `Mastery` phân giải trực tiếp từ Identity Service gRPC (`_identityGrpcClient.GetStudentNamesAsync`) và `LearningProfiles`.
-  - Mở rộng DTO `ClassMicroGroupDto` bổ sung `CommonWeakSkillNames` ánh xạ từ cây kỹ năng Content Service gRPC (`_contentGrpcClient.GetSkillsTreeAsync`), cung cấp sẵn danh sách tên chuyên đề tiếng Việt chuẩn cho client thay vì chỉ có danh sách GUID thô.
-  - Cập nhật `AutoPartitionMicroGroupsCommandHandler` và `GetClassMicroGroupsQueryHandler` tiêm phụ thuộc `IIdentityGrpcClient`, `IContentGrpcClient`, `ILearningProfileRepository` để tự động làm giàu dữ liệu thực tế cho từng nhóm vi mô (3–5 học sinh/bàn).
-  - Tối ưu hóa hiệu năng truy vấn: gom nhóm toàn bộ `StudentId` trong các nhóm bàn học để truy vấn phân giải họ tên một lần qua gRPC, loại bỏ hiện tượng N+1.
-- **Kiểm Thử & Biên Dịch**:
-  - `dotnet build`: Hoàn thành 100%, 0 lỗi, 0 cảnh báo cho `V-Eval-Practice_Service.Application.csproj` và `V-Eval-Practice_Service.Infrastructure.csproj`.
+# UPDATE LOG — V-Eval Practice Service
+
+## [24/11/2026] Fix GUID DAG, Lưu trạng thái Preview vào DB, Non-Blocking Roadmap Approval & 3-Tier Scoping
+- **Mục 1, 2 & 6**:
+  - `SubmitDiagnosticCommandHandler.cs`: Map tên kỹ năng & tên miền từ `GetSkillsTreeAsync` (bỏ GUID thô), làm sạch nhận xét fallback.
+  - `SubmitAnswerCommandHandler.cs` & `SubmitPreviewCommandHandler.cs`: Loại bỏ mã nội bộ (`BR-03`, `BR-08`, `BKT P(Lt)`, `SM-2`) khỏi phản hồi học sinh.
+  - `GetMockExamDetailQueryHandler.cs` & `GetMockExamDetailDtos.cs`: Enrich đầy đủ đáp án đúng, nội dung, 4 phương án, lời giải và tên kỹ năng từ Content gRPC.
+- **Lưu bền vững trạng thái Pha Preview**:
+  - Bổ sung cột `preview_submission_json` (`PreviewSubmissionJson`) vào `StageProgress.cs`, `PracticeDbContext.cs`, `Program.cs` (auto `ALTER TABLE`), `SubmitPreviewCommandHandler.cs`, `StartStageDtos.cs` và `StartStageCommandHandler.cs`.
+- **Non-Blocking Teacher Roadmap Approval & 3-Tier Workflow**:
+  - Bổ sung 4 trường `IsTeacherApproved`, `ApprovedByTeacherId`, `ApprovedAt`, `TeacherKickoffNote` vào `LearningRoadmap.cs`, `PracticeDbContext.cs`, `Program.cs` (auto `ALTER TABLE`) và EF Migration `20261124060000_AddRoadmapTeacherApprovalFields.cs`.
+  - Đổi trạng thái mặc định sang `ACTIVE`, gỡ chặn khởi động chặng, bổ sung `PUT /api/v1/roadmaps/{roadmapId}/approve` + `ApproveRoadmapCommandHandler`, và trả kèm 4 trường trong `RoadmapTimelineDto` & `ChildAnalyticsDto`.
+  - Đồng bộ với `develop`: nâng gRPC `32 MB` (`ContentGrpcClient.cs`), `EnableRetryOnFailure(3, 3s)` + `.AsSplitQuery()` (`ScheduleService.cs`), liên kết `CourseRegistrations` cho lịch học, và luồng phê duyệt 3 cấp có `campusId` scoping & `EscalateToDirector`.

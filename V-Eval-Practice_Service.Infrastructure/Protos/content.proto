@@ -23,7 +23,7 @@ service ContentService {
 }
 
 message GetSkillsTreeRequest {
-  string subject_id = 1; // ID của môn học (Ví dụ: Toán, Lý, Hóa)
+  string subject_id = 1; // Tùy chọn lọc: "" (mặc định trả toàn bộ kèm metadata cấp độ), "LEARNING_NODES", hoặc mã môn
 }
 
 message SkillNode {
@@ -35,6 +35,14 @@ message SkillNode {
   string domain_id = 6;
   string domain_name = 7;
   string domain_code = 8;
+  string parent_id = 9;
+  string level = 10; // "CHAPTER", "LESSON", "PATTERN", "LEGACY"
+  string chapter_name = 11;
+  string lesson_name = 12;
+  string subject_name = 13;
+  string material_id = 14;
+  string video_url = 15;
+  int32 question_count = 16;
 }
 
 message GetSkillsTreeResponse {
@@ -43,7 +51,7 @@ message GetSkillsTreeResponse {
 
 message GetQuestionsByDifficultyRequest {
   repeated string skill_ids = 1;
-  string difficulty = 2; // "EASY", "MEDIUM", "HARD"
+  string difficulty = 2; // "EASY", "MEDIUM", "HARD", hoặc "" (tất cả)
   int32 limit = 3;
 }
 
@@ -76,6 +84,10 @@ message GetQuestionDetailResponse {
   string content = 5; // Nội dung câu hỏi dạng LaTeX
   repeated AnswerOption options = 6;
   string explanation = 7; // Lời giải thích định dạng LaTeX
+  string domain_id = 8;
+  string domain_name = 9;
+  string domain_code = 10;
+  string subject_name = 11;
 }
 
 message GetExamAnswerKeyRequest {
@@ -96,6 +108,10 @@ message QuestionAnswerKey {
   string explanation = 11;
   string passage_content = 12;
   string passage_title = 13;
+  string domain_code = 14;
+  string subject_name = 15;
+  string chapter_name = 16;
+  string lesson_name = 17;
 }
 
 message GetExamAnswerKeyResponse {
@@ -107,6 +123,7 @@ message GetMilestoneQuizRequest {
   string skill_id = 1;
   string exam_id = 2; // Nếu có exam_id thì ưu tiên lấy theo exam_id, nếu không thì lấy theo skill_id
   int32 question_count = 3; // Mặc định 5-10 câu
+  bool read_only = 4; // true: chỉ truy vấn câu hỏi ngân hàng, KHÔNG tạo MockExam rác mới trong DB
 }
 
 message QuizOption {
@@ -122,6 +139,9 @@ message QuizQuestionItem {
   int32 difficulty_level = 5;
   string skill_id = 6;
   string skill_name = 7;
+  string passage_title = 8;
+  string passage_content = 9;
+  string passage_image_url = 10;
 }
 
 message GetMilestoneQuizResponse {

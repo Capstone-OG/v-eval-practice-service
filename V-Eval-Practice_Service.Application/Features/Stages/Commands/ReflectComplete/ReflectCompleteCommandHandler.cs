@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
@@ -13,21 +15,23 @@ public class ReflectCompleteCommandHandler : IRequestHandler<ReflectCompleteComm
 {
     private readonly IStageProgressRepository _stageProgressRepository;
     private readonly ILearningRoadmapRepository _roadmapRepository;
+    private readonly ILearningProfileRepository _learningProfileRepository;
     private readonly ILogger<ReflectCompleteCommandHandler> _logger;
 
     public ReflectCompleteCommandHandler(
         IStageProgressRepository stageProgressRepository,
         ILearningRoadmapRepository roadmapRepository,
+        ILearningProfileRepository learningProfileRepository,
         ILogger<ReflectCompleteCommandHandler> logger)
     {
         _stageProgressRepository = stageProgressRepository;
         _roadmapRepository = roadmapRepository;
+        _learningProfileRepository = learningProfileRepository;
         _logger = logger;
     }
 
     public async Task<Result<ReflectCompleteResponseDto>> Handle(ReflectCompleteCommand request, CancellationToken ct)
     {
-        // 1. Kiểm tra tồn tại StageProgress
         var progress = await _stageProgressRepository.GetByIdAsync(request.StageProgressId, ct);
         if (progress == null)
         {
@@ -35,39 +39,46 @@ public class ReflectCompleteCommandHandler : IRequestHandler<ReflectCompleteComm
                 Error.NotFound("StageProgress.NotFound", $"Không tìm thấy tiến trình chặng học {request.StageProgressId}"));
         }
 
-        // 2. Xác thực quyền sở hữu
         if (progress.StudentId != request.Request.StudentId)
         {
             return Result<ReflectCompleteResponseDto>.Failure(
                 Error.Validation("StageProgress.Forbidden", "Tiến trình này không thuộc về học sinh hiện tại."));
         }
 
-        // 3. Cho phép phản tư nếu chặng đang ở REFLECT hoặc đã đạt độ thành thạo mục tiêu
         if (progress.CurrentStep != "REFLECT" && progress.BktMasteryPlt < 0.80)
         {
             return Result<ReflectCompleteResponseDto>.Failure(
                 Error.Validation("StageProgress.NotEligibleForReflect",
-                    $"Chặng học hiện đang ở bước '{progress.CurrentStep}' (độ thành thạo P(Lt)={progress.BktMasteryPlt:F2}). Bạn cần hoàn thành phần luyện tập thích ứng trước khi phản tư kết thúc."));
+                    $"Chặng học hiện đang ở bước '{progress.CurrentStep}' (độ thành thạo P(Lt)={progress.BktMasteryPlt * 100:F1}%). Bạn cần hoàn thành phần luyện tập thích ứng trước khi phản tư kết thúc."));
         }
 
-        // 4. Đánh dấu hoàn thành toàn diện chặng học
         progress.CurrentStep = "REFLECT";
         progress.Status = "COMPLETED";
+        progress.ConfidenceRating = Math.Clamp(request.Request.ConfidenceRating, 1, 5);
+        progress.LearnedSummary = request.Request.LearnedSummary?.Trim();
+        progress.MistakeNotes = request.Request.MistakeNotes?.Trim();
         progress.UpdatedAt = DateTime.UtcNow;
 
         await _stageProgressRepository.UpdateAsync(progress, ct);
 
-        // 5. Đồng bộ hoàn thành và Mở khóa chặng học kế tiếp trên Lộ trình (Roadmap)
         Guid? nextUnlockedNodeId = null;
 
         if (progress.RoadmapNode != null)
         {
             progress.RoadmapNode.Status = "COMPLETED";
             progress.RoadmapNode.CompletedAt = DateTime.UtcNow;
-            progress.RoadmapNode.QuizScore = progress.BktMasteryPlt * 10.0;
+            progress.RoadmapNode.QuizScore = Math.Round(progress.BktMasteryPlt * 10.0, 2);
             progress.RoadmapNode.IsQuizPassed = true;
 
-            // Tìm chặng học tiếp theo đang bị khóa (LOCKED)
+            // Đồng bộ CompletedMilestones thật vào bảng LearningRoadmaps để Dashboard hiển thị đúng tiến độ!
+            if (progress.RoadmapNode.Roadmap != null)
+            {
+                var roadmap = progress.RoadmapNode.Roadmap;
+                roadmap.CompletedMilestones = roadmap.Nodes.Count(n => n.Status == "COMPLETED");
+                roadmap.UpdatedAt = DateTime.UtcNow;
+            }
+
+            // Mở khóa chặng học tiếp theo đang bị khóa (LOCKED)
             var nextNode = await _roadmapRepository.GetNextLockedNodeAsync(
                 progress.RoadmapNode.RoadmapId,
                 progress.RoadmapNode.StepOrder,
@@ -84,14 +95,35 @@ public class ReflectCompleteCommandHandler : IRequestHandler<ReflectCompleteComm
             }
 
             await _roadmapRepository.SaveChangesAsync(ct);
+
+            // Đồng bộ mastery cuối cùng sang LearningProfiles
+            if (progress.RoadmapNode.SkillId != Guid.Empty)
+            {
+                try
+                {
+                    await _learningProfileRepository.UpsertSkillPriorsAsync(
+                        progress.StudentId,
+                        new List<(Guid SkillId, double MasteryScore)> { (progress.RoadmapNode.SkillId, Math.Round(Math.Clamp(progress.BktMasteryPlt, 0.05, 0.99), 4)) },
+                        ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Không thể cập nhật LearningProfiles khi hoàn thành REFLECT cho Skill {SkillId}.", progress.RoadmapNode.SkillId);
+                }
+            }
         }
 
-        _logger.LogInformation("Học sinh {StudentId} đã hoàn thành xuất sắc toàn bộ chu trình P-L-A-R cho chặng {RoadmapNodeId} với đánh giá {Rating} sao.",
-            progress.StudentId, progress.RoadmapNodeId, request.Request.ConfidenceRating);
+        _logger.LogInformation(
+            "Học sinh {StudentId} hoàn thành P-L-A-R chặng {RoadmapNodeId}: Rating={Rating}/5, Summary='{Summary}', MistakeNotes='{Notes}'",
+            progress.StudentId,
+            progress.RoadmapNodeId,
+            request.Request.ConfidenceRating,
+            request.Request.LearnedSummary ?? "",
+            request.Request.MistakeNotes ?? "");
 
         string message = nextUnlockedNodeId.HasValue
-            ? $"Chúc mừng bạn đã hoàn thành chặng học! Chặng tiếp theo ({nextUnlockedNodeId}) đã được tự động mở khóa trên lộ trình."
-            : "Chúc mừng bạn đã hoàn thành toàn bộ lộ trình học tập thích ứng!";
+            ? "Chúc mừng bạn đã hoàn thành chặng học theo chuẩn chu trình P-L-A-R! Chặng học kế tiếp trên lộ trình đã được tự động mở khóa."
+            : "Chúc mừng bạn đã hoàn thành toàn bộ lộ trình học tập thích ứng cá nhân hóa!";
 
         var response = new ReflectCompleteResponseDto(
             progress.Id,
