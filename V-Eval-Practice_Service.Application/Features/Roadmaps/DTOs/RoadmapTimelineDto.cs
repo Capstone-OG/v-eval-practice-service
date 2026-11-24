@@ -20,5 +20,9 @@ public record RoadmapTimelineDto(
     DateTime CreatedAt,
     DateTime? UpdatedAt,
     IReadOnlyList<RoadmapStageDto> Stages,
-    IReadOnlyList<RoadmapNodeSummaryDto> Nodes
+    IReadOnlyList<RoadmapNodeSummaryDto> Nodes,
+    bool IsTeacherApproved = false,
+    Guid? ApprovedByTeacherId = null,
+    DateTime? ApprovedAt = null,
+    string? TeacherKickoffNote = null
 );

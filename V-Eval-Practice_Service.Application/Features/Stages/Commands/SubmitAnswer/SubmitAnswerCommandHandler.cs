@@ -161,26 +161,26 @@ public class SubmitAnswerCommandHandler : IRequestHandler<SubmitAnswerCommand, R
             isMasteryAchieved = true;
             progress.CurrentStep = "REFLECT";
             nextAction = "PROCEED_TO_REFLECT";
-            feedbackMessage = $"Chúc mừng! Bạn đã đạt độ thành thạo mục tiêu ({progress.BktMasteryPlt * 100:F1}%) và chứng minh sự vững vàng qua chuỗi câu hỏi thích ứng. Hãy chuyển sang bước REFLECT để tổng kết chặng học.";
+            feedbackMessage = $"Chúc mừng! Bạn đã đạt mức độ nắm vững mục tiêu ({progress.BktMasteryPlt * 100:F0}%) và chứng minh sự vững vàng qua chuỗi câu hỏi vừa làm. Hãy chuyển sang bước Tổng kết chặng học nhé.";
         }
         else if (progress.ConsecutiveIncorrect >= 3)
         {
             isRemedialTriggered = true;
             progress.Status = "REMEDIAL_REQUIRED";
             nextAction = "WATCH_REMEDIAL";
-            feedbackMessage = "Hệ thống phát hiện bạn đang gặp khó khăn (Quy tắc BR-03: sai 3 câu liên tiếp). Đã kích hoạt Gói Cứu Trợ Phụ Đạo để củng cố lại nền tảng trước khi luyện tập tiếp.";
+            feedbackMessage = "Bạn vừa trả lời chưa đúng 3 câu liên tiếp. Hệ thống đã mở gói kiến thức bổ trợ giúp bạn củng cố lại nền tảng trước khi luyện tập tiếp.";
         }
         else
         {
             if (isCorrect)
             {
                 feedbackMessage = bktResult.IsLuckyGuess
-                    ? "Chính xác! Tuy nhiên thời gian trả lời quá nhanh so với độ khó (cảnh báo đoán mò BR-08). Xác suất thành thạo được cập nhật thận trọng."
-                    : $"Chính xác! Xác suất thành thạo BKT P(Lt) của bạn tăng từ {priorPlt * 100:F1}% lên {progress.BktMasteryPlt * 100:F1}%.";
+                    ? "Chính xác! Bạn trả lời khá nhanh so với độ khó câu hỏi — hãy dành thêm chút thời gian đọc kỹ đề để nắm thật chắc phương pháp nhé."
+                    : $"Chính xác! Mức độ nắm vững của bạn tăng từ {priorPlt * 100:F0}% lên {progress.BktMasteryPlt * 100:F0}%.";
             }
             else
             {
-                feedbackMessage = $"Chưa chính xác. Đáp án đúng là {correctOption}. Xác suất thành thạo hiện tại: {progress.BktMasteryPlt * 100:F1}%. Câu hỏi này đã được tự động lưu vào Sổ tay lỗi sai (SM-2) để ôn tập lại.";
+                feedbackMessage = $"Chưa chính xác. Đáp án đúng là {correctOption}. Mức độ nắm vững hiện tại: {progress.BktMasteryPlt * 100:F0}%. Câu hỏi này đã được lưu vào Sổ tay Lỗi sai để bạn ôn lại sau.";
             }
         }
 

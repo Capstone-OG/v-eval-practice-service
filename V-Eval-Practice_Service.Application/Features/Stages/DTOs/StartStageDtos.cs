@@ -38,5 +38,6 @@ public record StartStageResponseDto(
     IReadOnlyList<PreviewQuestionDto> PreviewQuestions,
     int? ConfidenceRating = null,
     string? LearnedSummary = null,
-    string? MistakeNotes = null
+    string? MistakeNotes = null,
+    string? PreviewSubmissionJson = null
 );

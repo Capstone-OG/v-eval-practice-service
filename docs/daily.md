@@ -1516,3 +1516,12 @@
 - **Khởi Tạo `appsettings.example.json`**: Tạo file mẫu chứa đầy đủ `ConnectionStrings` và `JwtSettings` với label mẫu.
 - **Bảo Mật Git Security**: Cập nhật `.gitignore` ẩn tất cả file `appsettings.json` chứa thông tin nhạy cảm.
 - **Định Tuyến Gateway YARP**: Định tuyến `/api/practice/{**catch-all}` tại Gateway V-Eval trỏ về cổng `:5002`.
+
+## [24/11/2026]
+- Fix triệt để GUID thô ở kỹ năng suy diễn trong `SubmitDiagnosticCommandHandler.cs` và làm sạch ngôn ngữ phản hồi học sinh trong `SubmitAnswerCommandHandler.cs`.
+- Enrich chi tiết câu hỏi/đáp án đúng/lời giải cho `GetMockExamDetailQueryHandler.cs`.
+- Triển khai đầy đủ Non-Blocking Teacher Roadmap Approval: 4 cột mới trên `LearningRoadmaps` + EF Migration `AddRoadmapTeacherApprovalFields`, API `PUT /api/v1/roadmaps/{roadmapId}/approve`, mở học ngay không chặn tại `StartStageCommandHandler`, và trả dữ liệu định hướng cho cả Student & Parent Dashboard.
+
+### [24/11/2026 - Cập nhật chiều] Lưu trạng thái Pha Preview vào DB & Auto-Migration Startup
+- Bổ sung cột `preview_submission_json` vào `StageProgress.cs`, `PracticeDbContext.cs`, `Program.cs`, `SubmitPreviewCommandHandler.cs`, `StartStageDtos.cs` và `StartStageCommandHandler.cs`.
+- Bổ sung auto `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` trong `Program.cs` cho cả cột phê duyệt lộ trình và cột Preview.

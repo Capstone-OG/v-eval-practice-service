@@ -55,8 +55,11 @@ public class SubmitPreviewCommandHandler : IRequestHandler<SubmitPreviewCommand,
         int totalQuestions = request.Answers.Count;
         int totalCorrect = 0;
         var feedbacks = new List<PreviewQuestionFeedbackDto>();
+        var savedPreviewQuestions = new List<object>();
+        var savedPreviewAnswers = new Dictionary<string, string>();
         string resolvedDomainCode = "DOM_MATH";
         string resolvedSkillName = string.Empty;
+        int questionOrder = 1;
 
         foreach (var ans in request.Answers)
         {
@@ -64,10 +67,11 @@ public class SubmitPreviewCommandHandler : IRequestHandler<SubmitPreviewCommand,
             string correctOpt = string.Empty;
             string explanation = string.Empty;
             bool isCorrect = false;
+            QuestionDetailDto? detail = null;
 
             try
             {
-                var detail = await _contentGrpcClient.GetQuestionDetailAsync(ans.QuestionId, ct);
+                detail = await _contentGrpcClient.GetQuestionDetailAsync(ans.QuestionId, ct);
                 if (detail != null && detail.Options.Count > 0)
                 {
                     correctOpt = detail.Options.FirstOrDefault(o => o.IsCorrect)?.OptionId ?? string.Empty;
@@ -91,6 +95,19 @@ public class SubmitPreviewCommandHandler : IRequestHandler<SubmitPreviewCommand,
             }
 
             if (isCorrect) totalCorrect++;
+            savedPreviewAnswers[ans.QuestionId.ToString()] = selected;
+            savedPreviewQuestions.Add(new
+            {
+                questionId = ans.QuestionId,
+                questionOrder = questionOrder++,
+                content = detail?.Content ?? string.Empty,
+                options = (detail?.Options ?? Array.Empty<QuestionDetailOptionDto>())
+                    .Select(o => new { optionId = o.OptionId, content = o.Content })
+                    .ToList(),
+                difficultyLevel = 2,
+                skillId = detail?.SkillId ?? (progress.RoadmapNode?.SkillId ?? Guid.Empty),
+                skillName = detail?.Title ?? resolvedSkillName
+            });
             feedbacks.Add(new PreviewQuestionFeedbackDto(
                 ans.QuestionId,
                 selected,
@@ -196,19 +213,40 @@ public class SubmitPreviewCommandHandler : IRequestHandler<SubmitPreviewCommand,
         {
             progress.CurrentStep = "LEARN";
         }
-        progress.UpdatedAt = DateTime.UtcNow;
-        await _stageProgressRepository.UpdateAsync(progress, ct);
-        _logger.LogInformation("Tiến trình {StageProgressId} hoàn thành PREVIEW ({Correct}/{Total}, P(Lt)={Plt}), chuyển sang LEARN.",
-            progress.Id, totalCorrect, totalQuestions, progress.BktMasteryPlt);
 
         bool isEvaluatedOk = totalQuestions > 0 && (double)totalCorrect / totalQuestions >= 0.70;
         string evalNotice = isEvaluatedOk
-            ? $" Chuyên đề này đã được đánh giá lại ở mức Đạt chuẩn OK (BKT {progress.BktMasteryPlt * 100:F0}%) trên lộ trình."
-            : $" Chuyên đề đã được đánh giá năng lực thực tế (BKT {progress.BktMasteryPlt * 100:F0}%).";
+            ? " Bạn đã nắm khá vững kiến thức nền tảng của chuyên đề này."
+            : " Hãy xem lại đáp án chi tiết rồi chuyển sang phần Lý thuyết trọng tâm nhé.";
 
         string message = !string.IsNullOrWhiteSpace(videoUrl)
-            ? $"Hoàn thành bài đánh giá nhanh ({totalCorrect}/{totalQuestions} câu đúng)!{evalNotice} Hãy xem bài giảng & lý thuyết SGK (tối thiểu 80%) để mở khóa bước Luyện tập thích ứng APPLY."
-            : $"Hoàn thành bài đánh giá nhanh ({totalCorrect}/{totalQuestions} câu đúng)!{evalNotice} Hãy nghiên cứu kỹ tài liệu Lý thuyết & Phương pháp giải SGK ở bước LEARN để mở khóa bước Luyện tập thích ứng APPLY.";
+            ? $"Hoàn thành bài khởi động ({totalCorrect}/{totalQuestions} câu đúng)!{evalNotice}"
+            : $"Hoàn thành bài khởi động ({totalCorrect}/{totalQuestions} câu đúng)!{evalNotice}";
+
+        progress.PreviewSubmissionJson = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            previewQuestions = savedPreviewQuestions,
+            previewAnswers = savedPreviewAnswers,
+            previewResult = new
+            {
+                totalQuestions,
+                totalCorrect,
+                message,
+                feedbacks = feedbacks.Select(f => new
+                {
+                    questionId = f.QuestionId,
+                    selectedOption = f.SelectedOption,
+                    correctOption = f.CorrectOption,
+                    isCorrect = f.IsCorrect,
+                    explanation = f.Explanation
+                }).ToList()
+            }
+        });
+
+        progress.UpdatedAt = DateTime.UtcNow;
+        await _stageProgressRepository.UpdateAsync(progress, ct);
+        _logger.LogInformation("Tiến trình {StageProgressId} hoàn thành PREVIEW ({Correct}/{Total}, P(Lt)={Plt}), đã lưu vào DB.",
+            progress.Id, totalCorrect, totalQuestions, progress.BktMasteryPlt);
 
         var response = new SubmitPreviewResponseDto(
             progress.Id,
