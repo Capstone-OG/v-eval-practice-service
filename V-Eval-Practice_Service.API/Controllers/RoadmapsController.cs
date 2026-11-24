@@ -181,4 +181,27 @@ public class RoadmapsController : ApiControllerBase
         var result = await Mediator.Send(new DirectorDecisionCommand(roadmapId, directorId, request));
         return HandleResult(result);
     }
+
+    /// <summary>
+    /// Giảng viên phê duyệt &amp; cập nhật mô tả định hướng lộ trình học tập (Non-Blocking Approval)
+    /// </summary>
+    [HttpPut("{roadmapId:guid}/approve")]
+    [HttpPut("/api/v1/roadmaps/{roadmapId:guid}/approve")]
+    [ProducesResponseType(typeof(RoadmapApprovalResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ApproveRoadmap(Guid roadmapId, [FromBody] ApproveRoadmapRequestDto request)
+    {
+        Guid teacherId = Guid.Empty;
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) && Guid.TryParse(userIdHeader, out var parsedId))
+        {
+            teacherId = parsedId;
+        }
+        else if (request.TeacherId.HasValue && request.TeacherId.Value != Guid.Empty)
+        {
+            teacherId = request.TeacherId.Value;
+        }
+
+        var result = await Mediator.Send(new ApproveRoadmapCommand(roadmapId, teacherId, request));
+        return HandleResult(result);
+    }
 }

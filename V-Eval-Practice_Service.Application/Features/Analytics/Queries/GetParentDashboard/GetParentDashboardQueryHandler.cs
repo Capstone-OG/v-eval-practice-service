@@ -20,6 +20,7 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
     private readonly IClassHeatmapRepository _heatmapRepo;
     private readonly IClassHeatmapAggregatorService _aggregatorService;
     private readonly IClassEnrollmentRepository _classEnrollmentRepo;
+    private readonly ILearningRoadmapRepository _roadmapRepo;
     private readonly ILogger<GetParentDashboardQueryHandler> _logger;
 
     public GetParentDashboardQueryHandler(
@@ -28,6 +29,7 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
         IClassHeatmapRepository heatmapRepo,
         IClassHeatmapAggregatorService aggregatorService,
         IClassEnrollmentRepository classEnrollmentRepo,
+        ILearningRoadmapRepository roadmapRepo,
         ILogger<GetParentDashboardQueryHandler> logger)
     {
         _identityGrpcClient = identityGrpcClient;
@@ -35,6 +37,7 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
         _heatmapRepo = heatmapRepo;
         _aggregatorService = aggregatorService;
         _classEnrollmentRepo = classEnrollmentRepo;
+        _roadmapRepo = roadmapRepo;
         _logger = logger;
     }
 
@@ -163,6 +166,8 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
                     ? enrolledClass.CampusId.ToString()
                     : null);
 
+            var latestRoadmap = await _roadmapRepo.GetLatestByStudentIdAsync(studentId, ct);
+
             childrenList.Add(new ChildAnalyticsDto(
                 StudentId: studentId,
                 StudentName: student.Name,
@@ -174,7 +179,12 @@ public class GetParentDashboardQueryHandler : IRequestHandler<GetParentDashboard
                 ExamReadiness: readinessDto,
                 WeeklyDisciplines: disciplinesDto,
                 AiParentAlerts: aiAlerts,
-                CampusId: resolvedCampusId
+                CampusId: resolvedCampusId,
+                RoadmapId: latestRoadmap?.RoadmapId,
+                IsTeacherApproved: latestRoadmap?.IsTeacherApproved ?? false,
+                ApprovedByTeacherId: latestRoadmap?.ApprovedByTeacherId,
+                ApprovedAt: latestRoadmap?.ApprovedAt,
+                TeacherKickoffNote: latestRoadmap?.TeacherKickoffNote
             ));
         }
 

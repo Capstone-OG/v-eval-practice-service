@@ -57,11 +57,12 @@ public class StartStageCommandHandler : IRequestHandler<StartStageCommand, Resul
                 Error.Forbidden("RoadmapNode.Forbidden", "Bạn không có quyền truy cập chặng học của học sinh khác."));
         }
 
-        if (node.Roadmap != null && !string.Equals(node.Roadmap.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+        // Non-blocking approval: Chỉ chặn nếu lộ trình đã bị lưu trữ (ARCHIVED). Học sinh được phép học ngay kể cả khi chưa có phê duyệt của Giảng viên.
+        if (node.Roadmap != null && string.Equals(node.Roadmap.Status, "ARCHIVED", StringComparison.OrdinalIgnoreCase))
         {
             return Result<StartStageResponseDto>.Failure(
-                Error.Forbidden("Roadmap.PendingApproval",
-                    "Lộ trình học tập của bạn đang ở trạng thái chờ Giảng viên tinh chỉnh và Ban Giám đốc phê duyệt. Bạn sẽ có thể bắt đầu chu trình P-L-A-R ngay khi lộ trình được kích hoạt."));
+                Error.Forbidden("Roadmap.Archived",
+                    "Lộ trình này đã được thay thế bằng lộ trình mới hơn."));
         }
 
         // 2. Cổng kiểm soát học phí thực tế ở Backend (Bắt buộc đóng học phí để mở khóa PLAR)
@@ -172,7 +173,8 @@ public class StartStageCommandHandler : IRequestHandler<StartStageCommand, Resul
             previewQuestions,
             progress.ConfidenceRating,
             progress.LearnedSummary,
-            progress.MistakeNotes
+            progress.MistakeNotes,
+            progress.PreviewSubmissionJson
         );
 
         return Result<StartStageResponseDto>.Success(response);

@@ -330,6 +330,10 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.IsPruned).HasColumnName("is_pruned");
             entity.Property(e => e.PrunedReason).HasColumnName("pruned_reason");
             entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(50).IsRequired();
+            entity.Property(e => e.IsTeacherApproved).HasColumnName("is_teacher_approved").HasDefaultValue(false);
+            entity.Property(e => e.ApprovedByTeacherId).HasColumnName("approved_by_teacher_id");
+            entity.Property(e => e.ApprovedAt).HasColumnName("approved_at");
+            entity.Property(e => e.TeacherKickoffNote).HasColumnName("teacher_kickoff_note");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 
@@ -426,6 +430,7 @@ public class PracticeDbContext : DbContext
             entity.Property(e => e.ConfidenceRating).HasColumnName("confidence_rating");
             entity.Property(e => e.LearnedSummary).HasColumnName("learned_summary");
             entity.Property(e => e.MistakeNotes).HasColumnName("mistake_notes");
+            entity.Property(e => e.PreviewSubmissionJson).HasColumnName("preview_submission_json");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 

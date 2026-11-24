@@ -35,7 +35,12 @@ public record ChildAnalyticsDto(
     ExamReadinessDto ExamReadiness,
     WeeklyDisciplinesDto WeeklyDisciplines,
     List<AiParentAlertDto> AiParentAlerts,
-    string? CampusId = null
+    string? CampusId = null,
+    Guid? RoadmapId = null,
+    bool IsTeacherApproved = false,
+    Guid? ApprovedByTeacherId = null,
+    DateTime? ApprovedAt = null,
+    string? TeacherKickoffNote = null
 );
 
 public record ParentDashboardResponseDto(

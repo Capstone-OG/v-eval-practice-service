@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using V_Eval_Practice_Service.Application.Common.Interfaces;
 using V_Eval_Practice_Service.Application.Common.Interfaces.Repositories;
 using V_Eval_Practice_Service.Application.Common.Models;
 using V_Eval_Practice_Service.Application.Features.MockExams.DTOs;
@@ -13,13 +14,16 @@ namespace V_Eval_Practice_Service.Application.Features.MockExams.Queries.GetMock
 public class GetMockExamDetailQueryHandler : IRequestHandler<GetMockExamDetailQuery, Result<GetMockExamDetailResponseDto>>
 {
     private readonly IMockExamRepository _mockExamRepository;
+    private readonly IContentGrpcClient _contentGrpcClient;
     private readonly ILogger<GetMockExamDetailQueryHandler> _logger;
 
     public GetMockExamDetailQueryHandler(
         IMockExamRepository mockExamRepository,
+        IContentGrpcClient contentGrpcClient,
         ILogger<GetMockExamDetailQueryHandler> logger)
     {
         _mockExamRepository = mockExamRepository;
+        _contentGrpcClient = contentGrpcClient;
         _logger = logger;
     }
 
@@ -46,13 +50,38 @@ public class GetMockExamDetailQueryHandler : IRequestHandler<GetMockExamDetailQu
             ))
             .ToList();
 
+        IReadOnlyDictionary<Guid, ExamQuestionKeyDto>? answerKeys = null;
+        if (submission.ExamId != Guid.Empty)
+        {
+            try
+            {
+                answerKeys = await _contentGrpcClient.GetExamAnswerKeysAsync(submission.ExamId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Không thể nạp chi tiết đáp án đề thi thử {ExamId} từ Content Service.", submission.ExamId);
+            }
+        }
+
         var answerDtos = (submission.Answers ?? Enumerable.Empty<Domain.Entities.SubmissionAnswer>())
-            .Select(a => new MockExamAnswerDetailDto(
-                a.QuestionId,
-                a.SelectedOption,
-                a.IsCorrect,
-                a.TimeSpentSeconds
-            ))
+            .Select((a, idx) =>
+            {
+                ExamQuestionKeyDto? keyInfo = null;
+                answerKeys?.TryGetValue(a.QuestionId, out keyInfo);
+                return new MockExamAnswerDetailDto(
+                    QuestionId: a.QuestionId,
+                    SelectedOption: a.SelectedOption,
+                    IsCorrect: a.IsCorrect,
+                    TimeSpentSeconds: a.TimeSpentSeconds,
+                    CorrectOption: keyInfo?.CorrectOption,
+                    QuestionOrder: keyInfo?.QuestionOrder > 0 ? keyInfo.QuestionOrder : idx + 1,
+                    Content: keyInfo?.Content,
+                    Options: keyInfo?.Options,
+                    Explanation: keyInfo?.Explanation,
+                    SkillName: keyInfo?.SkillName
+                );
+            })
+            .OrderBy(a => a.QuestionOrder)
             .ToList();
 
         var response = new GetMockExamDetailResponseDto(

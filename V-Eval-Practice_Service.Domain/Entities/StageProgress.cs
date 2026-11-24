@@ -49,6 +49,11 @@ public class StageProgress
     public string? LearnedSummary { get; set; }
     public string? MistakeNotes { get; set; }
 
+    /// <summary>
+    /// JSON lưu lại bộ câu hỏi, đáp án học sinh đã chọn và kết quả chấm bài Khởi động (Pha PREVIEW)
+    /// </summary>
+    public string? PreviewSubmissionJson { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
