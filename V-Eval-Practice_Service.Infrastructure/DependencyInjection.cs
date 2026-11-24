@@ -17,7 +17,10 @@ public static class DependencyInjection
 
         services.AddDbContext<PracticeDbContext>(options =>
             options.UseNpgsql(connectionString, b =>
-                b.MigrationsHistoryTable("__EFMigrationsHistory", "practice")));
+            {
+                b.MigrationsHistoryTable("__EFMigrationsHistory", "practice");
+                b.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: System.TimeSpan.FromSeconds(3), errorCodesToAdd: null);
+            }));
 
         services.AddScoped<IExamSubmissionRepository, ExamSubmissionRepository>();
         services.AddScoped<ILearningProfileRepository, LearningProfileRepository>();

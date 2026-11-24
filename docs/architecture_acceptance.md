@@ -1317,3 +1317,8 @@
   4. **Verification**:
      - `dotnet build --no-restore`: 0 Errors, 0 Warnings.
      - `dotnet test --no-restore`: **20/20 unit tests passed 100%**.
+
+## [24/11/2026] 3-Tier Roadmap Approval & Schedule Resilience
+- Upgraded `ContentGrpcClient` channel size to 32 MB to support full curriculum metadata hydration in roadmap queries.
+- Enabled Npgsql transient retry and `AsSplitQuery()` in `ScheduleService`, and bound student timetable metadata to paid `CourseRegistrations`.
+- Extended `RoadmapApprovalWorkflow` with `PENDING_MANAGER_APPROVAL`, `campusId` queue scoping, and manager-to-director exception escalation (`EscalateToDirector`).

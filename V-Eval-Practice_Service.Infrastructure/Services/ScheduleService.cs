@@ -1392,6 +1392,7 @@ public class ScheduleService : IScheduleService
     {
         var enrollments = await _context.ClassEnrollments
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(e => e.Class)
                 .ThenInclude(c => c!.Course)
             .Include(e => e.Class)
@@ -1406,27 +1407,45 @@ public class ScheduleService : IScheduleService
 
         var allClasses = enrollments.Select(e => e.Class!).DistinctBy(c => c.ClassId).ToList();
 
-        // Collect all terms relevant to the student or campus
+        // Nạp các đơn đăng ký khóa học đã kích hoạt / hoàn thành của học sinh để liên kết chặt với lớp & TKB
+        var studentRegistrations = await _context.CourseRegistrations
+            .AsNoTracking()
+            .Include(r => r.Course)
+            .Include(r => r.Term)
+            .Where(r => r.StudentId == studentId && (r.Status == "ACTIVE" || r.Status == "COMPLETED" || r.Status == "PAID"))
+            .OrderByDescending(r => r.RegisteredAt)
+            .ToListAsync(ct);
+
+        var primaryRegistration = studentRegistrations.FirstOrDefault();
+
+        // Chỉ lấy các Đợt học thực sự gắn với lớp đang học hoặc khóa học đã đăng ký của học sinh
+        var relevantTermIds = allClasses.Where(c => c.TermId.HasValue).Select(c => c.TermId!.Value)
+            .Concat(studentRegistrations.Where(r => r.TermId.HasValue).Select(r => r.TermId!.Value))
+            .Distinct()
+            .ToList();
+
         var studentCampusIds = allClasses.Select(c => c.CampusId).Distinct().ToList();
         var availableTermsEntities = await _context.AcademicTerms
             .AsNoTracking()
-            .Where(t => studentCampusIds.Count == 0 || studentCampusIds.Contains(t.CampusId))
+            .Where(t => relevantTermIds.Count > 0
+                ? relevantTermIds.Contains(t.TermId)
+                : (studentCampusIds.Count == 0 || studentCampusIds.Contains(t.CampusId)))
             .OrderByDescending(t => t.AcademicYear)
             .ThenBy(t => t.TermOrder)
             .ToListAsync(ct);
 
         var availableTerms = availableTermsEntities.Select(MapToAcademicTermDto).ToList();
 
-        // Filter classes by termId and courseId if requested
+        // Filter classes by termId and courseId (có xét cả fallback từ đơn đăng ký đã mua của học sinh)
         var filteredClasses = allClasses.AsEnumerable();
         if (termId.HasValue && termId.Value != Guid.Empty)
         {
-            filteredClasses = filteredClasses.Where(c => c.TermId == termId.Value);
+            filteredClasses = filteredClasses.Where(c => (c.TermId ?? primaryRegistration?.TermId) == termId.Value);
         }
 
         if (courseId.HasValue && courseId.Value != Guid.Empty)
         {
-            filteredClasses = filteredClasses.Where(c => c.CourseId == courseId.Value);
+            filteredClasses = filteredClasses.Where(c => (c.CourseId ?? primaryRegistration?.CourseId) == courseId.Value);
         }
 
         var filteredClassList = filteredClasses.ToList();
@@ -1466,18 +1485,26 @@ public class ScheduleService : IScheduleService
                 ? Math.Round((double)attendedTotal / recordedTotal * 100.0, 1)
                 : 0.0;
 
+            var resolvedCourseId = cls.CourseId ?? primaryRegistration?.CourseId;
+            var resolvedCourseCode = cls.Course?.Code ?? primaryRegistration?.Course?.Code;
+            var resolvedCourseName = cls.Course?.Name ?? primaryRegistration?.Course?.Name;
+            var resolvedTermId = cls.TermId ?? primaryRegistration?.TermId;
+            var resolvedTermCode = cls.Term?.Code ?? primaryRegistration?.Term?.Code;
+            var resolvedTermName = cls.Term?.Name ?? primaryRegistration?.Term?.Name;
+            var resolvedAcademicYear = cls.Term?.AcademicYear ?? primaryRegistration?.Term?.AcademicYear ?? cls.AcademicYear;
+
             classProgressList.Add(new StudentCourseTermProgressDto(
                 ClassId: cls.ClassId,
                 ClassName: cls.Name,
-                CourseId: cls.CourseId,
-                CourseCode: cls.Course?.Code,
-                CourseName: cls.Course?.Name,
-                TermId: cls.TermId,
-                TermCode: cls.Term?.Code,
-                TermName: cls.Term?.Name,
-                AcademicYear: cls.Term?.AcademicYear ?? cls.AcademicYear,
-                StartDate: cls.StartDate ?? cls.Term?.StartDate,
-                EndDate: cls.EndDate ?? cls.Term?.EndDate,
+                CourseId: resolvedCourseId,
+                CourseCode: resolvedCourseCode,
+                CourseName: resolvedCourseName,
+                TermId: resolvedTermId,
+                TermCode: resolvedTermCode,
+                TermName: resolvedTermName,
+                AcademicYear: resolvedAcademicYear,
+                StartDate: cls.StartDate ?? cls.Term?.StartDate ?? primaryRegistration?.StartDate,
+                EndDate: cls.EndDate ?? cls.Term?.EndDate ?? primaryRegistration?.EndDate,
                 TotalSessions: allClassSessions.Count,
                 CompletedSessions: completedCount,
                 PresentCount: presentCount,
@@ -1518,13 +1545,13 @@ public class ScheduleService : IScheduleService
                     ClassName: cls.Name,
                     ClassType: cls.ClassType,
                     FocusDomain: cls.DomainCode,
-                    CourseId: cls.CourseId,
-                    CourseCode: cls.Course?.Code,
-                    CourseName: cls.Course?.Name,
-                    TermId: cls.TermId,
-                    TermCode: cls.Term?.Code,
-                    TermName: cls.Term?.Name,
-                    AcademicYear: cls.Term?.AcademicYear ?? cls.AcademicYear,
+                    CourseId: resolvedCourseId,
+                    CourseCode: resolvedCourseCode,
+                    CourseName: resolvedCourseName,
+                    TermId: resolvedTermId,
+                    TermCode: resolvedTermCode,
+                    TermName: resolvedTermName,
+                    AcademicYear: resolvedAcademicYear,
                     SessionNo: session.SessionNo,
                     SessionDate: session.SessionDate,
                     DayOfWeek: (int)session.SessionDate.DayOfWeek,
@@ -1589,6 +1616,7 @@ public class ScheduleService : IScheduleService
         // Query classes where teacher is primary OR has substitute sessions
         var classesQuery = _context.Classes
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(c => c.Course)
             .Include(c => c.Term)
             .Include(c => c.Schedules)

@@ -1518,6 +1518,9 @@
 - **Định Tuyến Gateway YARP**: Định tuyến `/api/practice/{**catch-all}` tại Gateway V-Eval trỏ về cổng `:5002`.
 
 ## [24/11/2026]
+- Fixed roadmap skill-name fallback (`"Kỹ năng chuyên đề"`) by upgrading `ContentGrpcClient` channel limits to 32 MB.
+- Added Npgsql `EnableRetryOnFailure` and `.AsSplitQuery()` on Student/Teacher schedule queries; linked paid `CourseRegistrations` into `GetStudentTimetableAsync`.
+- Implemented 3-tier roadmap approval (`Teacher` -> `Academic Manager` scoped by `campusId` -> `Academic Director` for escalated/cross-campus cases) in `RoadmapApprovalWorkflow.cs` and `RoadmapsController.cs`.
 - Fix triệt để GUID thô ở kỹ năng suy diễn trong `SubmitDiagnosticCommandHandler.cs` và làm sạch ngôn ngữ phản hồi học sinh trong `SubmitAnswerCommandHandler.cs`.
 - Enrich chi tiết câu hỏi/đáp án đúng/lời giải cho `GetMockExamDetailQueryHandler.cs`.
 - Triển khai đầy đủ Non-Blocking Teacher Roadmap Approval: 4 cột mới trên `LearningRoadmaps` + EF Migration `AddRoadmapTeacherApprovalFields`, API `PUT /api/v1/roadmaps/{roadmapId}/approve`, mở học ngay không chặn tại `StartStageCommandHandler`, và trả dữ liệu định hướng cho cả Student & Parent Dashboard.
