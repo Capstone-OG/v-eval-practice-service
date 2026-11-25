@@ -66,8 +66,8 @@ public class GetStudentDashboardQueryHandler : IRequestHandler<GetStudentDashboa
             targetScore = roadmap.TargetScore;
         }
 
-        // 2. Truy xuất lịch sử làm bài thực tế, ma trận nhiệt BKT và nhật ký chuyên cần
-        var allSubmissions = await _submissionRepository.GetByStudentIdAsync(studentId, ct);
+        // 2. Truy xuất lịch sử làm bài tóm tắt (không kéo SubmissionAnswers/AiCommentary), ma trận nhiệt BKT và nhật ký chuyên cần
+        var allSubmissions = await _submissionRepository.GetSummariesByStudentIdAsync(studentId, ct);
         var submissions = allSubmissions
             .Where(s => s.Status == "COMPLETED")
             .OrderByDescending(s => s.CompletedAt)
