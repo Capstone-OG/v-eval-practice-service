@@ -19,6 +19,7 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString, b =>
             {
                 b.MigrationsHistoryTable("__EFMigrationsHistory", "practice");
+                b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
                 b.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: System.TimeSpan.FromSeconds(3), errorCodesToAdd: null);
             }));
 

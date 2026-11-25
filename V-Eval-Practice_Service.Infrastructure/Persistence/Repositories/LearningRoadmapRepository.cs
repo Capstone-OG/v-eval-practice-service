@@ -59,6 +59,8 @@ public class LearningRoadmapRepository : ILearningRoadmapRepository
     {
         var statusSet = statuses.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim().ToUpperInvariant()).ToList();
         var query = _context.LearningRoadmaps
+            .AsNoTracking()
+            .AsSplitQuery()
             .Include(r => r.DiagnosticSubmission)
             .Include(r => r.Nodes)
             .AsQueryable();

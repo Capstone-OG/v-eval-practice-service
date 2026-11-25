@@ -28,9 +28,34 @@ public class ExamSubmissionRepository : IExamSubmissionRepository
     public async Task<IReadOnlyList<ExamSubmission>> GetByStudentIdAsync(Guid studentId, CancellationToken ct = default)
     {
         return await _context.ExamSubmissions
+            .AsNoTracking()
+            .AsSplitQuery()
             .Include(s => s.Answers)
             .Where(s => s.StudentId == studentId)
             .OrderByDescending(s => s.CompletedAt)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<ExamSubmission>> GetSummariesByStudentIdAsync(Guid studentId, CancellationToken ct = default)
+    {
+        return await _context.ExamSubmissions
+            .AsNoTracking()
+            .Where(s => s.StudentId == studentId)
+            .OrderByDescending(s => s.CompletedAt)
+            .Select(s => new ExamSubmission
+            {
+                SubmissionId = s.SubmissionId,
+                StudentId = s.StudentId,
+                ExamId = s.ExamId,
+                ExamType = s.ExamType,
+                Status = s.Status,
+                TotalScore = s.TotalScore,
+                TotalCorrect = s.TotalCorrect,
+                TotalQuestions = s.TotalQuestions,
+                StartedAt = s.StartedAt,
+                CompletedAt = s.CompletedAt,
+                MentorNotes = s.MentorNotes
+            })
             .ToListAsync(ct);
     }
 
