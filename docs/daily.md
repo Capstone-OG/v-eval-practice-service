@@ -1,5 +1,14 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [25/11/2026] - Tối Ưu Supabase Egress (>95%): `SplitQuery` Toàn Cục, Cache gRPC `ContentGrpcClient` & Projection `ExamSubmissions`
+
+- **Chống Cartesian Explosion Toàn Cục ([`DependencyInjection.cs`](../V-Eval-Practice_Service.Infrastructure/DependencyInjection.cs))**:
+  - Kích hoạt `QuerySplittingBehavior.SplitQuery` mặc định cho `PracticeDbContext`.
+- **Cache Phía Client Cho Content gRPC ([`ContentGrpcClient.cs`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/ContentGrpcClient.cs))**:
+  - Bổ sung `IMemoryCache` + `SemaphoreSlim` cho `GetSkillsTreeAsync` (TTL 30 phút) và `GetExamAnswerKeysAsync` (TTL 15 phút), loại bỏ hàng chục nghìn lượt gọi gRPC thừa từ các handler lộ trình, lịch học, sổ tay lỗi sai và dự báo điểm.
+- **Chiếu DTO Tóm Tắt Cho `ExamSubmissions` ([`IExamSubmissionRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IExamSubmissionRepository.cs), [`ExamSubmissionRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ExamSubmissionRepository.cs), [`GetStudentDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetStudentDashboard/GetStudentDashboardQueryHandler.cs))**:
+  - Thêm `GetSummariesByStudentIdAsync` dùng `.AsNoTracking().Select(...)` loại bỏ `SubmissionAnswers` và `AiCommentary` trên luồng tải Dashboard học sinh; bổ sung `.AsNoTracking().AsSplitQuery()` trong [`LearningRoadmapRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LearningRoadmapRepository.cs).
+
 ## [23/11/2026] - Cố Định Thứ Tự Chặng Tuần Tự (`StepOrder`) & Luồng Phê Duyệt Lộ Trình 2 Cấp
 
 - **Giữ Bất Biến Thứ Tự Chặng Khi Truy Vấn Lộ Trình ([`GetMyRoadmapQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Roadmaps/Queries/GetMyRoadmap/GetMyRoadmapQueryHandler.cs))**:

@@ -10,6 +10,7 @@ public interface IExamSubmissionRepository
 {
     Task<ExamSubmission?> GetByIdAsync(Guid submissionId, CancellationToken ct = default);
     Task<IReadOnlyList<ExamSubmission>> GetByStudentIdAsync(Guid studentId, CancellationToken ct = default);
+    Task<IReadOnlyList<ExamSubmission>> GetSummariesByStudentIdAsync(Guid studentId, CancellationToken ct = default);
     Task AddAsync(ExamSubmission submission, CancellationToken ct = default);
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }
