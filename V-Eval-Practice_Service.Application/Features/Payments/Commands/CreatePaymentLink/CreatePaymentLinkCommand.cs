@@ -10,6 +10,7 @@ public record CreatePaymentLinkCommand(
     Guid ParentId,
     Guid CourseId,
     string ReturnUrl,
-    string CancelUrl
+    string CancelUrl,
+    Guid? TermId = null
 ) : IRequest<Result<CreatePaymentLinkResponseDto>>;
 

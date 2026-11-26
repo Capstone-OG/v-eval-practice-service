@@ -1,5 +1,13 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [26/11/2026] - Hỗ Trợ Đóng Học Phí Theo 2 Đợt (`TermId`) & Dọn Sạch Dữ Liệu Seed Hardcode Trong `Program.cs`
+
+- **Hỗ Trợ Lưu `TermId` Khi Tạo Link Thanh Toán PayOS ([`PaymentsController.cs`](../V-Eval-Practice_Service.API/Controllers/PaymentsController.cs), [`CreatePaymentLinkCommand.cs`](../V-Eval-Practice_Service.Application/Features/Payments/Commands/CreatePaymentLink/CreatePaymentLinkCommand.cs), [`CreatePaymentLinkCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Payments/Commands/CreatePaymentLink/CreatePaymentLinkCommandHandler.cs))**:
+  - Bổ sung tham số tùy chọn `TermId` vào `CreatePaymentLinkApiRequest` và `CreatePaymentLinkCommand`, lưu thẳng `TermId` vào `CourseRegistrations` để hỗ trợ đăng ký & thanh toán theo từng đợt (Đợt 1 & Đợt 2).
+- **Dọn Sạch Toàn Bộ Khối Seed Hardcode Trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs)**:
+  - Gỡ bỏ hơn 450 dòng tự động chèn dữ liệu mẫu hardcode (`MistakeNotebooks`, `Courses` 2000đ/5000đ/10000đ, `RoadmapNodes`, `Classes`, `ClassSkillHeatmaps`, `StudentDailyActivities`, `ScorePredictions`, `SystemAlerts` mẫu) mỗi lần khởi động service; giữ nguyên phần khởi tạo bảng/schema an toàn.
+- **Đồng Bộ CSDL Supabase**: Dọn sạch các bản ghi hardcode cũ và chuyển `v_eval_enrollment` sang mô hình 2 đợt học (`Đợt 1` & `Đợt 2`) cho 2 cơ sở (`CS_THU_DUC`, `CS_QUAN_10`).
+
 ## [25/11/2026] - Tối Ưu Supabase Egress (>95%): `SplitQuery` Toàn Cục, Cache gRPC `ContentGrpcClient` & Projection `ExamSubmissions`
 
 - **Chống Cartesian Explosion Toàn Cục ([`DependencyInjection.cs`](../V-Eval-Practice_Service.Infrastructure/DependencyInjection.cs))**:
