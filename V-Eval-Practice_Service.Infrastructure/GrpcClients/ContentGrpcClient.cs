@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Grpc.Core;
 using Grpc.Net.Client;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using VEval.Shared.Grpc.Content;
@@ -13,12 +14,20 @@ namespace V_Eval_Practice_Service.Infrastructure.GrpcClients;
 
 public class ContentGrpcClient : IContentGrpcClient
 {
+    private const string SkillsTreeCacheKey = "practice:grpc:content:skills-tree:v1";
+    private static readonly SemaphoreSlim SkillsTreeLock = new(1, 1);
+
     private readonly string _serviceUrl;
+    private readonly IMemoryCache _cache;
     private readonly ILogger<ContentGrpcClient> _logger;
 
-    public ContentGrpcClient(IConfiguration configuration, ILogger<ContentGrpcClient> logger)
+    public ContentGrpcClient(
+        IConfiguration configuration,
+        IMemoryCache cache,
+        ILogger<ContentGrpcClient> logger)
     {
         _serviceUrl = configuration["GrpcSettings:ContentServiceUrl"] ?? "http://localhost:5249";
+        _cache = cache;
         _logger = logger;
     }
 
@@ -32,6 +41,12 @@ public class ContentGrpcClient : IContentGrpcClient
         Guid examId,
         CancellationToken ct = default)
     {
+        var cacheKey = $"practice:grpc:content:exam-keys:{examId:N}:v1";
+        if (_cache.TryGetValue(cacheKey, out IReadOnlyDictionary<Guid, ExamQuestionKeyDto>? cached) && cached != null)
+        {
+            return cached;
+        }
+
         try
         {
             using var channel = CreateChannel();
@@ -71,6 +86,14 @@ public class ContentGrpcClient : IContentGrpcClient
                 }
             }
 
+            if (dictionary.Count > 0)
+            {
+                _cache.Set(cacheKey, (IReadOnlyDictionary<Guid, ExamQuestionKeyDto>)dictionary, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15)
+                });
+            }
+
             return dictionary;
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
@@ -88,8 +111,19 @@ public class ContentGrpcClient : IContentGrpcClient
 
     public async Task<IReadOnlyList<SkillTreeNodeDto>> GetSkillsTreeAsync(CancellationToken ct = default)
     {
+        if (_cache.TryGetValue(SkillsTreeCacheKey, out IReadOnlyList<SkillTreeNodeDto>? cached) && cached != null)
+        {
+            return cached;
+        }
+
+        await SkillsTreeLock.WaitAsync(ct);
         try
         {
+            if (_cache.TryGetValue(SkillsTreeCacheKey, out cached) && cached != null)
+            {
+                return cached;
+            }
+
             using var channel = CreateChannel();
             var client = new ContentService.ContentServiceClient(channel);
 
@@ -136,7 +170,15 @@ public class ContentGrpcClient : IContentGrpcClient
                 }
             }
 
-            _logger.LogInformation("Nhận được {Count} kỹ năng từ Content Service gRPC ({ServiceUrl})",
+            if (list.Count > 0)
+            {
+                _cache.Set(SkillsTreeCacheKey, (IReadOnlyList<SkillTreeNodeDto>)list, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
+                });
+            }
+
+            _logger.LogInformation("Nhận được & cached {Count} kỹ năng từ Content Service gRPC ({ServiceUrl})",
                 list.Count, _serviceUrl);
             return list;
         }
@@ -144,6 +186,10 @@ public class ContentGrpcClient : IContentGrpcClient
         {
             _logger.LogError(ex, "Lỗi khi gọi gRPC Content Service ({ServiceUrl}) GetSkillsTree", _serviceUrl);
             throw;
+        }
+        finally
+        {
+            SkillsTreeLock.Release();
         }
     }
 

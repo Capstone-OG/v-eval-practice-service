@@ -54,7 +54,8 @@ public class PaymentsController : ApiControllerBase
             parentId.Value,
             request.CourseId,
             request.ReturnUrl,
-            request.CancelUrl
+            request.CancelUrl,
+            request.TermId
         );
 
         var result = await Mediator.Send(command, cancellationToken);
@@ -201,6 +202,7 @@ public class CreatePaymentLinkApiRequest
     public Guid StudentId { get; set; }
     public Guid? ParentId { get; set; }
     public Guid CourseId { get; set; }
+    public Guid? TermId { get; set; }
     public string ReturnUrl { get; set; } = string.Empty;
     public string CancelUrl { get; set; } = string.Empty;
 }

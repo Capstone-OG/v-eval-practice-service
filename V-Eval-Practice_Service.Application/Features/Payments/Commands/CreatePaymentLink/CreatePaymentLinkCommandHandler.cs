@@ -59,6 +59,7 @@ public class CreatePaymentLinkCommandHandler : IRequestHandler<CreatePaymentLink
             {
                 StudentId = request.StudentId,
                 CourseId = request.CourseId,
+                TermId = request.TermId,
                 AttemptNo = Math.Max(1, nextAttemptNo),
                 Status = "PENDING_PAYMENT",
                 RegisteredAt = DateTime.UtcNow

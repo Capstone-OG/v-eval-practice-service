@@ -1,5 +1,22 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [26/11/2026] - Hỗ Trợ Đóng Học Phí Theo 2 Đợt (`TermId`) & Dọn Sạch Dữ Liệu Seed Hardcode Trong `Program.cs`
+
+- **Hỗ Trợ Lưu `TermId` Khi Tạo Link Thanh Toán PayOS ([`PaymentsController.cs`](../V-Eval-Practice_Service.API/Controllers/PaymentsController.cs), [`CreatePaymentLinkCommand.cs`](../V-Eval-Practice_Service.Application/Features/Payments/Commands/CreatePaymentLink/CreatePaymentLinkCommand.cs), [`CreatePaymentLinkCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Payments/Commands/CreatePaymentLink/CreatePaymentLinkCommandHandler.cs))**:
+  - Bổ sung tham số tùy chọn `TermId` vào `CreatePaymentLinkApiRequest` và `CreatePaymentLinkCommand`, lưu thẳng `TermId` vào `CourseRegistrations` để hỗ trợ đăng ký & thanh toán theo từng đợt (Đợt 1 & Đợt 2).
+- **Dọn Sạch Toàn Bộ Khối Seed Hardcode Trong [`Program.cs`](../V-Eval-Practice_Service.API/Program.cs)**:
+  - Gỡ bỏ hơn 450 dòng tự động chèn dữ liệu mẫu hardcode (`MistakeNotebooks`, `Courses` 2000đ/5000đ/10000đ, `RoadmapNodes`, `Classes`, `ClassSkillHeatmaps`, `StudentDailyActivities`, `ScorePredictions`, `SystemAlerts` mẫu) mỗi lần khởi động service; giữ nguyên phần khởi tạo bảng/schema an toàn.
+- **Đồng Bộ CSDL Supabase**: Dọn sạch các bản ghi hardcode cũ và chuyển `v_eval_enrollment` sang mô hình 2 đợt học (`Đợt 1` & `Đợt 2`) cho 2 cơ sở (`CS_THU_DUC`, `CS_QUAN_10`).
+
+## [25/11/2026] - Tối Ưu Supabase Egress (>95%): `SplitQuery` Toàn Cục, Cache gRPC `ContentGrpcClient` & Projection `ExamSubmissions`
+
+- **Chống Cartesian Explosion Toàn Cục ([`DependencyInjection.cs`](../V-Eval-Practice_Service.Infrastructure/DependencyInjection.cs))**:
+  - Kích hoạt `QuerySplittingBehavior.SplitQuery` mặc định cho `PracticeDbContext`.
+- **Cache Phía Client Cho Content gRPC ([`ContentGrpcClient.cs`](../V-Eval-Practice_Service.Infrastructure/GrpcClients/ContentGrpcClient.cs))**:
+  - Bổ sung `IMemoryCache` + `SemaphoreSlim` cho `GetSkillsTreeAsync` (TTL 30 phút) và `GetExamAnswerKeysAsync` (TTL 15 phút), loại bỏ hàng chục nghìn lượt gọi gRPC thừa từ các handler lộ trình, lịch học, sổ tay lỗi sai và dự báo điểm.
+- **Chiếu DTO Tóm Tắt Cho `ExamSubmissions` ([`IExamSubmissionRepository.cs`](../V-Eval-Practice_Service.Application/Common/Interfaces/Repositories/IExamSubmissionRepository.cs), [`ExamSubmissionRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/ExamSubmissionRepository.cs), [`GetStudentDashboardQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Analytics/Queries/GetStudentDashboard/GetStudentDashboardQueryHandler.cs))**:
+  - Thêm `GetSummariesByStudentIdAsync` dùng `.AsNoTracking().Select(...)` loại bỏ `SubmissionAnswers` và `AiCommentary` trên luồng tải Dashboard học sinh; bổ sung `.AsNoTracking().AsSplitQuery()` trong [`LearningRoadmapRepository.cs`](../V-Eval-Practice_Service.Infrastructure/Persistence/Repositories/LearningRoadmapRepository.cs).
+
 ## [23/11/2026] - Phân Giải Danh Tính Họ Tên Học Sinh & Tên Kỹ Năng Thực Tế Cho Phân Nhóm Học Tập Vi Mô
 
 - **Làm Giàu Dữ Liệu Thực Tế Cho Nhóm Bàn Học Vi Mô ([`AutoPartitionMicroGroupsCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Commands/AutoPartitionMicroGroups/AutoPartitionMicroGroupsCommandHandler.cs), [`GetClassMicroGroupsQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/Classes/Queries/GetClassMicroGroups/GetClassMicroGroupsQueryHandler.cs), [`ClassMicroGroupDtos.cs`](../V-Eval-Practice_Service.Application/Features/Classes/DTOs/ClassMicroGroupDtos.cs))**:
