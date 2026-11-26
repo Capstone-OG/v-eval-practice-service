@@ -1330,3 +1330,8 @@
 - Upgraded `ContentGrpcClient` channel size to 32 MB to support full curriculum metadata hydration in roadmap queries.
 - Enabled Npgsql transient retry and `AsSplitQuery()` in `ScheduleService`, and bound student timetable metadata to paid `CourseRegistrations`.
 - Extended `RoadmapApprovalWorkflow` with `PENDING_MANAGER_APPROVAL`, `campusId` queue scoping, and manager-to-director exception escalation (`EscalateToDirector`).
+
+## [26/11/2026] Proctoring Queue & Mock Exam Detail Student Name Resolution Acceptance
+- **Identity gRPC Batch Enrichment**: Updated `GetFlaggedSubmissionsQueryHandler` and `GetMockExamDetailQueryHandler` to inject `IIdentityGrpcClient` and resolve real student full names (`StudentName`) via `GetStudentNamesAsync`, eliminating raw GUID display in teacher proctoring queues and review modals.
+- **Submission Timestamp Alignment**: Extended `FlaggedMockExamDto` with `SubmittedAt` (`null` while `IN_PROGRESS`, `CompletedAt` once submitted) while maintaining positional backward compatibility.
+- **Verification**: `dotnet build V-Eval-Practice_Service.API.csproj` succeeded with 0 warnings and 0 errors; `dotnet test --no-restore` passed 20/20 unit tests.

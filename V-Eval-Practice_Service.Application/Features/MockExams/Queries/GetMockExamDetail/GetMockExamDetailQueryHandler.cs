@@ -15,15 +15,18 @@ public class GetMockExamDetailQueryHandler : IRequestHandler<GetMockExamDetailQu
 {
     private readonly IMockExamRepository _mockExamRepository;
     private readonly IContentGrpcClient _contentGrpcClient;
+    private readonly IIdentityGrpcClient _identityGrpcClient;
     private readonly ILogger<GetMockExamDetailQueryHandler> _logger;
 
     public GetMockExamDetailQueryHandler(
         IMockExamRepository mockExamRepository,
         IContentGrpcClient contentGrpcClient,
+        IIdentityGrpcClient identityGrpcClient,
         ILogger<GetMockExamDetailQueryHandler> logger)
     {
         _mockExamRepository = mockExamRepository;
         _contentGrpcClient = contentGrpcClient;
+        _identityGrpcClient = identityGrpcClient;
         _logger = logger;
     }
 
@@ -84,6 +87,23 @@ public class GetMockExamDetailQueryHandler : IRequestHandler<GetMockExamDetailQu
             .OrderBy(a => a.QuestionOrder)
             .ToList();
 
+        string studentName = string.Empty;
+        if (submission.StudentId != Guid.Empty)
+        {
+            try
+            {
+                var names = await _identityGrpcClient.GetStudentNamesAsync(new[] { submission.StudentId }, cancellationToken);
+                if (names.TryGetValue(submission.StudentId, out var resolved) && !string.IsNullOrWhiteSpace(resolved))
+                {
+                    studentName = resolved;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Không thể tra cứu họ tên thí sinh {StudentId} từ Identity Service.", submission.StudentId);
+            }
+        }
+
         var response = new GetMockExamDetailResponseDto(
             submission.SubmissionId,
             submission.ExamId,
@@ -101,7 +121,8 @@ public class GetMockExamDetailQueryHandler : IRequestHandler<GetMockExamDetailQu
             submission.MentorVerdict,
             submission.MentorNotes,
             snapshotDtos,
-            answerDtos
+            answerDtos,
+            studentName
         );
 
         return Result<GetMockExamDetailResponseDto>.Success(response);

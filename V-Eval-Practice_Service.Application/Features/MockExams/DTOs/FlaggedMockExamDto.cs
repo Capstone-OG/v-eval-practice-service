@@ -17,6 +17,8 @@ public record FlaggedMockExamDto(
     DateTime StartedAt,
     DateTime CompletedAt,
     int SnapshotsCount,
-    string Status
+    string Status,
+    string StudentName = "",
+    DateTime? SubmittedAt = null
 );
 

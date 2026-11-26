@@ -1,5 +1,14 @@
 # NHẬT KÝ KIỂM TRA TIẾN ĐỘ VẬN HÀNH (DAILY CHECK LOG) - PRACTICE SERVICE
 
+## [26/11/2026] - Phân Giải Họ Tên Thí Sinh & Thời Gian Nộp Cho Danh Sách Kiểm Tra Bài Thi Bất Thường (`GetFlaggedSubmissions`, `GetMockExamDetail`)
+
+- **Tra Cứu Họ Tên Thí Sinh Qua Identity gRPC ([`FlaggedMockExamDto.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/FlaggedMockExamDto.cs), [`GetFlaggedSubmissionsQuery.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetFlaggedSubmissions/GetFlaggedSubmissionsQuery.cs))**:
+  - Mở rộng `FlaggedMockExamDto` bổ sung `StudentName` và `SubmittedAt` (giá trị mặc định tương thích ngược).
+  - Tiêm `IIdentityGrpcClient` vào `GetFlaggedSubmissionsQueryHandler` để truy vấn hàng loạt họ tên thí sinh qua `GetStudentNamesAsync` (không N+1) và chuẩn hóa `SubmittedAt` theo trạng thái bài thi.
+- **Bổ Sung `StudentName` Cho Chi Tiết Bài Thi Thử ([`GetMockExamDetailDtos.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/DTOs/GetMockExamDetailDtos.cs), [`GetMockExamDetailQueryHandler.cs`](../V-Eval-Practice_Service.Application/Features/MockExams/Queries/GetMockExamDetail/GetMockExamDetailQueryHandler.cs))**:
+  - Mở rộng `GetMockExamDetailResponseDto` với `StudentName` và gọi `IIdentityGrpcClient.GetStudentNamesAsync` trong `GetMockExamDetailQueryHandler`.
+- **Kiểm Thử**: `dotnet build V-Eval-Practice_Service.API.csproj` đạt **0 lỗi, 0 cảnh báo**; `dotnet test --no-restore` đạt **20/20 Passed**.
+
 ## [26/11/2026] - Hỗ Trợ Đóng Học Phí Theo 2 Đợt (`TermId`) & Dọn Sạch Dữ Liệu Seed Hardcode Trong `Program.cs`
 
 - **Hỗ Trợ Lưu `TermId` Khi Tạo Link Thanh Toán PayOS ([`PaymentsController.cs`](../V-Eval-Practice_Service.API/Controllers/PaymentsController.cs), [`CreatePaymentLinkCommand.cs`](../V-Eval-Practice_Service.Application/Features/Payments/Commands/CreatePaymentLink/CreatePaymentLinkCommand.cs), [`CreatePaymentLinkCommandHandler.cs`](../V-Eval-Practice_Service.Application/Features/Payments/Commands/CreatePaymentLink/CreatePaymentLinkCommandHandler.cs))**:

@@ -40,5 +40,6 @@ public record GetMockExamDetailResponseDto(
     string MentorVerdict,
     string? MentorNotes,
     IReadOnlyList<MockExamSnapshotDto> Snapshots,
-    IReadOnlyList<MockExamAnswerDetailDto> Answers
+    IReadOnlyList<MockExamAnswerDetailDto> Answers,
+    string StudentName = ""
 );
